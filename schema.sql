@@ -46,7 +46,7 @@ CREATE TABLE public.units (
   code                 TEXT NOT NULL UNIQUE,   -- e.g. EXC-01
   name                 TEXT NOT NULL,
   model                TEXT,
-  current_hm           INTEGER DEFAULT 0,
+  current_hm           NUMERIC DEFAULT 0,
   assigned_operator_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   notes                TEXT,
   created_at           TIMESTAMPTZ DEFAULT NOW(),
@@ -79,7 +79,7 @@ CREATE TABLE public.maintenance_schedules (
   unit_id      UUID NOT NULL REFERENCES public.units(id) ON DELETE CASCADE,
   type_name    TEXT NOT NULL,
   interval_hm  INTEGER NOT NULL,
-  last_hm      INTEGER,
+  last_hm      NUMERIC,
   last_date    DATE,
   created_at   TIMESTAMPTZ DEFAULT NOW(),
   updated_at   TIMESTAMPTZ DEFAULT NOW(),
@@ -96,7 +96,7 @@ CREATE POLICY "Admin and SPV can modify schedules"
 CREATE TABLE public.hm_updates (
   id          UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   unit_id     UUID NOT NULL REFERENCES public.units(id) ON DELETE CASCADE,
-  hm_value    INTEGER NOT NULL,
+  hm_value    NUMERIC NOT NULL,
   recorded_by UUID REFERENCES public.profiles(id),
   recorded_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -254,7 +254,7 @@ CREATE TABLE public.service_log (
   unit_id          UUID NOT NULL REFERENCES public.units(id),
   unit_code        TEXT,       -- denormalized for easy export
   maintenance_type TEXT NOT NULL,
-  hm_at_service    INTEGER,
+  hm_at_service    NUMERIC,
   service_date     DATE NOT NULL,
   mkn_id           UUID REFERENCES public.profiles(id),
   mkn_name         TEXT,       -- denormalized for easy export
