@@ -2068,6 +2068,15 @@ function parseCSVLine(line) {
   return result;
 }
 
+function parseDMY(str) {
+  if (!str) return null;
+  const parts = (str || '').trim().split(/[\/\-]/);
+  if (parts.length !== 3) return str;
+  let [d, m, y] = parts;
+  if (y.length === 2) y = '20' + y;
+  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+
 let csvParsed = { units: [], intervals: [], log: [] };
 
 function previewCSV(type, input) {
@@ -2153,12 +2162,12 @@ async function importCSV(type) {
           const { data: units } = await sb.from('units').select('id').eq('code', row.unit_code).single();
           const unitId = units ? units.id : null;
           const mknName = (row.mekanik_name || row.mkn_name || '').trim();
-          const hmVal = parseFloat(row.hm_at_service) || 0;
+          const hmVal = parseFloat((row.hm_at_service || '').replace(/,/g, '')) || 0;
           const costVal = parseInt((row.cost_idr || '0').toString().replace(/[^0-9]/g, '')) || 0;
           const { error } = await sb.from('service_log').insert({
             unit_id: unitId, unit_code: (row.unit_code||'').trim(),
             maintenance_type: (row.maintenance_type||'').trim(),
-            hm_at_service: hmVal, service_date: row.service_date,
+            hm_at_service: hmVal, service_date: parseDMY(row.service_date),
             mkn_name: mknName, parts_used: row.parts_used || '',
             cost_idr: costVal, notes: row.notes || '',
             created_at: new Date().toISOString()
