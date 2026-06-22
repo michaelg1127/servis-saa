@@ -440,7 +440,7 @@
         <!-- Units CSV -->
         <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
           <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Import Units</div>
-          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: code,name,model,current_hm</div>
+          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: unit_code,unit_name,model,current_hm — jadwal maintenance otomatis dibuat</div>
           <input type="file" id="imp-units-file" accept=".csv" onchange="previewCSV('units',this)" style="font-size:13px;width:100%;">
           <div id="imp-units-preview" style="margin-top:12px;"></div>
           <button onclick="importCSV('units')" id="imp-units-btn" class="btn-primary" style="width:100%;margin-top:10px;display:none;">Import</button>
@@ -448,7 +448,7 @@
         <!-- Maintenance Intervals CSV -->
         <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
           <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Import Interval Maintenance</div>
-          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: type_name,default_interval_hm</div>
+          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: type_name,interval_hm — berlaku untuk semua unit</div>
           <input type="file" id="imp-intervals-file" accept=".csv" onchange="previewCSV('intervals',this)" style="font-size:13px;width:100%;">
           <div id="imp-intervals-preview" style="margin-top:12px;"></div>
           <button onclick="importCSV('intervals')" id="imp-intervals-btn" class="btn-primary" style="width:100%;margin-top:10px;display:none;">Import</button>
@@ -2106,17 +2106,36 @@ async function importCSV(type) {
   if (btn) { btn.disabled = true; btn.textContent = 'Mengimport...'; }
   try {
     if (type === 'units') {
+      const { data: types } = await sb.from('maintenance_types').select('type_name, default_interval_hm');
       for (const row of data) {
         try {
-          const { error } = await sb.from('units').insert({ code: row.code, name: row.name, model: row.model, current_hm: parseInt(row.current_hm) || 0 });
+          const code = (row.unit_code || row.code || '').trim();
+          const name = (row.unit_name || row.name || '').trim();
+          if (!code || !name) throw new Error('missing code/name');
+          const { data: inserted, error } = await sb.from('units')
+            .insert({ code, name, model: row.model || '', current_hm: parseFloat(row.current_hm) || 0 })
+            .select('id').single();
           if (error) throw error;
+          if (inserted && types && types.length) {
+            const schedules = types.map(t => ({
+              unit_id: inserted.id,
+              type_name: t.type_name,
+              interval_hm: t.default_interval_hm,
+            }));
+            await sb.from('maintenance_schedules').insert(schedules);
+          }
           successCount++;
         } catch { errorCount++; }
       }
     } else if (type === 'intervals') {
       for (const row of data) {
         try {
-          const { error } = await sb.from('maintenance_types').upsert({ type_name: row.type_name, default_interval_hm: parseInt(row.default_interval_hm) || 0 }, { onConflict: 'type_name' });
+          const type_name = (row.type_name || '').trim();
+          const interval_hm = parseInt(row.interval_hm || row.default_interval_hm) || 0;
+          if (!type_name || !interval_hm) throw new Error('missing fields');
+          const { error } = await sb.from('maintenance_types').upsert(
+            { type_name, default_interval_hm: interval_hm }, { onConflict: 'type_name' }
+          );
           if (error) throw error;
           successCount++;
         } catch { errorCount++; }
