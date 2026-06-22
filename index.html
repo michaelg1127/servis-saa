@@ -2107,26 +2107,33 @@ async function importCSV(type) {
   try {
     if (type === 'units') {
       const { data: types } = await sb.from('maintenance_types').select('type_name, default_interval_hm');
+      const errors = [];
       for (const row of data) {
         try {
           const code = (row.unit_code || row.code || '').trim();
           const name = (row.unit_name || row.name || '').trim();
           if (!code || !name) throw new Error('missing code/name');
+          // Upsert unit so re-running is safe
           const { data: inserted, error } = await sb.from('units')
-            .insert({ code, name, model: row.model || '', current_hm: parseFloat(row.current_hm) || 0 })
+            .upsert({ code, name, model: row.model || '', current_hm: parseFloat(row.current_hm) || 0 }, { onConflict: 'code' })
             .select('id').single();
           if (error) throw error;
+          // Auto-create maintenance schedules from master list (upsert so re-run is safe)
           if (inserted && types && types.length) {
             const schedules = types.map(t => ({
               unit_id: inserted.id,
               type_name: t.type_name,
               interval_hm: t.default_interval_hm,
             }));
-            await sb.from('maintenance_schedules').insert(schedules);
+            const { error: se } = await sb.from('maintenance_schedules')
+              .upsert(schedules, { onConflict: 'unit_id,type_name' });
+            if (se) throw se;
           }
           successCount++;
-        } catch { errorCount++; }
+        } catch(e) { errorCount++; errors.push((row.unit_code||row.code||'?') + ': ' + (e.message||e)); }
       }
+      if (errors.length) console.error('Import errors:', errors);
+      if (errors.length) showToast('Error detail: ' + errors.slice(0,3).join(' | '), 'error');
     } else if (type === 'intervals') {
       for (const row of data) {
         try {
