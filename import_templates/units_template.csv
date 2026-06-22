@@ -1,0 +1,5 @@
+unit_code,unit_name,model,current_hm,operator_email
+EXC-01,Excavator 01,Komatsu PC200-8,4823,operator01@saa.com
+EXC-02,Excavator 02,Hitachi ZX210LC,3210,operator02@saa.com
+CRN-01,Crane 01,Tadano GR-1000N,6540,operator03@saa.com
+PTN-01,Pontoon 01,Self-Propelled,1820,operator04@saa.com

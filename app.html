@@ -1,0 +1,2231 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SERVIS SAA — PT Surya Alam Armada</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F1F5F9; margin: 0; }
+  .mob-view { display: none; } .mob-view.on { display: block; }
+  .mscreen { display: none; } .mscreen.on { display: block; }
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 62px; background: white; border-top: 1px solid #E2E8F0; display: flex; z-index: 100; }
+  .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; color: #94A3B8; cursor: pointer; gap: 2px; padding: 4px 0; transition: color 0.15s; }
+  .nav-tab svg { width: 22px; height: 22px; }
+  .nav-tab.on { color: #1D4ED8; }
+  .dscreen { display: none; } .dscreen.on { display: block; }
+  .slink { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; font-size: 14px; color: #475569; cursor: pointer; margin-bottom: 2px; transition: all 0.15s; }
+  .slink:hover { background: #F1F5F9; }
+  .slink.on { background: #EFF6FF; color: #1D4ED8; font-weight: 600; }
+  .m-card { background: white; border-radius: 16px; margin: 0 14px 10px; padding: 15px 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+  .dt { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .dt th { background: #F8FAFC; padding: 10px 13px; text-align: left; font-weight: 600; color: #64748B; border-bottom: 2px solid #E2E8F0; white-space: nowrap; }
+  .dt td { padding: 10px 13px; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
+  .dt tr:hover td { background: #F8FAFC; }
+  .dt tr.grp td { background: #F1F5F9; font-weight: 700; color: #1E293B; }
+  .dt tr.row-overdue td { background: #FFF1F2 !important; }
+  .dt tr.row-duesoon td { background: #FFFBEB !important; }
+  .ptab { padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #F1F5F9; color: #64748B; cursor: pointer; white-space: nowrap; border: none; transition: all 0.15s; }
+  .ptab.on { background: #1E3A8A; color: white; }
+  .vpill { padding: 6px 13px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #F1F5F9; color: #64748B; cursor: pointer; border: none; transition: all 0.15s; }
+  .vpill.on { background: #1D4ED8; color: white; }
+  .finput { width: 100%; border: 1.5px solid #E2E8F0; border-radius: 11px; padding: 13px 15px; font-size: 15px; outline: none; box-sizing: border-box; background: white; transition: border-color 0.15s; }
+  .finput:focus { border-color: #1D4ED8; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal-box { background: white; border-radius: 16px; padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .btn-primary { background: #1D4ED8; color: white; border: none; border-radius: 11px; padding: 13px 20px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .btn-primary:hover { background: #1E40AF; }
+  .btn-primary:disabled { background: #93C5FD; cursor: not-allowed; }
+  .btn-secondary { background: #F1F5F9; color: #475569; border: none; border-radius: 11px; padding: 12px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-danger { background: #EF4444; color: white; border: none; border-radius: 11px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-success { background: #10B981; color: white; border: none; border-radius: 11px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 90vw; text-align: center; animation: slideDown 0.3s ease; }
+  .toast.error { background: #EF4444; color: white; }
+  .toast.success { background: #10B981; color: white; }
+  .toast.info { background: #1D4ED8; color: white; }
+  @keyframes slideDown { from { top: -20px; opacity: 0; } to { top: 16px; opacity: 1; } }
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #E2E8F0; border-top-color: #1D4ED8; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status-step { display: flex; align-items: center; gap: 6px; }
+  .status-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .status-line { flex: 1; height: 2px; background: #E2E8F0; }
+  .status-dot.done { background: #10B981; }
+  .status-dot.active { background: #1D4ED8; }
+  .status-dot.pending { background: #E2E8F0; }
+  .priority-HIGH { background: #FEE2E2; color: #DC2626; }
+  .priority-MED { background: #FEF3C7; color: #D97706; }
+  .priority-LOW { background: #DBEAFE; color: #2563EB; }
+  .desk-content { margin-left: 224px; padding: 28px; min-height: 100vh; }
+  @media (max-width: 768px) { .desk-content { margin-left: 0; } }
+  .stat-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+  .hm-banner { background: #FEF3C7; border: 1.5px solid #FCD34D; border-radius: 14px; margin: 0 14px 10px; padding: 14px 16px; }
+  select.finput { appearance: auto; }
+  .inline-table-wrap { overflow-x: auto; }
+  .pipeline-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 0 14px 8px; scrollbar-width: none; }
+  .pipeline-tabs::-webkit-scrollbar { display: none; }
+  .unit-pill { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #F1F5F9; color: #475569; cursor: pointer; border: none; white-space: nowrap; }
+  .unit-pill.on { background: #1D4ED8; color: white; }
+  .progress-bar-wrap { display: flex; align-items: center; margin: 8px 0 0; }
+  .prog-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+  .prog-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #E2E8F0; background: white; }
+  .prog-dot.done { background: #10B981; border-color: #10B981; }
+  .prog-dot.active { background: #1D4ED8; border-color: #1D4ED8; }
+  .prog-line { flex: 1; height: 2px; background: #E2E8F0; margin: 0 -1px; align-self: center; }
+  .prog-line.done { background: #10B981; }
+  .prog-label { font-size: 9px; color: #94A3B8; margin-top: 3px; text-align: center; }
+  .prog-label.done { color: #10B981; }
+  .prog-label.active { color: #1D4ED8; font-weight: 700; }
+  textarea.finput { resize: vertical; min-height: 80px; }
+  .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 224px; background: white; border-right: 1px solid #E2E8F0; padding: 20px 12px; overflow-y: auto; z-index: 50; }
+  .table-wrap { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); background: white; }
+</style>
+</head>
+<body>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen" style="position:fixed;inset:0;background:#F1F5F9;display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:14px;">
+  <div style="font-size:24px;font-weight:800;color:#1E3A8A;">SERVIS SAA</div>
+  <div class="spinner" style="width:32px;height:32px;border-width:3px;"></div>
+  <div style="color:#94A3B8;font-size:13px;">PT Surya Alam Armada</div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:none;min-height:100vh;display:none;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:white;border-radius:20px;padding:32px 28px;width:100%;max-width:380px;box-shadow:0 4px 24px rgba(0,0,0,0.10);">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-size:28px;font-weight:800;color:#1E3A8A;">SERVIS SAA</div>
+      <div style="color:#94A3B8;font-size:13px;margin-top:4px;">PT Surya Alam Armada</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Email</label>
+      <input id="login-email" type="email" class="finput" placeholder="email@example.com">
+    </div>
+    <div style="margin-bottom:22px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Password</label>
+      <input id="login-password" type="password" class="finput" placeholder="••••••••">
+    </div>
+    <button onclick="doLogin()" id="login-btn" class="btn-primary" style="width:100%;">Masuk</button>
+    <div id="login-error" style="color:#EF4444;font-size:13px;text-align:center;margin-top:12px;display:none;"></div>
+  </div>
+</div>
+
+<!-- PENDING SCREEN -->
+<div id="pending-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px;flex-direction:column;gap:16px;">
+  <div style="background:white;border-radius:20px;padding:32px 28px;width:100%;max-width:380px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.10);">
+    <div style="font-size:40px;margin-bottom:16px;">⏳</div>
+    <div style="font-size:18px;font-weight:700;color:#1E293B;margin-bottom:8px;">Menunggu Persetujuan</div>
+    <div style="color:#64748B;font-size:14px;line-height:1.6;">Akun Anda sedang menunggu admin untuk mengatur role. Silakan hubungi admin atau coba lagi nanti.</div>
+    <button onclick="doLogout()" class="btn-secondary" style="margin-top:20px;width:100%;">Keluar</button>
+  </div>
+</div>
+
+<!-- WRONG DEVICE SCREEN -->
+<div id="wrong-device-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:white;border-radius:20px;padding:32px 28px;width:100%;max-width:380px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.10);">
+    <div style="font-size:40px;margin-bottom:16px;" id="wrong-device-icon">💻</div>
+    <div style="font-size:17px;font-weight:700;color:#1E293B;margin-bottom:8px;" id="wrong-device-title">Gunakan Desktop</div>
+    <div style="color:#64748B;font-size:14px;" id="wrong-device-msg">Tampilan Admin hanya tersedia di desktop/laptop.</div>
+    <button onclick="doLogout()" class="btn-secondary" style="margin-top:20px;width:100%;">Keluar</button>
+  </div>
+</div>
+
+<!-- ===== OPERATOR MOBILE VIEW ===== -->
+<div id="view-operator" class="mob-view" style="padding-bottom:72px;">
+  <div id="op-screen-beranda" class="mscreen">
+    <div style="background:white;padding:16px 14px 12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:11px;color:#94A3B8;font-weight:600;letter-spacing:0.5px;">UNIT ANDA</div>
+      <div id="op-unit-code" style="font-size:22px;font-weight:800;color:#1E3A8A;"></div>
+      <div id="op-unit-name" style="font-size:14px;color:#374151;font-weight:600;"></div>
+      <div style="display:flex;gap:12px;margin-top:6px;">
+        <div style="font-size:12px;color:#64748B;" id="op-unit-model"></div>
+        <div style="font-size:12px;font-weight:700;color:#1D4ED8;">HM: <span id="op-unit-hm">—</span></div>
+      </div>
+    </div>
+    <!-- HM Banner -->
+    <div id="op-hm-banner" class="hm-banner" style="display:none;">
+      <div style="font-size:13px;font-weight:700;color:#92400E;margin-bottom:8px;">📊 Update HM Hari Ini</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="number" id="op-hm-input" class="finput" placeholder="Masukkan HM saat ini" style="flex:1;padding:10px 12px;font-size:14px;">
+        <button onclick="submitHMUpdate()" class="btn-primary" style="padding:10px 16px;font-size:13px;white-space:nowrap;">Submit</button>
+      </div>
+    </div>
+    <!-- Maintenance Schedule -->
+    <div style="padding:0 14px 8px;font-size:13px;font-weight:700;color:#374151;">Jadwal Maintenance</div>
+    <div id="op-schedule-list"></div>
+  </div>
+
+  <div id="op-screen-request" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;">Buat Request Servis</div>
+      <div style="font-size:13px;color:#64748B;margin-top:2px;" id="op-req-unit-label"></div>
+    </div>
+    <div class="m-card">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Kategori</label>
+        <select id="op-req-category" class="finput">
+          <option value="">-- Pilih Kategori --</option>
+          <option value="Mesin/Engine">Mesin / Engine</option>
+          <option value="Hidrolik">Hidrolik</option>
+          <option value="Transmisi">Transmisi</option>
+          <option value="Listrik">Listrik</option>
+          <option value="Track/Undercarriage">Track / Undercarriage</option>
+          <option value="Bodi/Struktur">Bodi / Struktur</option>
+          <option value="Lainnya">Lainnya</option>
+        </select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Deskripsi Masalah</label>
+        <textarea id="op-req-desc" class="finput" placeholder="Jelaskan masalah secara detail..."></textarea>
+      </div>
+      <div style="margin-bottom:18px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:8px;">Tingkat Urgensi</label>
+        <div style="display:flex;gap:8px;">
+          <button onclick="setUrgency('Normal')" id="urg-Normal" class="vpill on" style="flex:1;">Normal</button>
+          <button onclick="setUrgency('Urgent')" id="urg-Urgent" class="vpill" style="flex:1;">Urgent</button>
+          <button onclick="setUrgency('Darurat')" id="urg-Darurat" class="vpill" style="flex:1;">Darurat</button>
+        </div>
+      </div>
+      <button onclick="submitServiceRequest()" class="btn-primary" style="width:100%;">Kirim Request</button>
+    </div>
+  </div>
+
+  <div id="op-screen-myreq" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;">Permintaan Saya</div>
+    </div>
+    <div id="op-myreq-list"></div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-tab on" onclick="switchOpScreen('beranda',this)" id="op-nav-beranda">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Beranda
+    </div>
+    <div class="nav-tab" onclick="switchOpScreen('request',this)" id="op-nav-request">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+      Request
+    </div>
+    <div class="nav-tab" onclick="switchOpScreen('myreq',this)" id="op-nav-myreq">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      Permintaan Saya
+    </div>
+  </nav>
+</div>
+
+<!-- ===== SPV MOBILE VIEW ===== -->
+<div id="view-spv" class="mob-view" style="padding-bottom:72px;">
+  <div id="spv-screen-dashboard" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:12px;">
+      <div style="font-size:18px;font-weight:800;color:#1E3A8A;">Dashboard SPV</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px;margin-bottom:12px;" id="spv-stats"></div>
+    <div style="padding:0 14px 8px;font-size:13px;font-weight:700;color:#374151;">Status Unit</div>
+    <div id="spv-unit-list"></div>
+  </div>
+
+  <div id="spv-screen-permintaan" class="mscreen">
+    <div style="background:white;padding:16px 14px 0;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:0;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Permintaan Servis</div>
+      <div class="pipeline-tabs" id="spv-pipeline-tabs"></div>
+    </div>
+    <div id="spv-sr-list" style="padding-top:10px;"></div>
+  </div>
+
+  <div id="spv-screen-jadwal" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Jadwal Maintenance</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button onclick="spvJadwalToggle('unit',this)" class="vpill on" id="spv-jt-unit">Per Unit</button>
+        <button onclick="spvJadwalToggle('tipe',this)" class="vpill" id="spv-jt-tipe">Per Tipe</button>
+      </div>
+      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;" id="spv-jadwal-filters"></div>
+    </div>
+    <div id="spv-jadwal-list"></div>
+  </div>
+
+  <div id="spv-screen-penugasan" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;">Penugasan Operator</div>
+    </div>
+    <div id="spv-penugasan-list"></div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-tab on" onclick="switchSpvScreen('dashboard',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-tab" onclick="switchSpvScreen('permintaan',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
+      Permintaan
+    </div>
+    <div class="nav-tab" onclick="switchSpvScreen('jadwal',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Jadwal
+    </div>
+    <div class="nav-tab" onclick="switchSpvScreen('penugasan',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      Penugasan
+    </div>
+  </nav>
+</div>
+
+<!-- ===== MKN MOBILE VIEW ===== -->
+<div id="view-mkn" class="mob-view" style="padding-bottom:72px;">
+  <div id="mkn-screen-jo" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;">Job Order</div>
+      <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;" id="mkn-jo-sort-pills"></div>
+    </div>
+    <div id="mkn-jo-list"></div>
+  </div>
+
+  <div id="mkn-screen-permintaan" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;">Permintaan Masuk</div>
+    </div>
+    <div id="mkn-sr-list"></div>
+  </div>
+
+  <div id="mkn-screen-parts" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;">Permintaan Parts</div>
+    </div>
+    <div id="mkn-parts-list"></div>
+  </div>
+
+  <div id="mkn-screen-selesaikan" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;">Selesaikan Pekerjaan</div>
+    </div>
+    <div class="m-card">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Unit</label>
+        <select id="mkn-log-unit" class="finput" onchange="loadMknJOForUnit()"></select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Job Order</label>
+        <select id="mkn-log-jo" class="finput"></select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Maintenance</label>
+        <input type="text" id="mkn-log-type" class="finput" placeholder="e.g. Service 250 HM">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis</label>
+        <input type="number" id="mkn-log-hm" class="finput" placeholder="Masukkan HM">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis</label>
+        <input type="date" id="mkn-log-date" class="finput">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts Digunakan</label>
+        <textarea id="mkn-log-parts" class="finput" placeholder="Daftar parts yang digunakan..."></textarea>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Biaya (IDR)</label>
+        <input type="number" id="mkn-log-cost" class="finput" placeholder="0">
+      </div>
+      <div style="margin-bottom:18px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label>
+        <textarea id="mkn-log-notes" class="finput" placeholder="Catatan tambahan..."></textarea>
+      </div>
+      <button onclick="submitServiceLog()" class="btn-primary" style="width:100%;">Simpan & Selesaikan</button>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-tab on" onclick="switchMknScreen('jo',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M12 12h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+      Job Order
+    </div>
+    <div class="nav-tab" onclick="switchMknScreen('permintaan',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      Permintaan
+    </div>
+    <div class="nav-tab" onclick="switchMknScreen('parts',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+      Parts
+    </div>
+    <div class="nav-tab" onclick="switchMknScreen('selesaikan',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Selesaikan
+    </div>
+  </nav>
+</div>
+
+<!-- ===== ADMIN DESKTOP VIEW ===== -->
+<div id="view-admin" style="display:none;">
+  <div class="sidebar">
+    <div style="font-size:17px;font-weight:800;color:#1E3A8A;margin-bottom:4px;padding:4px 6px;">SERVIS SAA</div>
+    <div style="font-size:11px;color:#94A3B8;padding:0 6px;margin-bottom:18px;">PT Surya Alam Armada</div>
+    <div id="admin-user-info" style="background:#EFF6FF;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:#1D4ED8;" id="admin-name-label">—</div>
+      <div style="font-size:11px;color:#64748B;">Administrator</div>
+    </div>
+    <div class="slink on" onclick="switchAdmin('dashboard',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</div>
+    <div class="slink" onclick="switchAdmin('jadwal',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Jadwal Maintenance</div>
+    <div class="slink" onclick="switchAdmin('permintaan',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>Permintaan Servis</div>
+    <div class="slink" onclick="switchAdmin('riwayat',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Riwayat Per Unit</div>
+    <div class="slink" onclick="switchAdmin('jadwalmkn',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>Jadwal MKN</div>
+    <div class="slink" onclick="switchAdmin('import',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Import Data</div>
+    <div class="slink" onclick="switchAdmin('export',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Export Data</div>
+    <div class="slink" onclick="switchAdmin('pengguna',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>Kelola Pengguna</div>
+    <div class="slink" onclick="switchAdmin('unit',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h5l3 5v3h-8V8zM5.5 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm11 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>Kelola Unit</div>
+    <div style="position:absolute;bottom:16px;left:12px;right:12px;">
+      <button onclick="doLogout()" class="btn-secondary" style="width:100%;font-size:13px;">Keluar</button>
+    </div>
+  </div>
+
+  <div class="desk-content">
+    <!-- Admin Dashboard -->
+    <div id="admin-screen-dashboard" class="dscreen on">
+      <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:20px;">Dashboard</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;" id="admin-stats"></div>
+      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:14px;">Status Semua Unit</div>
+      <div id="admin-unit-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
+    </div>
+
+    <!-- Admin Jadwal Maintenance -->
+    <div id="admin-screen-jadwal" class="dscreen">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div style="font-size:22px;font-weight:800;color:#1E293B;">Jadwal Maintenance</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="adminJadwalToggle('unit',this)" class="vpill on" id="adm-jt-unit">Per Unit</button>
+          <button onclick="adminJadwalToggle('tipe',this)" class="vpill" id="adm-jt-tipe">Per Tipe</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;" id="adm-jadwal-filters"></div>
+      <div class="table-wrap" id="adm-jadwal-table-wrap"></div>
+    </div>
+
+    <!-- Admin Permintaan Servis -->
+    <div id="admin-screen-permintaan" class="dscreen">
+      <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:16px;">Permintaan Servis</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;" id="adm-pipeline-tabs"></div>
+      <div id="adm-sr-table-wrap" class="table-wrap"></div>
+    </div>
+
+    <!-- Admin Riwayat Per Unit -->
+    <div id="admin-screen-riwayat" class="dscreen">
+      <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:16px;">Riwayat Per Unit</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="adm-unit-pills"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-weight:700;color:#374151;margin-bottom:10px;font-size:14px;">Jadwal Maintenance</div>
+          <div class="table-wrap" id="adm-riwayat-schedule"></div>
+        </div>
+        <div>
+          <div style="font-weight:700;color:#374151;margin-bottom:10px;font-size:14px;">Riwayat Servis</div>
+          <div id="adm-riwayat-log"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Jadwal MKN -->
+    <div id="admin-screen-jadwalmkn" class="dscreen">
+      <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:16px;">Jadwal MKN</div>
+      <div class="table-wrap" id="adm-jadwalmkn-wrap"></div>
+    </div>
+
+    <!-- Admin Import Data -->
+    <div id="admin-screen-import" class="dscreen">
+      <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:20px;">Import Data</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+        <!-- Units CSV -->
+        <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+          <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Import Units</div>
+          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: code,name,model,current_hm</div>
+          <input type="file" id="imp-units-file" accept=".csv" onchange="previewCSV('units',this)" style="font-size:13px;width:100%;">
+          <div id="imp-units-preview" style="margin-top:12px;"></div>
+          <button onclick="importCSV('units')" id="imp-units-btn" class="btn-primary" style="width:100%;margin-top:10px;display:none;">Import</button>
+        </div>
+        <!-- Maintenance Intervals CSV -->
+        <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+          <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Import Interval Maintenance</div>
+          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: type_name,default_interval_hm</div>
+          <input type="file" id="imp-intervals-file" accept=".csv" onchange="previewCSV('intervals',this)" style="font-size:13px;width:100%;">
+          <div id="imp-intervals-preview" style="margin-top:12px;"></div>
+          <button onclick="importCSV('intervals')" id="imp-intervals-btn" class="btn-primary" style="width:100%;margin-top:10px;display:none;">Import</button>
+        </div>
+        <!-- Service Log CSV -->
+        <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+          <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Import Service Log</div>
+          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: unit_code,maintenance_type,hm_at_service,service_date,mkn_name,parts_used,cost_idr,notes</div>
+          <input type="file" id="imp-log-file" accept=".csv" onchange="previewCSV('log',this)" style="font-size:13px;width:100%;">
+          <div id="imp-log-preview" style="margin-top:12px;"></div>
+          <button onclick="importCSV('log')" id="imp-log-btn" class="btn-primary" style="width:100%;margin-top:10px;display:none;">Import</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Export Data -->
+    <div id="admin-screen-export" class="dscreen">
+      <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:20px;">Export Data</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-width:600px;">
+        <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+          <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Service Log</div>
+          <div style="font-size:12px;color:#64748B;margin-bottom:14px;">Export semua riwayat servis ke CSV</div>
+          <button onclick="exportServiceLog()" class="btn-primary" style="width:100%;">Export Service Log</button>
+        </div>
+        <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+          <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Jadwal Maintenance</div>
+          <div style="font-size:12px;color:#64748B;margin-bottom:14px;">Export semua jadwal maintenance ke CSV</div>
+          <button onclick="exportSchedule()" class="btn-primary" style="width:100%;">Export Jadwal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Kelola Pengguna -->
+    <div id="admin-screen-pengguna" class="dscreen">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:22px;font-weight:800;color:#1E293B;">Kelola Pengguna</div>
+        <div style="display:flex;gap:8px;" id="adm-user-role-filters"></div>
+      </div>
+      <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#1E40AF;">
+        <strong>Info:</strong> Untuk membuat akun baru: <strong>1.</strong> Buka Supabase Dashboard → Authentication → Users → Invite User &nbsp;<strong>2.</strong> Masukkan email user &nbsp;<strong>3.</strong> Setelah user menerima undangan dan login pertama kali, profil dengan role "pending" akan otomatis tersedia di sini untuk di-assign role-nya.
+      </div>
+      <div class="table-wrap" id="adm-users-table-wrap"></div>
+    </div>
+
+    <!-- Admin Kelola Unit -->
+    <div id="admin-screen-unit" class="dscreen">
+      <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:20px;">Kelola Unit</div>
+      <div style="display:grid;grid-template-columns:340px 1fr;gap:20px;">
+        <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+          <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:16px;" id="unit-form-title">Tambah Unit Baru</div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Kode Unit</label>
+            <input type="text" id="uf-code" class="finput" style="font-size:14px;padding:10px 12px;" placeholder="e.g. EX-001">
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Nama Unit</label>
+            <input type="text" id="uf-name" class="finput" style="font-size:14px;padding:10px 12px;" placeholder="e.g. Excavator Hitachi ZX200">
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Model</label>
+            <input type="text" id="uf-model" class="finput" style="font-size:14px;padding:10px 12px;" placeholder="e.g. Hitachi ZX200-5G">
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">HM Saat Ini</label>
+            <input type="number" id="uf-hm" class="finput" style="font-size:14px;padding:10px 12px;" placeholder="0">
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Operator</label>
+            <select id="uf-operator" class="finput" style="font-size:14px;padding:10px 12px;">
+              <option value="">-- Tidak ada --</option>
+            </select>
+          </div>
+          <input type="hidden" id="uf-edit-id">
+          <button onclick="saveUnit()" class="btn-primary" style="width:100%;" id="uf-save-btn">Tambah Unit</button>
+          <button onclick="cancelUnitEdit()" class="btn-secondary" style="width:100%;margin-top:8px;display:none;" id="uf-cancel-btn">Batal</button>
+        </div>
+        <div class="table-wrap" id="adm-unit-table-wrap"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL OVERLAY -->
+<div id="modal-overlay" class="modal-overlay" style="display:none;" onclick="closeModalOnBg(event)">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<script>
+// ============================================================
+// SUPABASE INIT
+// ============================================================
+const SUPABASE_URL = 'https://xpecefriamslzidlcsuj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwZWNlZnJpYW1zbHppZGxjc3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwMjYwODYsImV4cCI6MjA5NzYwMjA4Nn0.uvTe_2x2wXoGGomRIHfS1vZjVYu_BbeU09L9dZRR-AU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+let currentUser = null;
+let currentProfile = null;
+let currentUnit = null;
+let selectedUrgency = 'Normal';
+let csvData = { units: null, intervals: null, log: null };
+let spvPipelineTab = 'pending_spv';
+let adminPipelineTab = 'pending_spv';
+let spvJadwalMode = 'unit';
+let adminJadwalMode = 'unit';
+let spvJadwalFilter = 'Semua';
+let adminJadwalFilter = 'Semua';
+let mknJOSort = 'Semua';
+let adminRiwayatUnit = null;
+let adminUserRoleFilter = 'all';
+let allProfiles = [];
+let allUnits = [];
+let allMknProfiles = [];
+let allOperatorProfiles = [];
+let isMobile = window.innerWidth <= 768;
+
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+function mStatus(interval_hm, last_hm, current_hm) {
+  const remaining = (last_hm + interval_hm) - current_hm;
+  if (remaining < 0) return 'OVERDUE';
+  if (remaining < interval_hm * 0.15) return 'DUE SOON';
+  return 'OK';
+}
+
+function mRemaining(interval_hm, last_hm, current_hm) {
+  return (last_hm + interval_hm) - current_hm;
+}
+
+function badge(status) {
+  const map = {
+    'OVERDUE': 'background:#FEE2E2;color:#DC2626;',
+    'DUE SOON': 'background:#FEF3C7;color:#D97706;',
+    'OK': 'background:#DCFCE7;color:#16A34A;',
+    'pending_spv': 'background:#FEF3C7;color:#D97706;',
+    'approved_spv': 'background:#DBEAFE;color:#2563EB;',
+    'scheduled': 'background:#EDE9FE;color:#7C3AED;',
+    'in_progress': 'background:#FEF3C7;color:#D97706;',
+    'done_confirm': 'background:#DCFCE7;color:#16A34A;',
+    'confirmed': 'background:#F1F5F9;color:#475569;',
+    'rejected': 'background:#FEE2E2;color:#DC2626;',
+    'pending': 'background:#FEF3C7;color:#D97706;',
+    'done': 'background:#DCFCE7;color:#16A34A;',
+    'approved': 'background:#DCFCE7;color:#16A34A;',
+    'Normal': 'background:#F1F5F9;color:#475569;',
+    'Urgent': 'background:#FEF3C7;color:#D97706;',
+    'Darurat': 'background:#FEE2E2;color:#DC2626;',
+    'HIGH': 'background:#FEE2E2;color:#DC2626;',
+    'MED': 'background:#FEF3C7;color:#D97706;',
+    'LOW': 'background:#DBEAFE;color:#2563EB;',
+  };
+  const style = map[status] || 'background:#F1F5F9;color:#475569;';
+  return `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;${style}">${statusLabel(status)}</span>`;
+}
+
+function statusLabel(s) {
+  const labels = {
+    'pending_spv': 'Pending SPV', 'approved_spv': 'Disetujui SPV',
+    'scheduled': 'Terjadwal', 'in_progress': 'Dikerjakan',
+    'done_confirm': 'Konfirmasi', 'confirmed': 'Selesai', 'rejected': 'Ditolak',
+    'pending': 'Pending', 'done': 'Selesai', 'approved': 'Disetujui',
+    'in_progress': 'Dikerjakan',
+  };
+  return labels[s] || s;
+}
+
+function showToast(msg, type = 'error') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => { el.remove(); }, 3500);
+}
+
+function showModal(html) {
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+}
+
+function closeModalOnBg(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatCurrency(n) {
+  if (!n) return '—';
+  return 'Rp ' + Number(n).toLocaleString('id-ID');
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function generateSRNumber() {
+  const now = new Date();
+  return `SR-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(Math.floor(Math.random()*9000)+1000)}`;
+}
+
+function generateJONumber() {
+  const now = new Date();
+  return `JO-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(Math.floor(Math.random()*9000)+1000)}`;
+}
+
+function generatePRNumber() {
+  return `PR-${Date.now()}`;
+}
+
+function showLoading(show) {
+  document.getElementById('loading-screen').style.display = show ? 'flex' : 'none';
+}
+
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+function show(id, disp) { document.getElementById(id).style.display = disp || 'block'; }
+
+// ============================================================
+// AUTH
+// ============================================================
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  if (!email || !password) { errEl.textContent = 'Email dan password wajib diisi.'; errEl.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = 'Masuk...';
+  errEl.style.display = 'none';
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  } catch (e) {
+    errEl.textContent = e.message || 'Login gagal.';
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Masuk';
+  }
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+async function boot() {
+  showLoading(true);
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+      if (session && session.user) {
+        currentUser = session.user;
+        await loadApp();
+      } else {
+        showLoading(false);
+        showLoginScreen();
+      }
+    } else if (event === 'SIGNED_OUT') {
+      location.reload();
+    }
+  });
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    showLoading(false);
+    showLoginScreen();
+  }
+}
+
+function showLoginScreen() {
+  hide('loading-screen');
+  const ls = document.getElementById('login-screen');
+  ls.style.display = 'flex';
+}
+
+async function loadApp() {
+  try {
+    const { data: profile, error } = await sb.from('profiles').select('id, name, role').eq('id', currentUser.id).single();
+    if (error || !profile) {
+      // Auto-create pending profile
+      await sb.from('profiles').insert({ id: currentUser.id, name: currentUser.email.split('@')[0], role: 'pending' });
+      currentProfile = { id: currentUser.id, name: currentUser.email.split('@')[0], role: 'pending' };
+    } else {
+      currentProfile = profile;
+    }
+    showLoading(false);
+    hideAllViews();
+    await routeByRole();
+  } catch (e) {
+    showLoading(false);
+    showToast('Gagal memuat profil: ' + e.message);
+    showLoginScreen();
+  }
+}
+
+function hideAllViews() {
+  ['login-screen','pending-screen','wrong-device-screen','view-operator','view-spv','view-mkn','view-admin'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.querySelectorAll('.mob-view').forEach(el => el.classList.remove('on'));
+}
+
+async function routeByRole() {
+  const role = currentProfile.role;
+  if (role === 'pending') {
+    show('pending-screen', 'flex');
+    return;
+  }
+  if (role === 'admin') {
+    if (isMobile) {
+      document.getElementById('wrong-device-icon').textContent = '💻';
+      document.getElementById('wrong-device-title').textContent = 'Gunakan Desktop';
+      document.getElementById('wrong-device-msg').textContent = 'Tampilan Admin hanya tersedia di desktop/laptop.';
+      show('wrong-device-screen', 'flex');
+    } else {
+      show('view-admin');
+      document.getElementById('admin-name-label').textContent = currentProfile.name || currentUser.email;
+      await loadAdminData();
+    }
+    return;
+  }
+  if (['operator','spv','mkn'].includes(role)) {
+    if (!isMobile) {
+      document.getElementById('wrong-device-icon').textContent = '📱';
+      document.getElementById('wrong-device-title').textContent = 'Gunakan Ponsel';
+      document.getElementById('wrong-device-msg').textContent = 'Tampilan ' + role.toUpperCase() + ' hanya tersedia di ponsel/tablet.';
+      show('wrong-device-screen', 'flex');
+      return;
+    }
+    if (role === 'operator') {
+      const view = document.getElementById('view-operator');
+      view.style.display = 'block'; view.classList.add('on');
+      await loadOperatorData();
+    } else if (role === 'spv') {
+      const view = document.getElementById('view-spv');
+      view.style.display = 'block'; view.classList.add('on');
+      await loadSPVData();
+    } else if (role === 'mkn') {
+      const view = document.getElementById('view-mkn');
+      view.style.display = 'block'; view.classList.add('on');
+      await loadMKNData();
+    }
+  }
+}
+
+// ============================================================
+// OPERATOR
+// ============================================================
+async function loadOperatorData() {
+  try {
+    // Fetch assigned unit
+    const { data: units } = await sb.from('units').select('id, code, name, model, current_hm').eq('assigned_operator_id', currentProfile.id);
+    if (units && units.length > 0) {
+      currentUnit = units[0];
+      document.getElementById('op-unit-code').textContent = currentUnit.code;
+      document.getElementById('op-unit-name').textContent = currentUnit.name;
+      document.getElementById('op-unit-model').textContent = currentUnit.model;
+      document.getElementById('op-unit-hm').textContent = currentUnit.current_hm || 0;
+      document.getElementById('op-req-unit-label').textContent = `Unit: ${currentUnit.code} — ${currentUnit.name}`;
+      await checkHMUpdateToday();
+      await loadOpSchedule();
+    } else {
+      document.getElementById('op-unit-code').textContent = 'Belum ada unit';
+      document.getElementById('op-unit-name').textContent = 'Hubungi SPV / Admin';
+    }
+    await loadOpMyReq();
+    await loadMknUnitsForSelesaikan();
+  } catch (e) {
+    showToast('Error memuat data: ' + e.message);
+  }
+}
+
+async function checkHMUpdateToday() {
+  if (!currentUnit) return;
+  const today = todayISO();
+  const { data } = await sb.from('hm_updates').select('id').eq('unit_id', currentUnit.id).gte('recorded_at', today + 'T00:00:00').lte('recorded_at', today + 'T23:59:59');
+  const banner = document.getElementById('op-hm-banner');
+  banner.style.display = (data && data.length > 0) ? 'none' : 'block';
+}
+
+async function submitHMUpdate() {
+  const val = parseInt(document.getElementById('op-hm-input').value);
+  if (!val || val <= 0) { showToast('Masukkan nilai HM yang valid.'); return; }
+  if (currentUnit && val < (currentUnit.current_hm || 0)) {
+    showToast('HM baru tidak boleh lebih kecil dari HM saat ini.'); return;
+  }
+  try {
+    const { error: e1 } = await sb.from('hm_updates').insert({ unit_id: currentUnit.id, hm_value: val, recorded_by: currentProfile.id, recorded_at: new Date().toISOString() });
+    if (e1) throw e1;
+    const { error: e2 } = await sb.from('units').update({ current_hm: val }).eq('id', currentUnit.id);
+    if (e2) throw e2;
+    currentUnit.current_hm = val;
+    document.getElementById('op-unit-hm').textContent = val;
+    document.getElementById('op-hm-banner').style.display = 'none';
+    document.getElementById('op-hm-input').value = '';
+    showToast('HM berhasil diupdate!', 'success');
+    await loadOpSchedule();
+  } catch (e) { showToast('Gagal update HM: ' + e.message); }
+}
+
+async function loadOpSchedule() {
+  if (!currentUnit) return;
+  const container = document.getElementById('op-schedule-list');
+  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: scheds } = await sb.from('maintenance_schedules').select('id, type_name, interval_hm, last_hm, last_date').eq('unit_id', currentUnit.id);
+    if (!scheds || scheds.length === 0) {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada jadwal maintenance.</div>'; return;
+    }
+    const hm = currentUnit.current_hm || 0;
+    const sorted = scheds.map(s => ({ ...s, remaining: mRemaining(s.interval_hm, s.last_hm, hm), status: mStatus(s.interval_hm, s.last_hm, hm) })).sort((a,b) => a.remaining - b.remaining);
+    container.innerHTML = sorted.map(s => `
+      <div class="m-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:14px;font-weight:700;color:#1E293B;">${s.type_name}</div>
+          ${badge(s.status)}
+        </div>
+        <div style="font-size:12px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.last_hm} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
+        <div style="font-size:13px;font-weight:600;margin-top:6px;color:${s.remaining < 0 ? '#DC2626' : s.status === 'DUE SOON' ? '#D97706' : '#16A34A'};">
+          ${s.remaining < 0 ? `Terlambat ${Math.abs(s.remaining)} HM` : `Sisa ${s.remaining} HM`}
+        </div>
+      </div>`).join('');
+  } catch (e) { showToast('Error jadwal: ' + e.message); }
+}
+
+function setUrgency(u) {
+  selectedUrgency = u;
+  ['Normal','Urgent','Darurat'].forEach(v => {
+    const el = document.getElementById('urg-' + v);
+    if (el) el.classList.toggle('on', v === u);
+  });
+}
+
+async function submitServiceRequest() {
+  if (!currentUnit) { showToast('Anda tidak memiliki unit yang terdaftar.'); return; }
+  const category = document.getElementById('op-req-category').value;
+  const desc = document.getElementById('op-req-desc').value.trim();
+  if (!category) { showToast('Pilih kategori terlebih dahulu.'); return; }
+  if (!desc) { showToast('Deskripsi wajib diisi.'); return; }
+  try {
+    const srNum = generateSRNumber();
+    const { error } = await sb.from('service_requests').insert({
+      sr_number: srNum, unit_id: currentUnit.id, category, description: desc,
+      urgency: selectedUrgency, submitted_by: currentProfile.id, status: 'pending_spv', created_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    showToast('Request berhasil dikirim!', 'success');
+    document.getElementById('op-req-category').value = '';
+    document.getElementById('op-req-desc').value = '';
+    setUrgency('Normal');
+    await loadOpMyReq();
+    switchOpScreen('myreq', document.getElementById('op-nav-myreq'));
+  } catch (e) { showToast('Gagal kirim request: ' + e.message); }
+}
+
+async function loadOpMyReq() {
+  const container = document.getElementById('op-myreq-list');
+  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: srs } = await sb.from('service_requests').select('id, sr_number, unit_id, category, urgency, status, description, created_at, units(code, name)').eq('submitted_by', currentProfile.id).order('created_at', { ascending: false });
+    if (!srs || srs.length === 0) {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Belum ada request.</div>'; return;
+    }
+    container.innerHTML = srs.map(sr => `
+      <div class="m-card" style="cursor:pointer;" onclick="toggleSRDetail('sr-detail-${sr.id}')">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
+          ${badge(sr.urgency)}
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#1E293B;">${sr.category}</div>
+        <div style="font-size:12px;color:#64748B;">${sr.units ? sr.units.code + ' — ' + sr.units.name : ''} &nbsp;|&nbsp; ${formatDate(sr.created_at)}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+          ${badge(sr.status)}
+          <svg style="width:14px;height:14px;color:#94A3B8;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div id="sr-detail-${sr.id}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #F1F5F9;">
+          <div style="font-size:13px;color:#374151;margin-bottom:8px;">${sr.description}</div>
+          ${srProgressBar(sr.status)}
+        </div>
+      </div>`).join('');
+  } catch (e) { showToast('Error memuat request: ' + e.message); }
+}
+
+function toggleSRDetail(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function srProgressBar(status) {
+  const steps = ['pending_spv','approved_spv','scheduled','in_progress','done_confirm','confirmed'];
+  const labels = ['Pending','Disetujui','Dijadwal','Dikerjakan','Konfirmasi','Selesai'];
+  const idx = steps.indexOf(status);
+  let html = '<div style="display:flex;align-items:center;margin-top:4px;">';
+  steps.forEach((s, i) => {
+    const cls = i < idx ? 'done' : i === idx ? 'active' : 'pending';
+    html += `<div style="display:flex;flex-direction:column;align-items:center;flex:1;">
+      <div class="prog-dot ${cls}"></div>
+      <div class="prog-label ${cls}" style="font-size:8px;margin-top:2px;">${labels[i]}</div>
+    </div>`;
+    if (i < steps.length - 1) html += `<div class="prog-line ${i < idx ? 'done' : ''}" style="flex:1;height:2px;margin-bottom:14px;"></div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function switchOpScreen(name, el) {
+  document.querySelectorAll('#view-operator .mscreen').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('#view-operator .nav-tab').forEach(t => t.classList.remove('on'));
+  const screen = document.getElementById('op-screen-' + name);
+  if (screen) screen.classList.add('on');
+  if (el) el.classList.add('on');
+}
+
+// ============================================================
+// SPV
+// ============================================================
+async function loadSPVData() {
+  await Promise.all([loadSPVStats(), loadSPVUnitList(), loadSPVPermintaan(), loadSPVJadwal(), loadSPVPenugasan()]);
+}
+
+async function loadSPVStats() {
+  try {
+    const { data: units } = await sb.from('units').select('id, current_hm');
+    const { data: scheds } = await sb.from('maintenance_schedules').select('unit_id, interval_hm, last_hm');
+    const { data: srs } = await sb.from('service_requests').select('id, status').eq('status', 'pending_spv');
+    let overdue = 0, dueSoon = 0;
+    if (units && scheds) {
+      scheds.forEach(s => {
+        const unit = units.find(u => u.id === s.unit_id);
+        if (unit) {
+          const st = mStatus(s.interval_hm, s.last_hm, unit.current_hm || 0);
+          if (st === 'OVERDUE') overdue++;
+          else if (st === 'DUE SOON') dueSoon++;
+        }
+      });
+    }
+    const statsEl = document.getElementById('spv-stats');
+    statsEl.innerHTML = [
+      { label: 'Total Unit', value: units ? units.length : 0, color: '#1D4ED8', bg: '#EFF6FF' },
+      { label: 'Overdue', value: overdue, color: '#DC2626', bg: '#FEF2F2' },
+      { label: 'Due Soon', value: dueSoon, color: '#D97706', bg: '#FFFBEB' },
+      { label: 'Request Baru', value: srs ? srs.length : 0, color: '#7C3AED', bg: '#F5F3FF' },
+    ].map(s => `
+      <div style="background:${s.bg};border-radius:14px;padding:14px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:${s.color};">${s.value}</div>
+        <div style="font-size:11px;color:#64748B;font-weight:600;">${s.label}</div>
+      </div>`).join('');
+  } catch (e) { showToast('Error stats: ' + e.message); }
+}
+
+async function loadSPVUnitList() {
+  try {
+    const { data: units } = await sb.from('units').select('id, code, name, model, current_hm, profiles(name)').order('code');
+    const { data: scheds } = await sb.from('maintenance_schedules').select('unit_id, interval_hm, last_hm');
+    const container = document.getElementById('spv-unit-list');
+    if (!units) { container.innerHTML = ''; return; }
+    container.innerHTML = units.map(u => {
+      const unitScheds = scheds ? scheds.filter(s => s.unit_id === u.id) : [];
+      const statuses = unitScheds.map(s => mStatus(s.interval_hm, s.last_hm, u.current_hm || 0));
+      const worst = statuses.includes('OVERDUE') ? 'OVERDUE' : statuses.includes('DUE SOON') ? 'DUE SOON' : 'OK';
+      return `<div class="m-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#1E293B;">${u.code} — ${u.name}</div>
+            <div style="font-size:12px;color:#64748B;">${u.model || ''} &nbsp;|&nbsp; Operator: ${u.profiles ? u.profiles.name : '—'}</div>
+            <div style="font-size:12px;font-weight:700;color:#1D4ED8;margin-top:2px;">HM: ${u.current_hm || 0}</div>
+          </div>
+          ${badge(worst)}
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { showToast('Error unit list: ' + e.message); }
+}
+
+const pipelineStages = ['pending_spv','approved_spv','scheduled','in_progress','done_confirm','confirmed'];
+const pipelineLabels = { pending_spv:'Pending SPV', approved_spv:'Disetujui', scheduled:'Terjadwal', in_progress:'Dikerjakan', done_confirm:'Konfirmasi', confirmed:'Selesai' };
+
+async function loadSPVPermintaan() {
+  const tabsEl = document.getElementById('spv-pipeline-tabs');
+  tabsEl.innerHTML = pipelineStages.map(s => `<button class="ptab ${s === spvPipelineTab ? 'on' : ''}" onclick="setSpvPipelineTab('${s}')">${pipelineLabels[s]}</button>`).join('');
+  await renderSPVSRList();
+}
+
+async function setSpvPipelineTab(tab) {
+  spvPipelineTab = tab;
+  document.querySelectorAll('#spv-pipeline-tabs .ptab').forEach(el => el.classList.toggle('on', el.textContent === pipelineLabels[tab]));
+  await renderSPVSRList();
+}
+
+async function renderSPVSRList() {
+  const container = document.getElementById('spv-sr-list');
+  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: srs } = await sb.from('service_requests').select('id, sr_number, unit_id, category, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name), profiles!service_requests_submitted_by_fkey(name)').eq('status', spvPipelineTab).order('created_at', { ascending: false });
+    if (!srs || srs.length === 0) {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada request.</div>'; return;
+    }
+    container.innerHTML = srs.map(sr => {
+      let actions = '';
+      if (spvPipelineTab === 'pending_spv') {
+        actions = `<div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn-success" style="flex:1;font-size:12px;padding:8px;" onclick="openApproveSRModal('${sr.id}','${sr.sr_number}')">Setujui</button>
+          <button class="btn-danger" style="flex:1;font-size:12px;padding:8px;" onclick="openRejectSRModal('${sr.id}','${sr.sr_number}')">Tolak</button>
+        </div>`;
+      } else if (spvPipelineTab === 'done_confirm') {
+        actions = `<div style="margin-top:10px;">
+          <button class="btn-success" style="width:100%;font-size:12px;padding:8px;" onclick="confirmSR('${sr.id}')">Konfirmasi Selesai</button>
+        </div>`;
+      }
+      return `<div class="m-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
+          ${badge(sr.urgency)}
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#1E293B;">${sr.category}</div>
+        <div style="font-size:12px;color:#64748B;">${sr.units ? sr.units.code : ''} &nbsp;|&nbsp; ${sr.profiles ? sr.profiles.name : 'Unknown'}</div>
+        <div style="font-size:12px;color:#374151;margin-top:4px;">${sr.description}</div>
+        ${actions}
+      </div>`;
+    }).join('');
+  } catch (e) { showToast('Error SR list: ' + e.message); }
+}
+
+async function openApproveSRModal(srId, srNum) {
+  try {
+    const { data: mkns } = await sb.from('profiles').select('id, name').eq('role', 'mkn');
+    const opts = mkns ? mkns.map(m => `<option value="${m.id}">${m.name}</option>`).join('') : '';
+    showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:14px;">Setujui Request</div>
+      <div style="font-size:13px;color:#64748B;margin-bottom:12px;">SR: ${srNum}</div>
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Assign ke MKN</label>
+      <select id="modal-mkn-select" class="finput" style="margin-bottom:16px;"><option value="">-- Pilih MKN --</option>${opts}</select>
+      <div style="display:flex;gap:8px;">
+        <button onclick="approveSR('${srId}')" class="btn-success" style="flex:1;">Setujui</button>
+        <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+      </div>`);
+  } catch (e) { showToast('Error: ' + e.message); }
+}
+
+async function approveSR(srId) {
+  const mknId = document.getElementById('modal-mkn-select').value;
+  if (!mknId) { showToast('Pilih MKN terlebih dahulu.'); return; }
+  try {
+    const { error } = await sb.from('service_requests').update({ status: 'approved_spv', assigned_mkn_id: mknId, spv_approved_at: new Date().toISOString() }).eq('id', srId);
+    if (error) throw error;
+    closeModal(); showToast('Request disetujui!', 'success');
+    await renderSPVSRList();
+    await loadSPVStats();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+function openRejectSRModal(srId, srNum) {
+  showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:14px;">Tolak Request</div>
+    <div style="font-size:13px;color:#64748B;margin-bottom:12px;">SR: ${srNum}</div>
+    <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Alasan Penolakan</label>
+    <textarea id="modal-reject-reason" class="finput" placeholder="Masukkan alasan..." style="margin-bottom:16px;"></textarea>
+    <div style="display:flex;gap:8px;">
+      <button onclick="rejectSR('${srId}')" class="btn-danger" style="flex:1;">Tolak</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+    </div>`);
+}
+
+async function rejectSR(srId) {
+  const reason = document.getElementById('modal-reject-reason').value.trim();
+  if (!reason) { showToast('Alasan wajib diisi.'); return; }
+  try {
+    const { error } = await sb.from('service_requests').update({ status: 'rejected', rejection_reason: reason }).eq('id', srId);
+    if (error) throw error;
+    closeModal(); showToast('Request ditolak.', 'info');
+    await renderSPVSRList(); await loadSPVStats();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function confirmSR(srId) {
+  try {
+    const { error } = await sb.from('service_requests').update({ status: 'confirmed', confirmed_at: new Date().toISOString() }).eq('id', srId);
+    if (error) throw error;
+    showToast('Pekerjaan dikonfirmasi selesai!', 'success');
+    await renderSPVSRList();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function loadSPVJadwal() {
+  const filterEl = document.getElementById('spv-jadwal-filters');
+  const filters = ['Semua','Overdue','Due Soon','OK'];
+  filterEl.innerHTML = filters.map(f => `<button class="vpill ${f === spvJadwalFilter ? 'on' : ''}" onclick="setSpvJadwalFilter('${f}')">${f}</button>`).join('');
+  await renderSPVJadwal();
+}
+
+function spvJadwalToggle(mode, el) {
+  spvJadwalMode = mode;
+  document.querySelectorAll('#spv-screen-jadwal .vpill').forEach(b => { if (['Per Unit','Per Tipe'].includes(b.textContent)) b.classList.remove('on'); });
+  el.classList.add('on');
+  renderSPVJadwal();
+}
+
+async function setSpvJadwalFilter(f) {
+  spvJadwalFilter = f;
+  document.querySelectorAll('#spv-jadwal-filters .vpill').forEach(b => b.classList.toggle('on', b.textContent === f));
+  await renderSPVJadwal();
+}
+
+async function renderSPVJadwal() {
+  const container = document.getElementById('spv-jadwal-list');
+  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: scheds } = await sb.from('maintenance_schedules').select('id, unit_id, type_name, interval_hm, last_hm, last_date, units(code, name, current_hm)');
+    if (!scheds) { container.innerHTML = ''; return; }
+    let filtered = scheds.map(s => {
+      const hm = s.units ? s.units.current_hm || 0 : 0;
+      return { ...s, remaining: mRemaining(s.interval_hm, s.last_hm, hm), status: mStatus(s.interval_hm, s.last_hm, hm), hm };
+    });
+    if (spvJadwalFilter !== 'Semua') {
+      const filterMap = { 'Overdue': 'OVERDUE', 'Due Soon': 'DUE SOON', 'OK': 'OK' };
+      filtered = filtered.filter(s => s.status === filterMap[spvJadwalFilter]);
+    }
+    if (filtered.length === 0) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada data.</div>'; return; }
+    filtered.sort((a,b) => a.remaining - b.remaining);
+    container.innerHTML = filtered.map(s => `
+      <div class="m-card" style="${s.status === 'OVERDUE' ? 'border-left:3px solid #EF4444;' : s.status === 'DUE SOON' ? 'border-left:3px solid #F59E0B;' : ''}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+          <div style="font-size:13px;font-weight:700;color:#1E293B;">${s.units ? s.units.code : '—'} | ${s.type_name}</div>
+          ${badge(s.status)}
+        </div>
+        <div style="font-size:11px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.last_hm} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
+        <div style="font-size:12px;font-weight:600;margin-top:4px;color:${s.remaining < 0 ? '#DC2626' : '#64748B'};">${s.remaining < 0 ? 'Terlambat ' + Math.abs(s.remaining) + ' HM' : 'Sisa ' + s.remaining + ' HM'} &nbsp;(HM: ${s.hm})</div>
+      </div>`).join('');
+  } catch (e) { showToast('Error jadwal: ' + e.message); }
+}
+
+async function loadSPVPenugasan() {
+  const container = document.getElementById('spv-penugasan-list');
+  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: units } = await sb.from('units').select('id, code, name, model, assigned_operator_id, profiles(name)');
+    const { data: operators } = await sb.from('profiles').select('id, name').eq('role', 'operator');
+    allOperatorProfiles = operators || [];
+    if (!units) { container.innerHTML = ''; return; }
+    container.innerHTML = units.map(u => `
+      <div class="m-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#1E293B;">${u.code} — ${u.name}</div>
+            <div style="font-size:12px;color:#64748B;">${u.model || ''}</div>
+            <div style="font-size:12px;font-weight:600;color:#374151;margin-top:2px;">Operator: ${u.profiles ? u.profiles.name : 'Belum ada'}</div>
+          </div>
+          <button class="btn-secondary" style="font-size:12px;padding:8px 12px;" onclick="openChangeOperatorModal('${u.id}','${u.assigned_operator_id || ''}')">Ganti</button>
+        </div>
+      </div>`).join('');
+  } catch (e) { showToast('Error penugasan: ' + e.message); }
+}
+
+function openChangeOperatorModal(unitId, currentOpId) {
+  const opts = allOperatorProfiles.map(op => `<option value="${op.id}" ${op.id === currentOpId ? 'selected' : ''}>${op.name}</option>`).join('');
+  showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:14px;">Ganti Operator</div>
+    <select id="modal-op-select" class="finput" style="margin-bottom:16px;"><option value="">-- Tidak ada --</option>${opts}</select>
+    <div style="display:flex;gap:8px;">
+      <button onclick="saveOperatorAssignment('${unitId}')" class="btn-primary" style="flex:1;">Simpan</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+    </div>`);
+}
+
+async function saveOperatorAssignment(unitId) {
+  const opId = document.getElementById('modal-op-select').value;
+  try {
+    const { error } = await sb.from('units').update({ assigned_operator_id: opId || null }).eq('id', unitId);
+    if (error) throw error;
+    closeModal(); showToast('Operator berhasil diubah!', 'success');
+    await loadSPVPenugasan();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+function switchSpvScreen(name, el) {
+  document.querySelectorAll('#view-spv .mscreen').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('#view-spv .nav-tab').forEach(t => t.classList.remove('on'));
+  const screen = document.getElementById('spv-screen-' + name);
+  if (screen) screen.classList.add('on');
+  if (el) el.classList.add('on');
+}
+
+// ============================================================
+// MKN
+// ============================================================
+async function loadMKNData() {
+  await Promise.all([loadMKNJobOrders(), loadMKNPermintaan(), loadMKNParts(), loadMknUnitsForSelesaikan()]);
+}
+
+async function loadMKNJobOrders() {
+  const pills = document.getElementById('mkn-jo-sort-pills');
+  const sorts = ['Semua','Per Unit','Prioritas'];
+  pills.innerHTML = sorts.map(s => `<button class="vpill ${s === mknJOSort ? 'on' : ''}" onclick="setMknJOSort('${s}')">${s}</button>`).join('');
+  await renderMKNJobOrders();
+}
+
+function setMknJOSort(s) {
+  mknJOSort = s;
+  document.querySelectorAll('#mkn-jo-sort-pills .vpill').forEach(el => el.classList.toggle('on', el.textContent === s));
+  renderMKNJobOrders();
+}
+
+async function renderMKNJobOrders() {
+  const container = document.getElementById('mkn-jo-list');
+  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: jos } = await sb.from('job_orders').select('id, jo_number, unit_id, type, status, priority, scheduled_date, created_at, units(code, name)').eq('assigned_mkn_id', currentProfile.id).neq('status', 'done').order('created_at', { ascending: false });
+    if (!jos || jos.length === 0) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada job order aktif.</div>'; return; }
+    let sorted = [...jos];
+    if (mknJOSort === 'Per Unit') sorted.sort((a,b) => (a.units?.code||'').localeCompare(b.units?.code||''));
+    else if (mknJOSort === 'Prioritas') { const p = { HIGH:0, MED:1, LOW:2 }; sorted.sort((a,b) => (p[a.priority]||2) - (p[b.priority]||2)); }
+    container.innerHTML = sorted.map(jo => `
+      <div class="m-card" style="cursor:pointer;" onclick="openJOActionModal('${jo.id}','${jo.status}','${jo.jo_number}','${jo.units ? jo.units.code : ''}')">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${jo.jo_number}</div>
+          ${badge(jo.priority)}
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#1E293B;">${jo.units ? jo.units.code + ' — ' + jo.units.name : 'Unit tidak ditemukan'}</div>
+        <div style="font-size:12px;color:#64748B;">${jo.type}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
+          ${badge(jo.status)}
+          <div style="font-size:11px;color:#94A3B8;">${jo.scheduled_date ? formatDate(jo.scheduled_date) : '—'}</div>
+        </div>
+      </div>`).join('');
+  } catch (e) { showToast('Error JO: ' + e.message); }
+}
+
+function openJOActionModal(joId, status, joNum, unitCode) {
+  if (status === 'pending') {
+    showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;">Job Order: ${joNum}</div>
+      <div style="font-size:13px;color:#64748B;margin-bottom:16px;">Unit: ${unitCode}</div>
+      <button onclick="startJO('${joId}')" class="btn-primary" style="width:100%;margin-bottom:8px;">Mulai Kerjakan</button>
+      <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Tutup</button>`);
+  } else if (status === 'in_progress') {
+    showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;">Job Order: ${joNum}</div>
+      <div style="font-size:13px;color:#64748B;margin-bottom:16px;">Unit: ${unitCode} — Sedang dikerjakan</div>
+      <button onclick="closeModal();prefillSelesaikan('${joId}')" class="btn-success" style="width:100%;margin-bottom:8px;">Tandai Selesai</button>
+      <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Tutup</button>`);
+  }
+}
+
+async function startJO(joId) {
+  try {
+    const { error } = await sb.from('job_orders').update({ status: 'in_progress' }).eq('id', joId);
+    if (error) throw error;
+    closeModal(); showToast('Job Order dimulai!', 'success');
+    await renderMKNJobOrders();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function prefillSelesaikan(joId) {
+  switchMknScreen('selesaikan', document.querySelectorAll('#view-mkn .nav-tab')[3]);
+  try {
+    const { data: jo } = await sb.from('job_orders').select('id, unit_id, type, units(id, code)').eq('id', joId).single();
+    if (jo) {
+      const unitSel = document.getElementById('mkn-log-unit');
+      if (unitSel) unitSel.value = jo.unit_id;
+      await loadMknJOForUnit();
+      const joSel = document.getElementById('mkn-log-jo');
+      if (joSel) joSel.value = joId;
+      const typeIn = document.getElementById('mkn-log-type');
+      if (typeIn) typeIn.value = jo.type || '';
+    }
+  } catch (e) { /* ignore */ }
+}
+
+async function loadMKNPermintaan() {
+  const container = document.getElementById('mkn-sr-list');
+  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: srs } = await sb.from('service_requests').select('id, sr_number, unit_id, category, description, urgency, status, created_at, units(code, name)').eq('assigned_mkn_id', currentProfile.id).eq('status', 'approved_spv').order('created_at', { ascending: false });
+    if (!srs || srs.length === 0) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada permintaan masuk.</div>'; return; }
+    container.innerHTML = srs.map(sr => `
+      <div class="m-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
+          ${badge(sr.urgency)}
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#1E293B;">${sr.category}</div>
+        <div style="font-size:12px;color:#64748B;">${sr.units ? sr.units.code + ' — ' + sr.units.name : ''}</div>
+        <div style="font-size:12px;color:#374151;margin-top:4px;">${sr.description}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="openAcceptSRModal('${sr.id}','${sr.sr_number}')" class="btn-success" style="flex:1;font-size:12px;padding:8px;">Terima</button>
+          <button onclick="mknRejectSR('${sr.id}')" class="btn-danger" style="flex:1;font-size:12px;padding:8px;">Tolak</button>
+        </div>
+      </div>`).join('');
+  } catch (e) { showToast('Error: ' + e.message); }
+}
+
+function openAcceptSRModal(srId, srNum) {
+  showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;">Terima Request</div>
+    <div style="font-size:13px;color:#64748B;margin-bottom:12px;">SR: ${srNum}</div>
+    <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Jadwal Tanggal</label>
+    <input type="date" id="modal-sched-date" class="finput" value="${todayISO()}" style="margin-bottom:16px;">
+    <div style="display:flex;gap:8px;">
+      <button onclick="acceptSR('${srId}')" class="btn-success" style="flex:1;">Terima & Jadwalkan</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+    </div>`);
+}
+
+async function acceptSR(srId) {
+  const date = document.getElementById('modal-sched-date').value;
+  if (!date) { showToast('Pilih tanggal.'); return; }
+  try {
+    const { error } = await sb.from('service_requests').update({ status: 'scheduled', scheduled_date: date }).eq('id', srId);
+    if (error) throw error;
+    closeModal(); showToast('Request dijadwalkan!', 'success');
+    await loadMKNPermintaan();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function mknRejectSR(srId) {
+  try {
+    const { error } = await sb.from('service_requests').update({ status: 'rejected', rejection_reason: 'Ditolak oleh MKN' }).eq('id', srId);
+    if (error) throw error;
+    showToast('Request ditolak.', 'info');
+    await loadMKNPermintaan();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function loadMKNParts() {
+  const container = document.getElementById('mkn-parts-list');
+  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: jos } = await sb.from('job_orders').select('id').eq('assigned_mkn_id', currentProfile.id);
+    if (!jos || jos.length === 0) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada parts request.</div>'; return; }
+    const joIds = jos.map(j => j.id);
+    const { data: prs } = await sb.from('parts_requests').select('id, pr_number, part_name, qty, uom, status, job_order_id, unit_id, job_orders(jo_number), units(code)').in('job_order_id', joIds).order('id', { ascending: false });
+    if (!prs || prs.length === 0) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada parts request.</div>'; return; }
+    container.innerHTML = prs.map(pr => `
+      <div class="m-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${pr.pr_number}</div>
+          ${badge(pr.status)}
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#1E293B;">${pr.part_name}</div>
+        <div style="font-size:12px;color:#64748B;">Qty: ${pr.qty} ${pr.uom} &nbsp;|&nbsp; JO: ${pr.job_orders ? pr.job_orders.jo_number : '—'} &nbsp;|&nbsp; Unit: ${pr.units ? pr.units.code : '—'}</div>
+      </div>`).join('');
+  } catch (e) { showToast('Error parts: ' + e.message); }
+}
+
+async function loadMknUnitsForSelesaikan() {
+  const unitSel = document.getElementById('mkn-log-unit');
+  if (!unitSel) return;
+  try {
+    const { data: jos } = await sb.from('job_orders').select('unit_id, units(id, code, name)').eq('assigned_mkn_id', currentProfile.id).eq('status', 'in_progress');
+    const seen = new Set();
+    const unitOpts = [];
+    if (jos) {
+      jos.forEach(jo => {
+        if (jo.units && !seen.has(jo.unit_id)) {
+          seen.add(jo.unit_id);
+          unitOpts.push(`<option value="${jo.unit_id}">${jo.units.code} — ${jo.units.name}</option>`);
+        }
+      });
+    }
+    unitSel.innerHTML = '<option value="">-- Pilih Unit --</option>' + unitOpts.join('');
+    document.getElementById('mkn-log-date').value = todayISO();
+  } catch (e) { /* ignore */ }
+}
+
+async function loadMknJOForUnit() {
+  const unitId = document.getElementById('mkn-log-unit').value;
+  const joSel = document.getElementById('mkn-log-jo');
+  if (!unitId) { joSel.innerHTML = '<option value="">-- Pilih JO --</option>'; return; }
+  try {
+    const { data: jos } = await sb.from('job_orders').select('id, jo_number, type').eq('assigned_mkn_id', currentProfile.id).eq('unit_id', unitId).eq('status', 'in_progress');
+    joSel.innerHTML = '<option value="">-- Pilih Job Order --</option>' + (jos || []).map(j => `<option value="${j.id}">${j.jo_number} — ${j.type}</option>`).join('');
+  } catch (e) { /* ignore */ }
+}
+
+async function submitServiceLog() {
+  const unitId = document.getElementById('mkn-log-unit').value;
+  const joId = document.getElementById('mkn-log-jo').value;
+  const mType = document.getElementById('mkn-log-type').value.trim();
+  const hm = parseInt(document.getElementById('mkn-log-hm').value);
+  const date = document.getElementById('mkn-log-date').value;
+  const parts = document.getElementById('mkn-log-parts').value.trim();
+  const cost = parseInt(document.getElementById('mkn-log-cost').value) || 0;
+  const notes = document.getElementById('mkn-log-notes').value.trim();
+  if (!unitId || !joId || !mType || !hm || !date) { showToast('Lengkapi semua field yang wajib.'); return; }
+  try {
+    const { data: unit } = await sb.from('units').select('code, name').eq('id', unitId).single();
+    const logNum = 'LOG-' + Date.now();
+    const { error: e1 } = await sb.from('service_log').insert({
+      unit_id: unitId, unit_code: unit ? unit.code : '', maintenance_type: mType,
+      hm_at_service: hm, service_date: date, mkn_id: currentProfile.id,
+      mkn_name: currentProfile.name || '', parts_used: parts, cost_idr: cost,
+      notes, job_order_id: joId, created_at: new Date().toISOString()
+    });
+    if (e1) throw e1;
+    const { error: e2 } = await sb.from('job_orders').update({ status: 'done' }).eq('id', joId);
+    if (e2) throw e2;
+    const { data: jo } = await sb.from('job_orders').select('linked_sr_id').eq('id', joId).single();
+    if (jo && jo.linked_sr_id) {
+      await sb.from('service_requests').update({ status: 'done_confirm', completed_at: new Date().toISOString() }).eq('id', jo.linked_sr_id);
+    }
+    // Update maintenance_schedules last_hm and last_date
+    await sb.from('maintenance_schedules').update({ last_hm: hm, last_date: date }).eq('unit_id', unitId).eq('type_name', mType);
+    showToast('Service log berhasil disimpan!', 'success');
+    document.getElementById('mkn-log-unit').value = '';
+    document.getElementById('mkn-log-jo').innerHTML = '<option value="">-- Pilih JO --</option>';
+    document.getElementById('mkn-log-type').value = '';
+    document.getElementById('mkn-log-hm').value = '';
+    document.getElementById('mkn-log-parts').value = '';
+    document.getElementById('mkn-log-cost').value = '';
+    document.getElementById('mkn-log-notes').value = '';
+    await loadMKNJobOrders();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+function switchMknScreen(name, el) {
+  document.querySelectorAll('#view-mkn .mscreen').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('#view-mkn .nav-tab').forEach(t => t.classList.remove('on'));
+  const screen = document.getElementById('mkn-screen-' + name);
+  if (screen) screen.classList.add('on');
+  if (el) el.classList.add('on');
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+async function loadAdminData() {
+  await Promise.all([
+    loadAdminDashboard(),
+    loadAdminProfiles(),
+    loadAdminUnits(),
+  ]);
+  initAdminPipeline();
+  initAdminJadwalFilters();
+  renderAdminJadwal();
+  loadAdminJadwalMKN();
+  initAdminRiwayat();
+}
+
+async function loadAdminProfiles() {
+  try {
+    const { data } = await sb.from('profiles').select('id, name, role');
+    allProfiles = data || [];
+    allMknProfiles = allProfiles.filter(p => p.role === 'mkn');
+    allOperatorProfiles = allProfiles.filter(p => p.role === 'operator');
+  } catch (e) { /* ignore */ }
+}
+
+async function loadAdminUnits() {
+  try {
+    const { data } = await sb.from('units').select('id, code, name, model, current_hm, assigned_operator_id');
+    allUnits = data || [];
+    populateUnitFormOperators();
+    renderAdminUnitTable();
+  } catch (e) { /* ignore */ }
+}
+
+async function loadAdminDashboard() {
+  try {
+    const { data: units } = await sb.from('units').select('id, code, name, model, current_hm');
+    const { data: scheds } = await sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm');
+    const { data: srs } = await sb.from('service_requests').select('id, status').eq('status', 'pending_spv');
+    let overdue = 0, dueSoon = 0;
+    const unitStatusMap = {};
+    if (units) units.forEach(u => unitStatusMap[u.id] = { unit: u, statuses: [], overdue: [], dueSoon: [] });
+    if (scheds && units) {
+      scheds.forEach(s => {
+        const u = units.find(u => u.id === s.unit_id);
+        if (u) {
+          const st = mStatus(s.interval_hm, s.last_hm, u.current_hm || 0);
+          if (st === 'OVERDUE') { overdue++; if (unitStatusMap[u.id]) unitStatusMap[u.id].overdue.push(s.type_name); }
+          else if (st === 'DUE SOON') { dueSoon++; if (unitStatusMap[u.id]) unitStatusMap[u.id].dueSoon.push(s.type_name); }
+          if (unitStatusMap[u.id]) unitStatusMap[u.id].statuses.push(st);
+        }
+      });
+    }
+    const statsEl = document.getElementById('admin-stats');
+    if (statsEl) statsEl.innerHTML = [
+      { label: 'Total Unit', value: units ? units.length : 0, color: '#1D4ED8', bg: '#EFF6FF' },
+      { label: 'Overdue', value: overdue, color: '#DC2626', bg: '#FEF2F2' },
+      { label: 'Due Soon', value: dueSoon, color: '#D97706', bg: '#FFFBEB' },
+      { label: 'Pending Request', value: srs ? srs.length : 0, color: '#7C3AED', bg: '#F5F3FF' },
+    ].map(s => `
+      <div class="stat-card" style="background:${s.bg};">
+        <div style="font-size:36px;font-weight:800;color:${s.color};">${s.value}</div>
+        <div style="font-size:13px;color:#64748B;font-weight:600;">${s.label}</div>
+      </div>`).join('');
+    const gridEl = document.getElementById('admin-unit-grid');
+    if (gridEl && units) {
+      gridEl.innerHTML = units.map(u => {
+        const uData = unitStatusMap[u.id];
+        const worst = uData && uData.statuses.includes('OVERDUE') ? 'OVERDUE' : uData && uData.statuses.includes('DUE SOON') ? 'DUE SOON' : 'OK';
+        const overdueList = uData ? uData.overdue : [];
+        const dueSoonList = uData ? uData.dueSoon : [];
+        return `<div class="stat-card" style="border-left:4px solid ${worst === 'OVERDUE' ? '#EF4444' : worst === 'DUE SOON' ? '#F59E0B' : '#10B981'};">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <div>
+              <div style="font-size:15px;font-weight:700;color:#1E293B;">${u.code}</div>
+              <div style="font-size:12px;color:#64748B;">${u.name} — ${u.model || '—'}</div>
+            </div>
+            <div style="text-align:right;">
+              ${badge(worst)}
+              <div style="font-size:12px;font-weight:700;color:#1D4ED8;margin-top:4px;">HM: ${u.current_hm || 0}</div>
+            </div>
+          </div>
+          ${overdueList.length > 0 ? `<div style="font-size:11px;color:#DC2626;margin-top:4px;">Overdue: ${overdueList.join(', ')}</div>` : ''}
+          ${dueSoonList.length > 0 ? `<div style="font-size:11px;color:#D97706;margin-top:2px;">Due Soon: ${dueSoonList.join(', ')}</div>` : ''}
+        </div>`;
+      }).join('');
+    }
+  } catch (e) { showToast('Error dashboard: ' + e.message); }
+}
+
+function initAdminPipeline() {
+  const tabsEl = document.getElementById('adm-pipeline-tabs');
+  if (tabsEl) tabsEl.innerHTML = pipelineStages.map(s => `<button class="ptab ${s === adminPipelineTab ? 'on' : ''}" onclick="setAdminPipelineTab('${s}')">${pipelineLabels[s]}</button>`).join('');
+  renderAdminSRTable();
+}
+
+async function setAdminPipelineTab(tab) {
+  adminPipelineTab = tab;
+  document.querySelectorAll('#adm-pipeline-tabs .ptab').forEach(el => el.classList.toggle('on', el.textContent === pipelineLabels[tab]));
+  await renderAdminSRTable();
+}
+
+async function renderAdminSRTable() {
+  const wrap = document.getElementById('adm-sr-table-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="padding:30px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: srs } = await sb.from('service_requests').select('id, sr_number, unit_id, category, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name), profiles!service_requests_submitted_by_fkey(name)').eq('status', adminPipelineTab).order('created_at', { ascending: false });
+    if (!srs || srs.length === 0) { wrap.innerHTML = '<div style="padding:30px;text-align:center;color:#94A3B8;">Tidak ada data.</div>'; return; }
+    const colMap = {
+      pending_spv: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Tanggal','Aksi'],
+      approved_spv: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Tanggal'],
+      scheduled: ['SR#','Unit','Kategori','Urgensi','Jadwal','MKN'],
+      in_progress: ['SR#','Unit','Kategori','Urgensi','MKN'],
+      done_confirm: ['SR#','Unit','Kategori','Urgensi','MKN','Aksi'],
+      confirmed: ['SR#','Unit','Kategori','Urgensi','MKN','Tgl Selesai'],
+    };
+    const cols = colMap[adminPipelineTab] || ['SR#','Unit','Kategori','Urgensi','Status'];
+    wrap.innerHTML = `<table class="dt">
+      <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+      <tbody>${srs.map(sr => {
+        const mknName = allMknProfiles.find(m => m.id === sr.assigned_mkn_id)?.name || '—';
+        let actions = '';
+        if (adminPipelineTab === 'pending_spv') {
+          actions = `<td><div style="display:flex;gap:6px;">
+            <button class="btn-success" style="padding:6px 10px;font-size:12px;" onclick="adminApproveSR('${sr.id}','${sr.sr_number}')">Setujui</button>
+            <button class="btn-danger" style="padding:6px 10px;font-size:12px;" onclick="adminRejectSR('${sr.id}','${sr.sr_number}')">Tolak</button>
+          </div></td>`;
+        } else if (adminPipelineTab === 'done_confirm') {
+          actions = `<td><button class="btn-success" style="padding:6px 10px;font-size:12px;" onclick="adminConfirmSR('${sr.id}')">Konfirmasi</button></td>`;
+        }
+        const rowBase = `<td style="font-weight:700;color:#1D4ED8;">${sr.sr_number}</td>
+          <td>${sr.units ? sr.units.code : '—'}</td>
+          <td>${sr.category}</td>`;
+        if (adminPipelineTab === 'pending_spv') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.created_at)}</td>${actions}</tr>`;
+        if (adminPipelineTab === 'approved_spv') return `<tr>${rowBase}<td>${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.created_at)}</td></tr>`;
+        if (adminPipelineTab === 'scheduled') return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${formatDate(sr.scheduled_date)}</td><td>${mknName}</td></tr>`;
+        if (adminPipelineTab === 'in_progress') return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${mknName}</td></tr>`;
+        if (adminPipelineTab === 'done_confirm') return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${mknName}</td>${actions}</tr>`;
+        if (adminPipelineTab === 'confirmed') return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.confirmed_at)}</td></tr>`;
+        return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${badge(sr.status)}</td></tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  } catch (e) { showToast('Error SR: ' + e.message); }
+}
+
+async function adminApproveSR(srId, srNum) {
+  const opts = allMknProfiles.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+  showModal(`<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Setujui: ${srNum}</div>
+    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Assign MKN</label>
+    <select id="adm-modal-mkn" class="finput" style="margin-bottom:16px;"><option value="">-- Pilih MKN --</option>${opts}</select>
+    <div style="display:flex;gap:8px;">
+      <button onclick="doAdminApproveSR('${srId}')" class="btn-success" style="flex:1;">Setujui</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+    </div>`);
+}
+
+async function doAdminApproveSR(srId) {
+  const mknId = document.getElementById('adm-modal-mkn').value;
+  if (!mknId) { showToast('Pilih MKN.'); return; }
+  try {
+    const { error } = await sb.from('service_requests').update({ status: 'approved_spv', assigned_mkn_id: mknId, spv_approved_at: new Date().toISOString() }).eq('id', srId);
+    if (error) throw error;
+    closeModal(); showToast('Disetujui!', 'success');
+    await renderAdminSRTable(); await loadAdminDashboard();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function adminRejectSR(srId, srNum) {
+  showModal(`<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Tolak: ${srNum}</div>
+    <textarea id="adm-rej-reason" class="finput" placeholder="Alasan..." style="margin-bottom:16px;"></textarea>
+    <div style="display:flex;gap:8px;">
+      <button onclick="doAdminRejectSR('${srId}')" class="btn-danger" style="flex:1;">Tolak</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+    </div>`);
+}
+
+async function doAdminRejectSR(srId) {
+  const reason = document.getElementById('adm-rej-reason').value.trim();
+  if (!reason) { showToast('Alasan wajib.'); return; }
+  try {
+    const { error } = await sb.from('service_requests').update({ status: 'rejected', rejection_reason: reason }).eq('id', srId);
+    if (error) throw error;
+    closeModal(); showToast('Ditolak.', 'info');
+    await renderAdminSRTable(); await loadAdminDashboard();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function adminConfirmSR(srId) {
+  try {
+    const { error } = await sb.from('service_requests').update({ status: 'confirmed', confirmed_at: new Date().toISOString() }).eq('id', srId);
+    if (error) throw error;
+    showToast('Dikonfirmasi!', 'success');
+    await renderAdminSRTable();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+function initAdminJadwalFilters() {
+  const el = document.getElementById('adm-jadwal-filters');
+  if (!el) return;
+  const filters = ['Semua','Overdue','Due Soon','OK'];
+  el.innerHTML = filters.map(f => `<button class="vpill ${f === adminJadwalFilter ? 'on' : ''}" onclick="setAdminJadwalFilter('${f}')">${f}</button>`).join('');
+}
+
+function adminJadwalToggle(mode, el) {
+  adminJadwalMode = mode;
+  document.getElementById('adm-jt-unit').classList.toggle('on', mode === 'unit');
+  document.getElementById('adm-jt-tipe').classList.toggle('on', mode === 'tipe');
+  renderAdminJadwal();
+}
+
+async function setAdminJadwalFilter(f) {
+  adminJadwalFilter = f;
+  document.querySelectorAll('#adm-jadwal-filters .vpill').forEach(b => b.classList.toggle('on', b.textContent === f));
+  await renderAdminJadwal();
+}
+
+async function renderAdminJadwal() {
+  const wrap = document.getElementById('adm-jadwal-table-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="padding:30px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: scheds } = await sb.from('maintenance_schedules').select('id, unit_id, type_name, interval_hm, last_hm, last_date, units(id, code, name, current_hm)').order('unit_id');
+    if (!scheds) { wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada data.</div>'; return; }
+    const filterMap = { 'Semua': null, 'Overdue': 'OVERDUE', 'Due Soon': 'DUE SOON', 'OK': 'OK' };
+    const filterVal = filterMap[adminJadwalFilter];
+    let data = scheds.map(s => {
+      const hm = s.units ? s.units.current_hm || 0 : 0;
+      const rem = mRemaining(s.interval_hm, s.last_hm, hm);
+      const st = mStatus(s.interval_hm, s.last_hm, hm);
+      return { ...s, hm, remaining: rem, status: st, hm_due: s.last_hm + s.interval_hm };
+    });
+    if (filterVal) data = data.filter(d => d.status === filterVal);
+    if (data.length === 0) { wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada data.</div>'; return; }
+    if (adminJadwalMode === 'unit') data.sort((a,b) => (a.units?.code||'').localeCompare(b.units?.code||''));
+    else data.sort((a,b) => a.type_name.localeCompare(b.type_name));
+    wrap.innerHTML = `<table class="dt">
+      <thead><tr><th>Unit</th><th>Tipe Maintenance</th><th>Interval (HM)</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>HM Due</th><th>HM Sekarang</th><th>Sisa HM</th><th>Status</th></tr></thead>
+      <tbody>${data.map(d => `<tr class="${d.status === 'OVERDUE' ? 'row-overdue' : d.status === 'DUE SOON' ? 'row-duesoon' : ''}">
+        <td style="font-weight:600;">${d.units ? d.units.code : '—'}</td>
+        <td>${d.type_name}</td>
+        <td>${d.interval_hm}</td>
+        <td>${d.last_hm}</td>
+        <td>${formatDate(d.last_date)}</td>
+        <td>${d.hm_due}</td>
+        <td>${d.hm}</td>
+        <td style="font-weight:700;color:${d.remaining < 0 ? '#DC2626' : '#374151'};">${d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining}</td>
+        <td>${badge(d.status)}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch (e) { showToast('Error jadwal: ' + e.message); }
+}
+
+async function loadAdminJadwalMKN() {
+  const wrap = document.getElementById('adm-jadwalmkn-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="padding:30px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: jos } = await sb.from('job_orders').select('id, jo_number, unit_id, type, status, priority, scheduled_date, assigned_mkn_id, units(code, name)').order('assigned_mkn_id').order('scheduled_date');
+    if (!jos || jos.length === 0) { wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada job order.</div>'; return; }
+    // Group by MKN
+    const groups = {};
+    jos.forEach(jo => {
+      const mknName = allMknProfiles.find(m => m.id === jo.assigned_mkn_id)?.name || 'Unassigned';
+      if (!groups[mknName]) groups[mknName] = [];
+      groups[mknName].push(jo);
+    });
+    let html = `<table class="dt"><thead><tr><th>MKN</th><th>JO#</th><th>Unit</th><th>Tipe</th><th>Jadwal</th><th>Prioritas</th><th>Status</th></tr></thead><tbody>`;
+    Object.entries(groups).forEach(([mkn, joList]) => {
+      html += `<tr class="grp"><td colspan="7">${mkn}</td></tr>`;
+      joList.forEach(jo => {
+        html += `<tr>
+          <td></td>
+          <td style="font-weight:700;color:#1D4ED8;">${jo.jo_number}</td>
+          <td>${jo.units ? jo.units.code : '—'}</td>
+          <td>${jo.type}</td>
+          <td>${formatDate(jo.scheduled_date)}</td>
+          <td>${badge(jo.priority)}</td>
+          <td>${badge(jo.status)}</td>
+        </tr>`;
+      });
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  } catch (e) { showToast('Error jadwal MKN: ' + e.message); }
+}
+
+async function initAdminRiwayat() {
+  const pillsEl = document.getElementById('adm-unit-pills');
+  if (!pillsEl) return;
+  try {
+    const { data: units } = await sb.from('units').select('id, code, name').order('code');
+    if (!units || units.length === 0) return;
+    pillsEl.innerHTML = units.map((u, i) => `<button class="unit-pill ${i === 0 ? 'on' : ''}" onclick="loadAdminRiwayatUnit('${u.id}', this)">${u.code}</button>`).join('');
+    adminRiwayatUnit = units[0].id;
+    await loadAdminRiwayatUnit(units[0].id, pillsEl.children[0]);
+  } catch (e) { showToast('Error riwayat: ' + e.message); }
+}
+
+async function loadAdminRiwayatUnit(unitId, el) {
+  adminRiwayatUnit = unitId;
+  document.querySelectorAll('#adm-unit-pills .unit-pill').forEach(b => b.classList.remove('on'));
+  if (el) el.classList.add('on');
+  await Promise.all([loadAdminRiwayatSchedule(unitId), loadAdminRiwayatLog(unitId)]);
+}
+
+async function loadAdminRiwayatSchedule(unitId) {
+  const el = document.getElementById('adm-riwayat-schedule');
+  if (!el) return;
+  try {
+    const { data: unit } = await sb.from('units').select('current_hm').eq('id', unitId).single();
+    const { data: scheds } = await sb.from('maintenance_schedules').select('type_name, interval_hm, last_hm, last_date').eq('unit_id', unitId);
+    if (!scheds || scheds.length === 0) { el.innerHTML = '<div style="padding:16px;color:#94A3B8;font-size:13px;">Tidak ada jadwal.</div>'; return; }
+    const hm = unit ? unit.current_hm || 0 : 0;
+    el.innerHTML = `<table class="dt"><thead><tr><th>Tipe</th><th>Interval</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>Sisa HM</th><th>Status</th></tr></thead>
+      <tbody>${scheds.map(s => {
+        const rem = mRemaining(s.interval_hm, s.last_hm, hm);
+        const st = mStatus(s.interval_hm, s.last_hm, hm);
+        return `<tr class="${st === 'OVERDUE' ? 'row-overdue' : st === 'DUE SOON' ? 'row-duesoon' : ''}">
+          <td>${s.type_name}</td><td>${s.interval_hm}</td><td>${s.last_hm}</td>
+          <td>${formatDate(s.last_date)}</td>
+          <td style="font-weight:700;color:${rem < 0 ? '#DC2626' : '#374151'};">${rem < 0 ? '(' + Math.abs(rem) + ')' : rem}</td>
+          <td>${badge(st)}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+  } catch (e) { el.innerHTML = '<div style="color:#EF4444;font-size:13px;padding:10px;">Error: ' + e.message + '</div>'; }
+}
+
+async function loadAdminRiwayatLog(unitId) {
+  const el = document.getElementById('adm-riwayat-log');
+  if (!el) return;
+  try {
+    const { data: logs } = await sb.from('service_log').select('id, maintenance_type, hm_at_service, service_date, mkn_name, parts_used, cost_idr, notes, created_at').eq('unit_id', unitId).order('service_date', { ascending: false });
+    if (!logs || logs.length === 0) { el.innerHTML = '<div style="padding:16px;color:#94A3B8;font-size:13px;">Belum ada riwayat servis.</div>'; return; }
+    el.innerHTML = logs.map(l => `
+      <div style="background:white;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:14px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
+          <div style="font-size:12px;color:#94A3B8;">${formatDate(l.service_date)}</div>
+        </div>
+        <div style="font-size:12px;color:#64748B;">HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '—'}</div>
+        ${l.parts_used ? `<div style="font-size:12px;color:#374151;margin-top:4px;">Parts: ${l.parts_used}</div>` : ''}
+        ${l.cost_idr ? `<div style="font-size:12px;font-weight:600;color:#1D4ED8;margin-top:2px;">${formatCurrency(l.cost_idr)}</div>` : ''}
+        ${l.notes ? `<div style="font-size:12px;color:#64748B;margin-top:2px;font-style:italic;">${l.notes}</div>` : ''}
+      </div>`).join('');
+  } catch (e) { el.innerHTML = '<div style="color:#EF4444;font-size:13px;padding:10px;">Error: ' + e.message + '</div>'; }
+}
+
+// Admin Kelola Pengguna
+async function loadAdminUsers() {
+  const wrap = document.getElementById('adm-users-table-wrap');
+  const filterEl = document.getElementById('adm-user-role-filters');
+  if (!wrap) return;
+  const roles = ['all','operator','spv','mkn','admin','pending'];
+  if (filterEl) filterEl.innerHTML = roles.map(r => `<button class="vpill ${r === adminUserRoleFilter ? 'on' : ''}" onclick="setAdminUserRoleFilter('${r}')">${r === 'all' ? 'Semua' : r.toUpperCase()}</button>`).join('');
+  wrap.innerHTML = '<div style="padding:30px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    let query = sb.from('profiles').select('id, name, role');
+    if (adminUserRoleFilter !== 'all') query = query.eq('role', adminUserRoleFilter);
+    const { data: profiles } = await query.order('role').order('name');
+    if (!profiles || profiles.length === 0) { wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada pengguna.</div>'; return; }
+    const unitsByOp = {};
+    allUnits.forEach(u => { if (u.assigned_operator_id) unitsByOp[u.assigned_operator_id] = u.code; });
+    wrap.innerHTML = `<table class="dt">
+      <thead><tr><th>Nama</th><th>ID (auth)</th><th>Role</th><th>Unit</th><th>Aksi</th></tr></thead>
+      <tbody>${profiles.map(p => `<tr id="user-row-${p.id}">
+        <td style="font-weight:600;">${p.name || '—'}</td>
+        <td style="font-size:11px;color:#94A3B8;">${p.id.slice(0,8)}...</td>
+        <td>${badge(p.role)}</td>
+        <td style="font-size:12px;">${unitsByOp[p.id] || '—'}</td>
+        <td><button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="openEditUserModal('${p.id}','${p.name || ''}','${p.role}')">Edit</button></td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch (e) { showToast('Error users: ' + e.message); }
+}
+
+async function setAdminUserRoleFilter(r) {
+  adminUserRoleFilter = r;
+  await loadAdminUsers();
+}
+
+function openEditUserModal(id, name, role) {
+  const roles = ['operator','spv','mkn','admin','pending'];
+  const unitOpts = allUnits.map(u => `<option value="${u.id}">${u.code} — ${u.name}</option>`).join('');
+  const currentUnit = allUnits.find(u => u.assigned_operator_id === id);
+  showModal(`<div style="font-size:16px;font-weight:700;margin-bottom:14px;">Edit Pengguna</div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:5px;">Nama</label>
+      <input type="text" id="edit-user-name" class="finput" value="${name}" style="font-size:14px;padding:10px 12px;">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:5px;">Role</label>
+      <select id="edit-user-role" class="finput" style="font-size:14px;padding:10px 12px;" onchange="toggleEditUnitField()">
+        ${roles.map(r => `<option value="${r}" ${r === role ? 'selected' : ''}>${r.toUpperCase()}</option>`).join('')}
+      </select>
+    </div>
+    <div id="edit-unit-field" style="margin-bottom:16px;${role === 'operator' ? '' : 'display:none;'}">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:5px;">Unit (untuk Operator)</label>
+      <select id="edit-user-unit" class="finput" style="font-size:14px;padding:10px 12px;">
+        <option value="">-- Tidak ada --</option>${unitOpts}
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="saveEditUser('${id}')" class="btn-primary" style="flex:1;">Simpan</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+    </div>`);
+  if (currentUnit) {
+    const unitSel = document.getElementById('edit-user-unit');
+    if (unitSel) unitSel.value = currentUnit.id;
+  }
+}
+
+function toggleEditUnitField() {
+  const role = document.getElementById('edit-user-role').value;
+  const field = document.getElementById('edit-unit-field');
+  if (field) field.style.display = role === 'operator' ? 'block' : 'none';
+}
+
+async function saveEditUser(id) {
+  const name = document.getElementById('edit-user-name').value.trim();
+  const role = document.getElementById('edit-user-role').value;
+  const unitSel = document.getElementById('edit-user-unit');
+  const unitId = unitSel ? unitSel.value : '';
+  if (!name) { showToast('Nama wajib diisi.'); return; }
+  try {
+    const { error } = await sb.from('profiles').update({ name, role }).eq('id', id);
+    if (error) throw error;
+    // Update unit assignment for operator
+    if (role === 'operator' && unitId) {
+      // Remove old assignment
+      await sb.from('units').update({ assigned_operator_id: null }).eq('assigned_operator_id', id);
+      await sb.from('units').update({ assigned_operator_id: id }).eq('id', unitId);
+    } else if (role !== 'operator') {
+      // Clear unit assignment if not operator
+      await sb.from('units').update({ assigned_operator_id: null }).eq('assigned_operator_id', id);
+    }
+    closeModal(); showToast('Pengguna berhasil diupdate!', 'success');
+    await loadAdminProfiles(); await loadAdminUsers(); await loadAdminUnits();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+// Admin Kelola Unit
+function populateUnitFormOperators() {
+  const sel = document.getElementById('uf-operator');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Tidak ada --</option>' + allOperatorProfiles.map(op => `<option value="${op.id}">${op.name}</option>`).join('');
+}
+
+function renderAdminUnitTable() {
+  const wrap = document.getElementById('adm-unit-table-wrap');
+  if (!wrap) return;
+  if (!allUnits || allUnits.length === 0) { wrap.innerHTML = '<div style="padding:20px;color:#94A3B8;font-size:13px;">Belum ada unit.</div>'; return; }
+  wrap.innerHTML = `<table class="dt">
+    <thead><tr><th>Kode</th><th>Nama</th><th>Model</th><th>HM</th><th>Operator</th><th>Aksi</th></tr></thead>
+    <tbody>${allUnits.map(u => {
+      const opName = allOperatorProfiles.find(op => op.id === u.assigned_operator_id)?.name || '—';
+      return `<tr>
+        <td style="font-weight:700;">${u.code}</td>
+        <td>${u.name}</td>
+        <td>${u.model || '—'}</td>
+        <td style="font-weight:600;">${u.current_hm || 0}</td>
+        <td>${opName}</td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-secondary" style="padding:6px 10px;font-size:12px;" onclick="editUnit('${u.id}')">Edit</button>
+            <button class="btn-danger" style="padding:6px 10px;font-size:12px;" onclick="deleteUnit('${u.id}','${u.code}')">Hapus</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function editUnit(id) {
+  const u = allUnits.find(u => u.id === id);
+  if (!u) return;
+  document.getElementById('uf-code').value = u.code;
+  document.getElementById('uf-name').value = u.name;
+  document.getElementById('uf-model').value = u.model || '';
+  document.getElementById('uf-hm').value = u.current_hm || 0;
+  document.getElementById('uf-operator').value = u.assigned_operator_id || '';
+  document.getElementById('uf-edit-id').value = id;
+  document.getElementById('unit-form-title').textContent = 'Edit Unit';
+  document.getElementById('uf-save-btn').textContent = 'Simpan Perubahan';
+  document.getElementById('uf-cancel-btn').style.display = 'block';
+}
+
+function cancelUnitEdit() {
+  document.getElementById('uf-code').value = '';
+  document.getElementById('uf-name').value = '';
+  document.getElementById('uf-model').value = '';
+  document.getElementById('uf-hm').value = '';
+  document.getElementById('uf-operator').value = '';
+  document.getElementById('uf-edit-id').value = '';
+  document.getElementById('unit-form-title').textContent = 'Tambah Unit Baru';
+  document.getElementById('uf-save-btn').textContent = 'Tambah Unit';
+  document.getElementById('uf-cancel-btn').style.display = 'none';
+}
+
+async function saveUnit() {
+  const code = document.getElementById('uf-code').value.trim();
+  const name = document.getElementById('uf-name').value.trim();
+  const model = document.getElementById('uf-model').value.trim();
+  const hm = parseInt(document.getElementById('uf-hm').value) || 0;
+  const opId = document.getElementById('uf-operator').value;
+  const editId = document.getElementById('uf-edit-id').value;
+  if (!code || !name) { showToast('Kode dan nama wajib diisi.'); return; }
+  try {
+    if (editId) {
+      const { error } = await sb.from('units').update({ code, name, model, current_hm: hm, assigned_operator_id: opId || null }).eq('id', editId);
+      if (error) throw error;
+      showToast('Unit berhasil diupdate!', 'success');
+    } else {
+      const { data: newUnit, error } = await sb.from('units').insert({ code, name, model, current_hm: hm, assigned_operator_id: opId || null }).select('id').single();
+      if (error) throw error;
+      // Auto-create maintenance_schedules from all maintenance_types
+      const { data: mtypes } = await sb.from('maintenance_types').select('type_name, default_interval_hm');
+      if (mtypes && mtypes.length > 0 && newUnit) {
+        const schedInserts = mtypes.map(mt => ({ unit_id: newUnit.id, type_name: mt.type_name, interval_hm: mt.default_interval_hm, last_hm: 0, last_date: null }));
+        await sb.from('maintenance_schedules').insert(schedInserts);
+      }
+      showToast('Unit berhasil ditambahkan!', 'success');
+    }
+    cancelUnitEdit();
+    await loadAdminUnits();
+    await loadAdminDashboard();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function deleteUnit(id, code) {
+  showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Hapus Unit?</div>
+    <div style="color:#64748B;font-size:14px;margin-bottom:20px;">Apakah Anda yakin ingin menghapus unit <strong>${code}</strong>? Tindakan ini tidak dapat dibatalkan.</div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="confirmDeleteUnit('${id}')" class="btn-danger" style="flex:1;">Hapus</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+    </div>`);
+}
+
+async function confirmDeleteUnit(id) {
+  try {
+    await sb.from('maintenance_schedules').delete().eq('unit_id', id);
+    const { error } = await sb.from('units').delete().eq('id', id);
+    if (error) throw error;
+    closeModal(); showToast('Unit berhasil dihapus.', 'success');
+    await loadAdminUnits(); await loadAdminDashboard();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+// Admin Switch Screens
+function switchAdmin(name, el) {
+  document.querySelectorAll('.dscreen').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('.slink').forEach(l => l.classList.remove('on'));
+  const screen = document.getElementById('admin-screen-' + name);
+  if (screen) screen.classList.add('on');
+  if (el) el.classList.add('on');
+  // Lazy load specific screens
+  if (name === 'pengguna') loadAdminUsers();
+  if (name === 'jadwalmkn') loadAdminJadwalMKN();
+  if (name === 'riwayat') initAdminRiwayat();
+  if (name === 'jadwal') renderAdminJadwal();
+}
+
+// ============================================================
+// CSV IMPORT
+// ============================================================
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length === 0) return [];
+  const headers = parseCSVLine(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = parseCSVLine(line);
+    const obj = {};
+    headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
+    return obj;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current); current = '';
+    } else { current += ch; }
+  }
+  result.push(current);
+  return result;
+}
+
+let csvParsed = { units: [], intervals: [], log: [] };
+
+function previewCSV(type, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const data = parseCSV(e.target.result);
+    csvParsed[type] = data;
+    const previewEl = document.getElementById('imp-' + type + (type === 'intervals' ? '' : '') + '-preview');
+    const preview = data.slice(0, 5);
+    if (!preview.length) { if (previewEl) previewEl.innerHTML = '<div style="color:#EF4444;font-size:12px;">File kosong atau format salah.</div>'; return; }
+    const keys = Object.keys(preview[0]);
+    let html = `<div style="font-size:12px;color:#64748B;margin-bottom:6px;">${data.length} baris ditemukan. Preview 5 pertama:</div>
+      <div style="overflow-x:auto;"><table style="width:100%;font-size:11px;border-collapse:collapse;">
+      <thead><tr>${keys.map(k => `<th style="background:#F8FAFC;padding:5px;border:1px solid #E2E8F0;">${k}</th>`).join('')}</tr></thead>
+      <tbody>${preview.map(r => `<tr>${keys.map(k => `<td style="padding:4px 5px;border:1px solid #F1F5F9;">${r[k] || ''}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>`;
+    const typeMap = { units: 'units', intervals: 'intervals', log: 'log' };
+    const previewId = 'imp-' + typeMap[type] + '-preview';
+    const btnId = 'imp-' + typeMap[type] + '-btn';
+    const prevEl = document.getElementById(previewId);
+    const btnEl = document.getElementById(btnId);
+    if (prevEl) prevEl.innerHTML = html;
+    if (btnEl) btnEl.style.display = 'block';
+  };
+  reader.readAsText(file);
+}
+
+async function importCSV(type) {
+  const data = csvParsed[type];
+  if (!data || data.length === 0) { showToast('Tidak ada data untuk diimport.'); return; }
+  let successCount = 0, errorCount = 0;
+  const btnId = 'imp-' + type + '-btn';
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.disabled = true; btn.textContent = 'Mengimport...'; }
+  try {
+    if (type === 'units') {
+      for (const row of data) {
+        try {
+          const { error } = await sb.from('units').insert({ code: row.code, name: row.name, model: row.model, current_hm: parseInt(row.current_hm) || 0 });
+          if (error) throw error;
+          successCount++;
+        } catch { errorCount++; }
+      }
+    } else if (type === 'intervals') {
+      for (const row of data) {
+        try {
+          const { error } = await sb.from('maintenance_types').upsert({ type_name: row.type_name, default_interval_hm: parseInt(row.default_interval_hm) || 0 }, { onConflict: 'type_name' });
+          if (error) throw error;
+          successCount++;
+        } catch { errorCount++; }
+      }
+    } else if (type === 'log') {
+      for (const row of data) {
+        try {
+          const { data: units } = await sb.from('units').select('id').eq('code', row.unit_code).single();
+          const unitId = units ? units.id : null;
+          const { error } = await sb.from('service_log').insert({
+            unit_id: unitId, unit_code: row.unit_code, maintenance_type: row.maintenance_type,
+            hm_at_service: parseInt(row.hm_at_service) || 0, service_date: row.service_date,
+            mkn_name: row.mkn_name, parts_used: row.parts_used, cost_idr: parseInt(row.cost_idr) || 0,
+            notes: row.notes, created_at: new Date().toISOString()
+          });
+          if (error) throw error;
+          successCount++;
+        } catch { errorCount++; }
+      }
+    }
+    showToast(`Import selesai: ${successCount} berhasil, ${errorCount} error.`, successCount > 0 ? 'success' : 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
+  } catch (e) {
+    showToast('Error import: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
+  }
+}
+
+// ============================================================
+// CSV EXPORT
+// ============================================================
+function downloadCSV(filename, content) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toCSVRow(vals) {
+  return vals.map(v => {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }).join(',');
+}
+
+async function exportServiceLog() {
+  try {
+    const { data: logs, error } = await sb.from('service_log').select('unit_code, maintenance_type, service_date, hm_at_service, mkn_name, parts_used, cost_idr, notes, job_order_id, created_at').order('service_date', { ascending: false });
+    if (error) throw error;
+    const headers = ['unit_code','maintenance_type','service_date','hm_at_service','mkn_name','parts_used','cost_idr','notes','job_order_id','created_at'];
+    let csv = headers.join(',') + '\n';
+    (logs || []).forEach(l => { csv += toCSVRow(headers.map(h => l[h])) + '\n'; });
+    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    downloadCSV(`service_log_${dateStr}.csv`, csv);
+    showToast('Export berhasil!', 'success');
+  } catch (e) { showToast('Export gagal: ' + e.message); }
+}
+
+async function exportSchedule() {
+  try {
+    const { data: scheds, error } = await sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm, last_date, units(code, name, current_hm)').order('unit_id');
+    if (error) throw error;
+    const headers = ['unit_code','unit_name','type_name','interval_hm','last_hm','last_date','current_hm','hm_due','sisa_hm','status'];
+    let csv = headers.join(',') + '\n';
+    (scheds || []).forEach(s => {
+      const hm = s.units ? s.units.current_hm || 0 : 0;
+      const rem = mRemaining(s.interval_hm, s.last_hm, hm);
+      const st = mStatus(s.interval_hm, s.last_hm, hm);
+      csv += toCSVRow([
+        s.units ? s.units.code : '', s.units ? s.units.name : '',
+        s.type_name, s.interval_hm, s.last_hm, s.last_date, hm,
+        s.last_hm + s.interval_hm, rem, st
+      ]) + '\n';
+    });
+    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    downloadCSV(`jadwal_maintenance_${dateStr}.csv`, csv);
+    showToast('Export berhasil!', 'success');
+  } catch (e) { showToast('Export gagal: ' + e.message); }
+}
+
+// ============================================================
+// KEYBOARD ENTER ON LOGIN
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen && loginScreen.style.display !== 'none') doLogin();
+  }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Set initial screen states
+  document.querySelectorAll('.mscreen').forEach((el, i) => { if (i === 0 || el.id.endsWith('0')) {} });
+  // Set first mscreen as on for each view
+  ['view-operator','view-spv','view-mkn'].forEach(viewId => {
+    const view = document.getElementById(viewId);
+    if (view) {
+      const screens = view.querySelectorAll('.mscreen');
+      if (screens.length > 0) screens[0].classList.add('on');
+    }
+  });
+  boot();
+});
+</script>
+</body>
+</html>

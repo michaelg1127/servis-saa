@@ -1,0 +1,6 @@
+unit_code,maintenance_type,service_date,hm_at_service,mekanik_name,parts_used,cost_idr,notes
+EXC-01,Engine Oil & Filter,2026-06-10,4600,Budi Santoso,"Oli mesin 10L, Filter oli",450000,
+EXC-01,Hydraulic Oil Filter,2026-05-20,4300,Budi Santoso,Hydraulic filter 2 pcs,280000,Kebocoran kecil selang sudah diperbaiki
+EXC-02,Engine Oil & Filter,2026-06-01,3000,Andi Kurniawan,"Oli 10L, Filter oli, Air filter",520000,
+CRN-01,Engine Oil & Filter,2026-06-05,6300,Deni Mustafa,"Oli mesin 8L, Filter oli",380000,
+PTN-01,Engine Oil & Filter,2026-05-25,1600,Ramdan Maulana,"Oli 8L, Filter oli, Fuel filter",410000,Mesin susah start sudah cek karburator

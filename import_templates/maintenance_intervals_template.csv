@@ -1,0 +1,18 @@
+unit_code,maintenance_type,interval_hm,last_hm,last_date
+EXC-01,Engine Oil & Filter,250,4600,2026-06-10
+EXC-01,Hydraulic Oil Filter,500,4300,2026-05-20
+EXC-01,Air Filter,500,4400,2026-05-28
+EXC-01,Greasing All Points,50,4800,2026-06-17
+EXC-01,Final Drive Oil,1000,4000,2026-03-10
+EXC-02,Engine Oil & Filter,250,3000,2026-06-01
+EXC-02,Hydraulic Oil Filter,500,2700,2026-05-05
+EXC-02,Air Filter,500,3000,2026-06-01
+EXC-02,Greasing All Points,50,3190,2026-06-17
+CRN-01,Engine Oil & Filter,250,6300,2026-06-05
+CRN-01,Wire Rope Inspection,250,6310,2026-06-06
+CRN-01,Hydraulic Oil Filter,500,6000,2026-05-10
+CRN-01,Greasing All Points,50,6500,2026-06-17
+PTN-01,Engine Oil & Filter,250,1600,2026-05-25
+PTN-01,Impeller Inspection,500,1500,2026-05-15
+PTN-01,Greasing All Points,50,1800,2026-06-16
+PTN-01,Fuel Filter,250,1600,2026-05-25
