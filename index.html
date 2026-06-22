@@ -456,7 +456,7 @@
         <!-- Service Log CSV -->
         <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
           <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Import Service Log</div>
-          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: unit_code,maintenance_type,hm_at_service,service_date,mkn_name,parts_used,cost_idr,notes</div>
+          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: unit_code,maintenance_type,service_date,hm_at_service,mekanik_name,parts_used,cost_idr,notes</div>
           <input type="file" id="imp-log-file" accept=".csv" onchange="previewCSV('log',this)" style="font-size:13px;width:100%;">
           <div id="imp-log-preview" style="margin-top:12px;"></div>
           <button onclick="importCSV('log')" id="imp-log-btn" class="btn-primary" style="width:100%;margin-top:10px;display:none;">Import</button>
@@ -2152,15 +2152,20 @@ async function importCSV(type) {
         try {
           const { data: units } = await sb.from('units').select('id').eq('code', row.unit_code).single();
           const unitId = units ? units.id : null;
+          const mknName = (row.mekanik_name || row.mkn_name || '').trim();
+          const hmVal = parseFloat(row.hm_at_service) || 0;
+          const costVal = parseInt((row.cost_idr || '0').toString().replace(/[^0-9]/g, '')) || 0;
           const { error } = await sb.from('service_log').insert({
-            unit_id: unitId, unit_code: row.unit_code, maintenance_type: row.maintenance_type,
-            hm_at_service: parseInt(row.hm_at_service) || 0, service_date: row.service_date,
-            mkn_name: row.mkn_name, parts_used: row.parts_used, cost_idr: parseInt(row.cost_idr) || 0,
-            notes: row.notes, created_at: new Date().toISOString()
+            unit_id: unitId, unit_code: (row.unit_code||'').trim(),
+            maintenance_type: (row.maintenance_type||'').trim(),
+            hm_at_service: hmVal, service_date: row.service_date,
+            mkn_name: mknName, parts_used: row.parts_used || '',
+            cost_idr: costVal, notes: row.notes || '',
+            created_at: new Date().toISOString()
           });
           if (error) throw error;
           successCount++;
-        } catch { errorCount++; }
+        } catch(e) { errorCount++; console.error('log row error:', e.message||e, row); }
       }
     }
     showToast(`Import selesai: ${successCount} berhasil, ${errorCount} error.`, successCount > 0 ? 'success' : 'error');
