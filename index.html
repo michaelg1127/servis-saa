@@ -578,7 +578,7 @@ function mStatus(interval_hm, last_hm, current_hm) {
 }
 
 function mRemaining(interval_hm, last_hm, current_hm) {
-  return (last_hm + interval_hm) - current_hm;
+  return Math.round((last_hm + interval_hm) - current_hm);
 }
 
 function badge(status) {
