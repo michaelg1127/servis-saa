@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>SERVIS SAA — PT Surya Alam Armada</title>
+<title>SERVIS SAA â€” PT Surya Alam Armada</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -106,7 +106,7 @@
     </div>
     <div style="margin-bottom:22px;">
       <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Password</label>
-      <input id="login-password" type="password" class="finput" placeholder="••••••••">
+      <input id="login-password" type="password" class="finput" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢">
     </div>
     <button onclick="doLogin()" id="login-btn" class="btn-primary" style="width:100%;">Masuk</button>
     <div id="login-error" style="color:#EF4444;font-size:13px;text-align:center;margin-top:12px;display:none;"></div>
@@ -116,7 +116,7 @@
 <!-- PENDING SCREEN -->
 <div id="pending-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px;flex-direction:column;gap:16px;">
   <div style="background:white;border-radius:20px;padding:32px 28px;width:100%;max-width:380px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.10);">
-    <div style="font-size:40px;margin-bottom:16px;">⏳</div>
+    <div style="font-size:40px;margin-bottom:16px;">â³</div>
     <div style="font-size:18px;font-weight:700;color:#1E293B;margin-bottom:8px;">Menunggu Persetujuan</div>
     <div style="color:#64748B;font-size:14px;line-height:1.6;">Akun Anda sedang menunggu admin untuk mengatur role. Silakan hubungi admin atau coba lagi nanti.</div>
     <button onclick="doLogout()" class="btn-secondary" style="margin-top:20px;width:100%;">Keluar</button>
@@ -126,7 +126,7 @@
 <!-- WRONG DEVICE SCREEN -->
 <div id="wrong-device-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px;">
   <div style="background:white;border-radius:20px;padding:32px 28px;width:100%;max-width:380px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.10);">
-    <div style="font-size:40px;margin-bottom:16px;" id="wrong-device-icon">💻</div>
+    <div style="font-size:40px;margin-bottom:16px;" id="wrong-device-icon">ðŸ’»</div>
     <div style="font-size:17px;font-weight:700;color:#1E293B;margin-bottom:8px;" id="wrong-device-title">Gunakan Desktop</div>
     <div style="color:#64748B;font-size:14px;" id="wrong-device-msg">Tampilan Admin hanya tersedia di desktop/laptop.</div>
     <button onclick="doLogout()" class="btn-secondary" style="margin-top:20px;width:100%;">Keluar</button>
@@ -142,12 +142,12 @@
       <div id="op-unit-name" style="font-size:14px;color:#374151;font-weight:600;"></div>
       <div style="display:flex;gap:12px;margin-top:6px;">
         <div style="font-size:12px;color:#64748B;" id="op-unit-model"></div>
-        <div style="font-size:12px;font-weight:700;color:#1D4ED8;">HM: <span id="op-unit-hm">—</span></div>
+        <div style="font-size:12px;font-weight:700;color:#1D4ED8;">HM: <span id="op-unit-hm">â€”</span></div>
       </div>
     </div>
     <!-- HM Banner -->
     <div id="op-hm-banner" class="hm-banner" style="display:none;">
-      <div style="font-size:13px;font-weight:700;color:#92400E;margin-bottom:8px;">📊 Update HM Hari Ini</div>
+      <div style="font-size:13px;font-weight:700;color:#92400E;margin-bottom:8px;">ðŸ“Š Update HM Hari Ini</div>
       <div style="display:flex;gap:8px;align-items:center;">
         <input type="number" id="op-hm-input" class="finput" placeholder="Masukkan HM saat ini" style="flex:1;padding:10px 12px;font-size:14px;">
         <button onclick="submitHMUpdate()" class="btn-primary" style="padding:10px 16px;font-size:13px;white-space:nowrap;">Submit</button>
@@ -362,10 +362,15 @@
 <!-- ===== ADMIN DESKTOP VIEW ===== -->
 <div id="view-admin" style="display:none;">
   <div class="sidebar">
-    <div style="font-size:17px;font-weight:800;color:#1E3A8A;margin-bottom:4px;padding:4px 6px;">SERVIS SAA</div>
-    <div style="font-size:11px;color:#94A3B8;padding:0 6px;margin-bottom:18px;">PT Surya Alam Armada</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;padding:4px 6px;">
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALEAAADPCAYAAAC6ATB0AAAAAXNSR0IArs4c6QAAEiNJREFUeF7tnQewLUURhv8HigFzTqhgQMwZEVFRQDHnBCIGwICK+jCBgAkDWGqJKGBALGOpYMYcsBRzxIACpZY5Z0tFrP/WLu4975yz0729M7Pn/V1161Hc6Znpf767Ozs707sB9dkGACcC2Ke+rqlHHQWeC+CIGhQhMDWaQK5xVNb3SRDPGaNtAZzT+f8CuW6QBfGc8eGtaWsABwvkuulteieIF0B8OICjBbIgtihQ05yYV2JCTBPIllEsU1ZX4iVX4vZXArkMnKmtCuIEiHVFTsWpTDlBnAixQC4DaEqrgtgAsUBOQSp/GUFshFgg54e0r0VB7IBYIPdhlff3gtgJsUDOC+qy1gTxAIgFch0gC+KBEAvk8iAL4gCIBXJZkAVxEMQCuRzIgjgQYoFcBmRBHAyxQM4PsiAeAWKBnBdkQTwSxAI5H8iCeESIF4F8HID98o3xyrckiEeGeB7I/H/HC+SwPy5BnAFigRzG69yKBHEmiAXyeCAL4owQC+RxQBbEmSEWyPEgC+ICEAvkWJAFcSGIBXIcyIK4IMSLQN4FwJZxY5y1pmMB7JC1RUAQF4Z4EciZOQhr7nQAO4bVllaRIK4AYnbhEABHpo1Z1aUEcSXD001jlatLHPydcjU2YjuCeERxLVULYota68sKYr92oZ6C2C+nIPZrF+opiP1yCmK/dqGegtgvpyD2axfqKYj9cgpiv3ahnoLYL6cg9msX6imI/XIKYr92oZ6C2C+nIPZrF+opiP1yCmK/dqGegtgvpyD2axfqKYj9cgpiv3ahnoLYL6cg9msX6imI/XIKYr92oZ6C2C+nIPZrF+opiP1yCmK/dqGegtgvpyD2axfqKYj9cgpiv3ahnoLYL6cg9msX6imI/XIKYr92oZ6C2C+nIPZrF+opiP1yCmK/dqGegtgvpyD2axfqKYj9cgpiv3ahnoLYL6cg9msX6imI/XIKYr92oZ6C2C+nIPZrF+opiP1yCmK/dqGegtgvpyD2axfqKYj9cgpiv3ahnoLYL6cg9msX6imI/XIKYr92oZ6C2C+nIPZrF+opiP1yCmK/dqGegtgvpyD2axfqKYj9cgpiv3ahnoLYL6cg9msX6imI/XIKYr92oZ6C2C+nIPZrF+opiP1yCmK/dqGegtgvpyD2axfqKYj9cgpiv3ahnoLYL6cg9msX6imI/XIKYr92oZ6C2C/nYQD41fucxvY4ZsVtQ/Ee/L8DgnjYYBwFYOOwKkzegniOXCUgPgPAgaahq6fwuQBOm+lOTpAFcSUQ14OkrycnANi/EMiCWBD7qJ3jVQpkQSyIwyBmRSVAFsSCOBTiEiALYkEcDnFukAWxIB4F4pwgC2JBPBrEuUAWxIJ4VIhzgCyIBfHoEI8NsiAWxFkgHhNkQSyIs0HcgnwAgPM6rQ59RS2IBXFWiNnYSQD2DQRZEAvi7BBHgyyIBXERiCNBFsSCuBjEUSALYkFcFOIIkAWxIC4O8VCQBbEgrgLiISALYkFcDcRekAWxIK4KYg/IglgQVwexFWRBLIirhNgCsiAWxNVCnAqyIBbEVUOcArIgFsTVQ9wHsiAWxJOAeBnIf1Mutk3HsEQaq8mQVLij87ZxXgvAWYX7tdb85p5QsIYxmEof5oFcRd8FcRXDMJlOVAlyTRBPZiTV0boUEMR1jYd641BAEDtEk0tdCgjiusZDvXEoIIgdosmlLgUEcV3jod44FBDEDtHkUpcCgriu8VBvHAoIYodocqlLAUFc13ioNw4FBLFDNLnUpYAgrms81BuHAoLYIZpc6lJAENc1HuqNQwFB7BBNLnUpIIjrGg/1xqFAJMQ3B3BPAJdd8HMhAD8B8NPOv+1/fxbAPxz9l4sUGHQ86QoA7gBg1wbeqw3U81QAHwBAoL89sK6x3Xm+7EfGRj4M4G5Gn9qKVxm350p8awDPBrAngK1GUvnrAD4D4NUOWEbq0rpqXw7gIEdDW8x8M8NRRVGXKuO2QLxlAy8BvnAmKX8O4MgG5kxNJjXzHwDUw2pPBHCM1ami8lXGnQoxb4OEd+dCgr6/gfn0Qu13m70zgI87+3EmgO2dvqXdqo07BeLnAzi0tIIA/t2AzPwUJe1kAPcZ0AHOK88e4F/Ktdq4+yD2zoHGFPpxAF47ZgM9dXc/aOjpxisAPMXjWNin2riXQXwCgMcUFm5R8w8A8O4CfXs0gNcNbPdcABcYWEdu96rjXgTxWwE8NLdShvb+2izrfdrgE1GUqyY3DajoLgA+GlBPriqqjnsexPsDOC6XOgPa4bzy3gC+M6AOi+uVAXC1JMK4Hs4XQ1Ow6uOeB/FXANwiUN1fA/hZU99VAfAlSZS9CsCToirrqSf6AZdr7HxYrd2qj3sW4oir8LsAvKnJmMjXzEwB2rWtAVwdwHWaB5w7DhjFPza39x8PqCPV9Q8ALpVaOKHc4wG8JqFc6SLVxz0L8ZCrMB94CO/njKpzMJ8KgEtPHjsMAK8WYxrfUn4xuIHvAbh+cJ3R1U0i7i7E9wLwXqcKhHdfpy/dLg+Aews80xjuYbgJgL8PaL/P9c0A9u4r5Pj9tWvJ8bug75OIuwvx0wAc7RgIbtjZHcC/HL5dl12azT+easZeOx66RrooppcB2OgJOJPPJOLuQswXCAc4xNkJQNTrYO9DBKcy+zn6nuLyIADvSCnoKMM/fG5RrdEmE3cX4k822yotgv4CwFUsDglluZrB6YXFeDfgttAx7DQAtxuj4qZO7kmg9rXZZOLuQswN6tY9wXxrxrdnkfYpANYVizH+mBjTFQH80hgcX8BY+n8KgPsa2xi7+KTi7kLMpbCLGtXh3gquLEQa9xBzxcJqfftArPWx/NMBvMTgyCW/QxxbR7nsOOaDqSGEtaKTirs78F8DcDNjtF8CsKPRp684ASbIVuPaM+8mkWa9O3Fuzi2rnBJZjOvz3KtSi00q7i7EbwPwEIeKnBPzdh5lllvxbJuReyl4ZvCrxqDaPRHWKRGPY93Y2NZYxScXdxdi73fkqvmyZPCoHguAS3ep9mcAl2wKe+4mOwD4fmpjI5abXNxdiHkV5tXYY6sIsnWN9C2dFyJcXbFOKV4K4Bke8YN9Jhd3F+JtAHwTwKWdoqwSyJ63lzzt0X3jaV2yZMoC64O1c6gWunFn3fuMlRaPe/aJ/pUDd4VxDnl882PUoqriH2pOc6d2ivubLz5T2DOlKL3PeJJxz0J8SwBfTh25JeVamPmm608B9eWs4nIAfmNskDv3Hjjj45lSjLHunhrKZOOet7b6dgAPTo28pxxXLXh74g//yqdgnisoT8FQt1nj6Q3uK7EYHw75kJjbJhv3PIjv3mTiiRaRJzA4ZyTQXF+u1b4LgCsFqcaXFJcAwLNzs+YBg3tAhp7jS+17t9xk4170lusRAE70KJHow70OzCXBnx8k+uQoxvNzPE9msfcAuP8CB8+U4huOl06W/s4ry62sbNdi1cS97FWt5ypiEaEtS5B5dea/v/JUEOjDZa6DjfU9CsAbl/h80JGD7UYZzw6y65OOu2+/gfUdunH81xXnAyAfBLm6YX1TNqTdri+nBhcxVPbPZscdVycWmediwNRd3IORyyYddx/EFPHJAJ7TpGvNJWq7TJcTZs+zQMoONE4p+IBryd32l2aenUPvycedAjGFvEEDctSqRerg5IT5nXOWyfr6+djE9AZ8oOULFIsRrhwrOpOPOxXiVnw+OfOqzLd7OY23Vt5ix7LLAPidsXKeyuD+65Q1ZZ6Ysabe4tTKsyHLEgbfzv7e4tAcQ6sqbivEjHe7Zr8pH2guaBRgSHE+/DFZyhjmSVVg6Q+nFNzeaD2KxKz7Vsgs+qxE3B6IW5E4xSDI/InMx7BsELip5jYAzrGMVEJZrlvfKqFct4g1bwTfxt3P2MbYB2BXIu4hELfjsS2ARwJ42IDcEcaxXbuNt1mFrL6z5bmc9S1jJUw2zTuSZRM+/9hfb2yHD7bcCjCGrUzcERC3AjPTIx9e2h/vbriUAWNONKbEirDnNfN8S12eXGqcUvAOwqNIFuNpG+uLiJT6VybuSIi7wjHfGrf1tUCniGotE7X/1nO6+kDnESo+rPEovMVe1Bx5sviklF2ZuMeCuCvidRug72E8BZwyEEP3Gdy1yTyU0lZb5r8AGNNZFqem7D5Nqi+LKw+fRt/VViruHBB3B4xpqniF5t6Ma1pGckFZJhK8IYBlb8yWNcM5KueqFuPaLddwPcbtjj90PAhzVca6WX2ziTs3xK2wXM1g7jbCPDRptfdqzC2PvMpZjalkmVLWazzGxIdgizHp+V4WhyVlVy7uUhB3NeZrbf5wlcNj/JKRdc8u2+GnHGo6Jt8X+5WCNkhFfLqgr6+Rv2cil6XnFWuAmAHzQZBXG6Z08hhTWHF7p8U+AeBOFofCZaO+gbdycdcCMfnglZgCe67I1pUK5gU+ozCU1uaZH5kveobYSsZNiL3JSiITlbQDw48+cv+t1SyvgFn34QBKfw/PGiPLM+n1kDOQU42bb1OZAH6uEWLrXlJWxDT9nnxpKQPnyVbP0yHXS6m8KcPlMb5xm5od1exb8fZ7JeMmxDz7xn0QFuPVkuu+Yxi/3MSNKVbj5pqURN97APiItfJKyv/Wkfa27Toffqf02bGu5EvjJsS8FVs/RzVm7jDPzioGzFxm7FefcY/yWAm5+9qO+L33Q5RTj5vnGHmubxMjxPxMK5e4LMajRGPtXPNk32HfedixbyMPE5xwbXgLS7CVlfXsM75Yk/9jJeMmxFy8Z+Yfq3GjN/+6o435gHm2z2oEtO/NHXfbvcFacYXlrbv4VjpuQsy5LU8aW22sbYL8hNjOxs7we3nXSPCxpmlKqLJIESY2Z4LzVFuVuPlhd84c1hkh5i2GCbZ5O7Za9NWYewR4+NJqzAfc9+KCqxf8dpzVxlhK7PaBm4ms3z35AoDbJgayvTNl7Nhxe5Z258bdvuzwTimoY1Q2TA4K7wg872Y1vj7uW9Hg2UDuobUaN6WPeerau3ZLvTiofXao82OVY8f9eQD88pbVNom7hZgTf16N+alaj3GTOAHxLsQzPSi/oef9qmjKHYFpaz3Z2Md+q+n9ADhvq7y99lmtcT8cwEl9nZ/z+02+E9MdoGcC4AbsIca5Fx+ceJ4sxdqdbJ5bS1t/ytycezK4UchqfHD1fNvP2g6PWlmnFMyWRB/ub15ktcdtTejNOBk3//DP9+1CzE04vBpHHPs5u5mHMQkIMzzyX/7w4YvH/dkGf2Zz+loHn+VTrsLeD02OfUtt4/VOKXikf9mHImuP2/vAuS7u2VslU5RyN9lULOUqzOzrPJPXfk/DEtvYU4m2L94pxbKkflOI27syti6P87xBmtJ+05SrsDfDZ66pRAuyZ0pBX56Q4QmXWfMchWIdueP2TCnWxb3oSsODkENOL1iudt6yfCnCeXyfccXDs88j11Ri6JSCL4a4MWjWphK356QLYz0/7mW3S37J58V9hBT6/TEAuEm8z7jacmZfoQW/zzWVGDql4K6/2cQvU4qb383md6StxpUwbk1F30A9ocnXm/I2zNoJb3km/+Zr1BTj1z1fmFJwpkzuW2rbvHdKcfsZEJ7lzF1XKm6usPSxOG8Y1+JOceQqwkYABzlgiHZJeanRbZNZ3z0HUXNPJdo+ez+IOXtn8nzimH0oFTf7zwum1dbiToG4rZjn2AizZ35p7dxsea6Y8HvPfMuTarsC4LfkPGbRxVP/Ih/vKgUPUnLpkvupuebO1/AeKxU397NzX7vVuGa8jafTzNPAPQ57ZsiKyX0U/Ezrx6zRNdB7Tp+UuqW2IXqnFHsD4EMS/9inGDdT63q2HOzlgbgVm7nFeLVjNhlme/Ssw85j89QGWl5NrB+BaevjKQ8m+2MfrVbqltr20zul4OEGpsiaatwvcH7i4ZQhEM/CwV1kuzWvQjmP5itR/rsIbu795V8ff/iG7+QG3pSk1X1gDnmNPfburb6+c0rBnWce45qrd0xLx01euKPPaud5A7Y0xK2eWzVTD6ZEbX+8i9yWtlV2M1AgB8SbgYwKsaQCgrik+mo7RAFBHCKjKimpgCAuqb7aDlFAEIfIqEpKKiCIS6qvtkMUEMQhMqqSkgoI4pLqq+0QBQRxiIyqpKQCgrik+mo7RAFBHCKjKimpgCAuqb7aDlFAEIfIqEpKKiCIS6qvtkMUEMQhMqqSkgr8D5XxSlkNYJK5AAAAAElFTkSuQmCC" style="width:38px;height:auto;">
+      <div>
+        <div style="font-size:14px;font-weight:800;color:#1E3A8A;line-height:1.2;">Service Management</div>
+        <div style="font-size:10px;color:#94A3B8;">PT Surya Alam Armada</div>
+      </div>
+    </div>
     <div id="admin-user-info" style="background:#EFF6FF;border-radius:10px;padding:10px 12px;margin-bottom:14px;">
-      <div style="font-size:12px;font-weight:700;color:#1D4ED8;" id="admin-name-label">—</div>
+      <div style="font-size:12px;font-weight:700;color:#1D4ED8;" id="admin-name-label">â€”</div>
       <div style="font-size:11px;color:#64748B;">Administrator</div>
     </div>
     <div class="slink on" onclick="switchAdmin('dashboard',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</div>
@@ -440,7 +445,7 @@
         <!-- Units CSV -->
         <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
           <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Import Units</div>
-          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: unit_code,unit_name,model,current_hm — jadwal maintenance otomatis dibuat</div>
+          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: unit_code,unit_name,model,current_hm â€” jadwal maintenance otomatis dibuat</div>
           <input type="file" id="imp-units-file" accept=".csv" onchange="previewCSV('units',this)" style="font-size:13px;width:100%;">
           <div id="imp-units-preview" style="margin-top:12px;"></div>
           <button onclick="importCSV('units')" id="imp-units-btn" class="btn-primary" style="width:100%;margin-top:10px;display:none;">Import</button>
@@ -448,7 +453,7 @@
         <!-- Maintenance Intervals CSV -->
         <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
           <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Import Interval Maintenance</div>
-          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: type_name,interval_hm — berlaku untuk semua unit</div>
+          <div style="font-size:12px;color:#64748B;margin-bottom:12px;">Format: type_name,interval_hm â€” berlaku untuk semua unit</div>
           <input type="file" id="imp-intervals-file" accept=".csv" onchange="previewCSV('intervals',this)" style="font-size:13px;width:100%;">
           <div id="imp-intervals-preview" style="margin-top:12px;"></div>
           <button onclick="importCSV('intervals')" id="imp-intervals-btn" class="btn-primary" style="width:100%;margin-top:10px;display:none;">Import</button>
@@ -488,7 +493,7 @@
         <div style="display:flex;gap:8px;" id="adm-user-role-filters"></div>
       </div>
       <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#1E40AF;">
-        <strong>Info:</strong> Untuk membuat akun baru: <strong>1.</strong> Buka Supabase Dashboard → Authentication → Users → Invite User &nbsp;<strong>2.</strong> Masukkan email user &nbsp;<strong>3.</strong> Setelah user menerima undangan dan login pertama kali, profil dengan role "pending" akan otomatis tersedia di sini untuk di-assign role-nya.
+        <strong>Info:</strong> Untuk membuat akun baru: <strong>1.</strong> Buka Supabase Dashboard â†’ Authentication â†’ Users â†’ Invite User &nbsp;<strong>2.</strong> Masukkan email user &nbsp;<strong>3.</strong> Setelah user menerima undangan dan login pertama kali, profil dengan role "pending" akan otomatis tersedia di sini untuk di-assign role-nya.
       </div>
       <div class="table-wrap" id="adm-users-table-wrap"></div>
     </div>
@@ -641,12 +646,12 @@ function closeModalOnBg(e) {
 }
 
 function formatDate(d) {
-  if (!d) return '—';
+  if (!d) return 'â€”';
   return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatCurrency(n) {
-  if (!n) return '—';
+  if (!n) return 'â€”';
   return 'Rp ' + Number(n).toLocaleString('id-ID');
 }
 
@@ -768,7 +773,7 @@ async function routeByRole() {
   }
   if (role === 'admin') {
     if (isMobile) {
-      document.getElementById('wrong-device-icon').textContent = '💻';
+      document.getElementById('wrong-device-icon').textContent = 'ðŸ’»';
       document.getElementById('wrong-device-title').textContent = 'Gunakan Desktop';
       document.getElementById('wrong-device-msg').textContent = 'Tampilan Admin hanya tersedia di desktop/laptop.';
       show('wrong-device-screen', 'flex');
@@ -781,7 +786,7 @@ async function routeByRole() {
   }
   if (['operator','spv','mkn'].includes(role)) {
     if (!isMobile) {
-      document.getElementById('wrong-device-icon').textContent = '📱';
+      document.getElementById('wrong-device-icon').textContent = 'ðŸ“±';
       document.getElementById('wrong-device-title').textContent = 'Gunakan Ponsel';
       document.getElementById('wrong-device-msg').textContent = 'Tampilan ' + role.toUpperCase() + ' hanya tersedia di ponsel/tablet.';
       show('wrong-device-screen', 'flex');
@@ -816,7 +821,7 @@ async function loadOperatorData() {
       document.getElementById('op-unit-name').textContent = currentUnit.name;
       document.getElementById('op-unit-model').textContent = currentUnit.model;
       document.getElementById('op-unit-hm').textContent = currentUnit.current_hm || 0;
-      document.getElementById('op-req-unit-label').textContent = `Unit: ${currentUnit.code} — ${currentUnit.name}`;
+      document.getElementById('op-req-unit-label').textContent = `Unit: ${currentUnit.code} â€” ${currentUnit.name}`;
       await checkHMUpdateToday();
       await loadOpSchedule();
     } else {
@@ -928,7 +933,7 @@ async function loadOpMyReq() {
           ${badge(sr.urgency)}
         </div>
         <div style="font-size:14px;font-weight:600;color:#1E293B;">${sr.category}</div>
-        <div style="font-size:12px;color:#64748B;">${sr.units ? sr.units.code + ' — ' + sr.units.name : ''} &nbsp;|&nbsp; ${formatDate(sr.created_at)}</div>
+        <div style="font-size:12px;color:#64748B;">${sr.units ? sr.units.code + ' â€” ' + sr.units.name : ''} &nbsp;|&nbsp; ${formatDate(sr.created_at)}</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
           ${badge(sr.status)}
           <svg style="width:14px;height:14px;color:#94A3B8;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
@@ -1021,8 +1026,8 @@ async function loadSPVUnitList() {
       return `<div class="m-card">
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div>
-            <div style="font-size:14px;font-weight:700;color:#1E293B;">${u.code} — ${u.name}</div>
-            <div style="font-size:12px;color:#64748B;">${u.model || ''} &nbsp;|&nbsp; Operator: ${u.profiles ? u.profiles.name : '—'}</div>
+            <div style="font-size:14px;font-weight:700;color:#1E293B;">${u.code} â€” ${u.name}</div>
+            <div style="font-size:12px;color:#64748B;">${u.model || ''} &nbsp;|&nbsp; Operator: ${u.profiles ? u.profiles.name : 'â€”'}</div>
             <div style="font-size:12px;font-weight:700;color:#1D4ED8;margin-top:2px;">HM: ${u.current_hm || 0}</div>
           </div>
           ${badge(worst)}
@@ -1178,7 +1183,7 @@ async function renderSPVJadwal() {
     container.innerHTML = filtered.map(s => `
       <div class="m-card" style="${s.status === 'OVERDUE' ? 'border-left:3px solid #EF4444;' : s.status === 'DUE SOON' ? 'border-left:3px solid #F59E0B;' : ''}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
-          <div style="font-size:13px;font-weight:700;color:#1E293B;">${s.units ? s.units.code : '—'} | ${s.type_name}</div>
+          <div style="font-size:13px;font-weight:700;color:#1E293B;">${s.units ? s.units.code : 'â€”'} | ${s.type_name}</div>
           ${badge(s.status)}
         </div>
         <div style="font-size:11px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.last_hm} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
@@ -1199,7 +1204,7 @@ async function loadSPVPenugasan() {
       <div class="m-card">
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div>
-            <div style="font-size:14px;font-weight:700;color:#1E293B;">${u.code} — ${u.name}</div>
+            <div style="font-size:14px;font-weight:700;color:#1E293B;">${u.code} â€” ${u.name}</div>
             <div style="font-size:12px;color:#64748B;">${u.model || ''}</div>
             <div style="font-size:12px;font-weight:600;color:#374151;margin-top:2px;">Operator: ${u.profiles ? u.profiles.name : 'Belum ada'}</div>
           </div>
@@ -1272,11 +1277,11 @@ async function renderMKNJobOrders() {
           <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${jo.jo_number}</div>
           ${badge(jo.priority)}
         </div>
-        <div style="font-size:14px;font-weight:600;color:#1E293B;">${jo.units ? jo.units.code + ' — ' + jo.units.name : 'Unit tidak ditemukan'}</div>
+        <div style="font-size:14px;font-weight:600;color:#1E293B;">${jo.units ? jo.units.code + ' â€” ' + jo.units.name : 'Unit tidak ditemukan'}</div>
         <div style="font-size:12px;color:#64748B;">${jo.type}</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
           ${badge(jo.status)}
-          <div style="font-size:11px;color:#94A3B8;">${jo.scheduled_date ? formatDate(jo.scheduled_date) : '—'}</div>
+          <div style="font-size:11px;color:#94A3B8;">${jo.scheduled_date ? formatDate(jo.scheduled_date) : 'â€”'}</div>
         </div>
       </div>`).join('');
   } catch (e) { showToast('Error JO: ' + e.message); }
@@ -1290,7 +1295,7 @@ function openJOActionModal(joId, status, joNum, unitCode) {
       <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Tutup</button>`);
   } else if (status === 'in_progress') {
     showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;">Job Order: ${joNum}</div>
-      <div style="font-size:13px;color:#64748B;margin-bottom:16px;">Unit: ${unitCode} — Sedang dikerjakan</div>
+      <div style="font-size:13px;color:#64748B;margin-bottom:16px;">Unit: ${unitCode} â€” Sedang dikerjakan</div>
       <button onclick="closeModal();prefillSelesaikan('${joId}')" class="btn-success" style="width:100%;margin-bottom:8px;">Tandai Selesai</button>
       <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Tutup</button>`);
   }
@@ -1334,7 +1339,7 @@ async function loadMKNPermintaan() {
           ${badge(sr.urgency)}
         </div>
         <div style="font-size:14px;font-weight:600;color:#1E293B;">${sr.category}</div>
-        <div style="font-size:12px;color:#64748B;">${sr.units ? sr.units.code + ' — ' + sr.units.name : ''}</div>
+        <div style="font-size:12px;color:#64748B;">${sr.units ? sr.units.code + ' â€” ' + sr.units.name : ''}</div>
         <div style="font-size:12px;color:#374151;margin-top:4px;">${sr.description}</div>
         <div style="display:flex;gap:8px;margin-top:10px;">
           <button onclick="openAcceptSRModal('${sr.id}','${sr.sr_number}')" class="btn-success" style="flex:1;font-size:12px;padding:8px;">Terima</button>
@@ -1391,7 +1396,7 @@ async function loadMKNParts() {
           ${badge(pr.status)}
         </div>
         <div style="font-size:14px;font-weight:600;color:#1E293B;">${pr.part_name}</div>
-        <div style="font-size:12px;color:#64748B;">Qty: ${pr.qty} ${pr.uom} &nbsp;|&nbsp; JO: ${pr.job_orders ? pr.job_orders.jo_number : '—'} &nbsp;|&nbsp; Unit: ${pr.units ? pr.units.code : '—'}</div>
+        <div style="font-size:12px;color:#64748B;">Qty: ${pr.qty} ${pr.uom} &nbsp;|&nbsp; JO: ${pr.job_orders ? pr.job_orders.jo_number : 'â€”'} &nbsp;|&nbsp; Unit: ${pr.units ? pr.units.code : 'â€”'}</div>
       </div>`).join('');
   } catch (e) { showToast('Error parts: ' + e.message); }
 }
@@ -1407,7 +1412,7 @@ async function loadMknUnitsForSelesaikan() {
       jos.forEach(jo => {
         if (jo.units && !seen.has(jo.unit_id)) {
           seen.add(jo.unit_id);
-          unitOpts.push(`<option value="${jo.unit_id}">${jo.units.code} — ${jo.units.name}</option>`);
+          unitOpts.push(`<option value="${jo.unit_id}">${jo.units.code} â€” ${jo.units.name}</option>`);
         }
       });
     }
@@ -1422,7 +1427,7 @@ async function loadMknJOForUnit() {
   if (!unitId) { joSel.innerHTML = '<option value="">-- Pilih JO --</option>'; return; }
   try {
     const { data: jos } = await sb.from('job_orders').select('id, jo_number, type').eq('assigned_mkn_id', currentProfile.id).eq('unit_id', unitId).eq('status', 'in_progress');
-    joSel.innerHTML = '<option value="">-- Pilih Job Order --</option>' + (jos || []).map(j => `<option value="${j.id}">${j.jo_number} — ${j.type}</option>`).join('');
+    joSel.innerHTML = '<option value="">-- Pilih Job Order --</option>' + (jos || []).map(j => `<option value="${j.id}">${j.jo_number} â€” ${j.type}</option>`).join('');
   } catch (e) { /* ignore */ }
 }
 
@@ -1549,7 +1554,7 @@ async function loadAdminDashboard() {
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
             <div>
               <div style="font-size:15px;font-weight:700;color:#1E293B;">${u.code}</div>
-              <div style="font-size:12px;color:#64748B;">${u.name} — ${u.model || '—'}</div>
+              <div style="font-size:12px;color:#64748B;">${u.name} â€” ${u.model || 'â€”'}</div>
             </div>
             <div style="text-align:right;">
               ${badge(worst)}
@@ -1595,7 +1600,7 @@ async function renderAdminSRTable() {
     wrap.innerHTML = `<table class="dt">
       <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
       <tbody>${srs.map(sr => {
-        const mknName = allMknProfiles.find(m => m.id === sr.assigned_mkn_id)?.name || '—';
+        const mknName = allMknProfiles.find(m => m.id === sr.assigned_mkn_id)?.name || 'â€”';
         let actions = '';
         if (adminPipelineTab === 'pending_spv') {
           actions = `<td><div style="display:flex;gap:6px;">
@@ -1606,7 +1611,7 @@ async function renderAdminSRTable() {
           actions = `<td><button class="btn-success" style="padding:6px 10px;font-size:12px;" onclick="adminConfirmSR('${sr.id}')">Konfirmasi</button></td>`;
         }
         const rowBase = `<td style="font-weight:700;color:#1D4ED8;">${sr.sr_number}</td>
-          <td>${sr.units ? sr.units.code : '—'}</td>
+          <td>${sr.units ? sr.units.code : 'â€”'}</td>
           <td>${sr.category}</td>`;
         if (adminPipelineTab === 'pending_spv') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.created_at)}</td>${actions}</tr>`;
         if (adminPipelineTab === 'approved_spv') return `<tr>${rowBase}<td>${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.created_at)}</td></tr>`;
@@ -1713,7 +1718,7 @@ async function renderAdminJadwal() {
     wrap.innerHTML = `<table class="dt">
       <thead><tr><th>Unit</th><th>Tipe Maintenance</th><th>Interval (HM)</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>HM Due</th><th>HM Sekarang</th><th>Sisa HM</th><th>Status</th></tr></thead>
       <tbody>${data.map(d => `<tr class="${d.status === 'OVERDUE' ? 'row-overdue' : d.status === 'DUE SOON' ? 'row-duesoon' : ''}">
-        <td style="font-weight:600;">${d.units ? d.units.code : '—'}</td>
+        <td style="font-weight:600;">${d.units ? d.units.code : 'â€”'}</td>
         <td>${d.type_name}</td>
         <td>${d.interval_hm}</td>
         <td>${d.last_hm}</td>
@@ -1748,7 +1753,7 @@ async function loadAdminJadwalMKN() {
         html += `<tr>
           <td></td>
           <td style="font-weight:700;color:#1D4ED8;">${jo.jo_number}</td>
-          <td>${jo.units ? jo.units.code : '—'}</td>
+          <td>${jo.units ? jo.units.code : 'â€”'}</td>
           <td>${jo.type}</td>
           <td>${formatDate(jo.scheduled_date)}</td>
           <td>${badge(jo.priority)}</td>
@@ -1802,24 +1807,94 @@ async function loadAdminRiwayatSchedule(unitId) {
   } catch (e) { el.innerHTML = '<div style="color:#EF4444;font-size:13px;padding:10px;">Error: ' + e.message + '</div>'; }
 }
 
+let _riwayatUnitId = null;
 async function loadAdminRiwayatLog(unitId) {
+  _riwayatUnitId = unitId;
   const el = document.getElementById('adm-riwayat-log');
   if (!el) return;
   try {
     const { data: logs } = await sb.from('service_log').select('id, maintenance_type, hm_at_service, service_date, mkn_name, parts_used, cost_idr, notes, created_at').eq('unit_id', unitId).order('service_date', { ascending: false });
-    if (!logs || logs.length === 0) { el.innerHTML = '<div style="padding:16px;color:#94A3B8;font-size:13px;">Belum ada riwayat servis.</div>'; return; }
+    if (!logs || logs.length === 0) { el.innerHTML = '<div style=”padding:16px;color:#94A3B8;font-size:13px;”>Belum ada riwayat servis.</div>'; return; }
     el.innerHTML = logs.map(l => `
-      <div style="background:white;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-size:14px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
-          <div style="font-size:12px;color:#94A3B8;">${formatDate(l.service_date)}</div>
+      <div style=”background:white;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);”>
+        <div style=”display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;”>
+          <div style=”font-size:14px;font-weight:700;color:#1E293B;”>${l.maintenance_type}</div>
+          <div style=”font-size:12px;color:#94A3B8;”>${formatDate(l.service_date)}</div>
         </div>
-        <div style="font-size:12px;color:#64748B;">HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '—'}</div>
-        ${l.parts_used ? `<div style="font-size:12px;color:#374151;margin-top:4px;">Parts: ${l.parts_used}</div>` : ''}
-        ${l.cost_idr ? `<div style="font-size:12px;font-weight:600;color:#1D4ED8;margin-top:2px;">${formatCurrency(l.cost_idr)}</div>` : ''}
-        ${l.notes ? `<div style="font-size:12px;color:#64748B;margin-top:2px;font-style:italic;">${l.notes}</div>` : ''}
+        <div style=”font-size:12px;color:#64748B;”>HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '—'}</div>
+        ${l.parts_used ? `<div style=”font-size:12px;color:#374151;margin-top:4px;”>Parts: ${l.parts_used}</div>` : ''}
+        ${l.cost_idr ? `<div style=”font-size:12px;font-weight:600;color:#1D4ED8;margin-top:2px;”>${formatCurrency(l.cost_idr)}</div>` : ''}
+        ${l.notes ? `<div style=”font-size:12px;color:#64748B;margin-top:2px;font-style:italic;”>${l.notes}</div>` : ''}
+        <div style=”display:flex;gap:8px;margin-top:10px;”>
+          <button class=”btn-secondary” style=”font-size:11px;padding:5px 12px;” onclick='openEditServiceLog(${JSON.stringify(l)})'>Edit</button>
+          <button class=”btn-danger” style=”font-size:11px;padding:5px 12px;” onclick=”deleteServiceLog('${l.id}')”>Hapus</button>
+        </div>
       </div>`).join('');
-  } catch (e) { el.innerHTML = '<div style="color:#EF4444;font-size:13px;padding:10px;">Error: ' + e.message + '</div>'; }
+  } catch (e) { el.innerHTML = '<div style=”color:#EF4444;font-size:13px;padding:10px;”>Error: ' + e.message + '</div>'; }
+}
+
+function openEditServiceLog(l) {
+  showModal(`
+    <div style=”font-size:16px;font-weight:700;color:#1E293B;margin-bottom:16px;”>Edit Service Record</div>
+    <input type=”hidden” id=”esl-id” value=”${l.id}”>
+    <label style=”font-size:12px;font-weight:600;color:#374151;”>Jenis Maintenance</label>
+    <input id=”esl-type” class=”finput” style=”margin-bottom:10px;” value=”${l.maintenance_type || ''}”>
+    <label style=”font-size:12px;font-weight:600;color:#374151;”>Tanggal Servis</label>
+    <input id=”esl-date” type=”date” class=”finput” style=”margin-bottom:10px;” value=”${l.service_date || ''}”>
+    <label style=”font-size:12px;font-weight:600;color:#374151;”>HM saat Servis</label>
+    <input id=”esl-hm” type=”number” step=”0.1” class=”finput” style=”margin-bottom:10px;” value=”${l.hm_at_service || ''}”>
+    <label style=”font-size:12px;font-weight:600;color:#374151;”>Nama Mekanik</label>
+    <input id=”esl-mkn” class=”finput” style=”margin-bottom:10px;” value=”${l.mkn_name || ''}”>
+    <label style=”font-size:12px;font-weight:600;color:#374151;”>Parts Digunakan</label>
+    <input id=”esl-parts” class=”finput” style=”margin-bottom:10px;” value=”${l.parts_used || ''}”>
+    <label style=”font-size:12px;font-weight:600;color:#374151;”>Biaya (Rp)</label>
+    <input id=”esl-cost” type=”number” class=”finput” style=”margin-bottom:10px;” value=”${l.cost_idr || ''}”>
+    <label style=”font-size:12px;font-weight:600;color:#374151;”>Catatan</label>
+    <textarea id=”esl-notes” class=”finput” style=”margin-bottom:16px;”>${l.notes || ''}</textarea>
+    <div style=”display:flex;gap:8px;”>
+      <button onclick=”saveServiceLogEdit()” class=”btn-primary” style=”flex:1;”>Simpan</button>
+      <button onclick=”closeModal()” class=”btn-secondary” style=”flex:1;”>Batal</button>
+    </div>`);
+}
+
+async function saveServiceLogEdit() {
+  const id = document.getElementById('esl-id').value;
+  const updates = {
+    maintenance_type: document.getElementById('esl-type').value.trim(),
+    service_date: document.getElementById('esl-date').value,
+    hm_at_service: parseFloat(document.getElementById('esl-hm').value) || 0,
+    mkn_name: document.getElementById('esl-mkn').value.trim(),
+    parts_used: document.getElementById('esl-parts').value.trim(),
+    cost_idr: parseInt(document.getElementById('esl-cost').value) || 0,
+    notes: document.getElementById('esl-notes').value.trim(),
+  };
+  try {
+    const { error } = await sb.from('service_log').update(updates).eq('id', id);
+    if (error) throw error;
+    closeModal();
+    showToast('Record berhasil diupdate!', 'success');
+    if (_riwayatUnitId) await loadAdminRiwayatLog(_riwayatUnitId);
+  } catch (e) { showToast('Gagal update: ' + e.message); }
+}
+
+async function deleteServiceLog(id) {
+  showModal(`
+    <div style=”font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;”>Hapus Record Servis?</div>
+    <div style=”color:#64748B;font-size:14px;margin-bottom:20px;”>Tindakan ini tidak dapat dibatalkan.</div>
+    <div style=”display:flex;gap:8px;”>
+      <button onclick=”confirmDeleteServiceLog('${id}')” class=”btn-danger” style=”flex:1;”>Hapus</button>
+      <button onclick=”closeModal()” class=”btn-secondary” style=”flex:1;”>Batal</button>
+    </div>`);
+}
+
+async function confirmDeleteServiceLog(id) {
+  try {
+    const { error } = await sb.from('service_log').delete().eq('id', id);
+    if (error) throw error;
+    closeModal();
+    showToast('Record berhasil dihapus.', 'success');
+    if (_riwayatUnitId) await loadAdminRiwayatLog(_riwayatUnitId);
+  } catch (e) { showToast('Gagal hapus: ' + e.message); }
 }
 
 // Admin Kelola Pengguna
@@ -1840,10 +1915,10 @@ async function loadAdminUsers() {
     wrap.innerHTML = `<table class="dt">
       <thead><tr><th>Nama</th><th>ID (auth)</th><th>Role</th><th>Unit</th><th>Aksi</th></tr></thead>
       <tbody>${profiles.map(p => `<tr id="user-row-${p.id}">
-        <td style="font-weight:600;">${p.name || '—'}</td>
+        <td style="font-weight:600;">${p.name || 'â€”'}</td>
         <td style="font-size:11px;color:#94A3B8;">${p.id.slice(0,8)}...</td>
         <td>${badge(p.role)}</td>
-        <td style="font-size:12px;">${unitsByOp[p.id] || '—'}</td>
+        <td style="font-size:12px;">${unitsByOp[p.id] || 'â€”'}</td>
         <td><button class="btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="openEditUserModal('${p.id}','${p.name || ''}','${p.role}')">Edit</button></td>
       </tr>`).join('')}</tbody>
     </table>`;
@@ -1857,7 +1932,7 @@ async function setAdminUserRoleFilter(r) {
 
 function openEditUserModal(id, name, role) {
   const roles = ['operator','spv','mkn','admin','pending'];
-  const unitOpts = allUnits.map(u => `<option value="${u.id}">${u.code} — ${u.name}</option>`).join('');
+  const unitOpts = allUnits.map(u => `<option value="${u.id}">${u.code} â€” ${u.name}</option>`).join('');
   const currentUnit = allUnits.find(u => u.assigned_operator_id === id);
   showModal(`<div style="font-size:16px;font-weight:700;margin-bottom:14px;">Edit Pengguna</div>
     <div style="margin-bottom:12px;">
@@ -1929,11 +2004,11 @@ function renderAdminUnitTable() {
   wrap.innerHTML = `<table class="dt">
     <thead><tr><th>Kode</th><th>Nama</th><th>Model</th><th>HM</th><th>Operator</th><th>Aksi</th></tr></thead>
     <tbody>${allUnits.map(u => {
-      const opName = allOperatorProfiles.find(op => op.id === u.assigned_operator_id)?.name || '—';
+      const opName = allOperatorProfiles.find(op => op.id === u.assigned_operator_id)?.name || 'â€”';
       return `<tr>
         <td style="font-weight:700;">${u.code}</td>
         <td>${u.name}</td>
-        <td>${u.model || '—'}</td>
+        <td>${u.model || 'â€”'}</td>
         <td style="font-weight:600;">${u.current_hm || 0}</td>
         <td>${opName}</td>
         <td>
