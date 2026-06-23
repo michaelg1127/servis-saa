@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
@@ -1821,7 +1821,7 @@ async function loadAdminRiwayatLog(unitId) {
           <div style=”font-size:14px;font-weight:700;color:#1E293B;”>${l.maintenance_type}</div>
           <div style=”font-size:12px;color:#94A3B8;”>${formatDate(l.service_date)}</div>
         </div>
-        <div style=”font-size:12px;color:#64748B;”>HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '—'}</div>
+        <div style=”font-size:12px;color:#64748B;”>HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '&mdash;'}</div>
         ${l.parts_used ? `<div style=”font-size:12px;color:#374151;margin-top:4px;”>Parts: ${l.parts_used}</div>` : ''}
         ${l.cost_idr ? `<div style=”font-size:12px;font-weight:600;color:#1D4ED8;margin-top:2px;”>${formatCurrency(l.cost_idr)}</div>` : ''}
         ${l.notes ? `<div style=”font-size:12px;color:#64748B;margin-top:2px;font-style:italic;”>${l.notes}</div>` : ''}
