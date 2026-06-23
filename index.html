@@ -839,7 +839,7 @@ async function checkHMUpdateToday() {
 }
 
 async function submitHMUpdate() {
-  const val = parseInt(document.getElementById('op-hm-input').value);
+  const val = parseFloat(document.getElementById('op-hm-input').value);
   if (!val || val <= 0) { showToast('Masukkan nilai HM yang valid.'); return; }
   if (currentUnit && val < (currentUnit.current_hm || 0)) {
     showToast('HM baru tidak boleh lebih kecil dari HM saat ini.'); return;
