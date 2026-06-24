@@ -7,12 +7,12 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  html { overflow-x: hidden; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F1F5F9; margin: 0; font-size: 16px; overflow-x: hidden; }
+  html, body { margin: 0; padding: 0; overflow-x: hidden; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F1F5F9; font-size: 16px; }
   .mob-view { display: none; }
-  .mob-view.on { display: block; width: 100vw; max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
-  .mscreen { display: none; overflow: hidden; }
-  .mscreen.on { display: block; width: 100%; box-sizing: border-box; overflow: visible; }
+  .mob-view.on { display: block; width: 100%; max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
+  .mscreen { display: none; }
+  .mscreen.on { display: block; width: 100%; max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
   /* ── Bottom nav ── */
   .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #E2E8F0; display: flex; z-index: 100; min-height: 68px; padding-bottom: env(safe-area-inset-bottom); }
   .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; color: #94A3B8; cursor: pointer; gap: 4px; padding: 10px 2px; transition: color 0.15s; -webkit-tap-highlight-color: transparent; }
@@ -822,17 +822,21 @@ async function routeByRole() {
     return;
   }
   if (['operator','spv','mkn'].includes(role)) {
+    const vw = document.documentElement.clientWidth || window.innerWidth;
     if (role === 'operator') {
       const view = document.getElementById('view-operator');
       view.style.display = 'block'; view.classList.add('on');
+      view.style.width = vw + 'px';
       await loadOperatorData();
     } else if (role === 'spv') {
       const view = document.getElementById('view-spv');
       view.style.display = 'block'; view.classList.add('on');
+      view.style.width = vw + 'px';
       await loadSPVData();
     } else if (role === 'mkn') {
       const view = document.getElementById('view-mkn');
       view.style.display = 'block'; view.classList.add('on');
+      view.style.width = vw + 'px';
       await loadMKNData();
     }
   }
@@ -2567,6 +2571,31 @@ document.addEventListener('DOMContentLoaded', () => {
       if (screens.length > 0) screens[0].classList.add('on');
     }
   });
+  // Debug overlay (activated by ?debug=1 in URL)
+  if (location.search.includes('debug=1')) {
+    function updateDebugOverlay() {
+      let el = document.getElementById('__debug_overlay');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = '__debug_overlay';
+        el.style.cssText = 'position:fixed;bottom:72px;left:0;right:0;background:rgba(0,0,0,0.85);color:#0f0;font-size:10px;padding:6px 8px;z-index:99999;font-family:monospace;white-space:pre-wrap;pointer-events:none;';
+        document.body.appendChild(el);
+      }
+      const spv = document.getElementById('view-spv');
+      const dash = document.getElementById('spv-screen-dashboard');
+      const stats = document.getElementById('spv-stats');
+      el.textContent = [
+        'window.innerWidth=' + window.innerWidth,
+        'clientWidth=' + document.documentElement.clientWidth,
+        'body.offsetWidth=' + document.body.offsetWidth,
+        'view-spv: w=' + (spv ? spv.offsetWidth : '?') + ' class=' + (spv ? spv.className : '?') + ' style.w=' + (spv ? spv.style.width : '?'),
+        'spv-screen-dashboard: w=' + (dash ? dash.offsetWidth : '?') + ' class=' + (dash ? dash.className : '?'),
+        'spv-stats: w=' + (stats ? stats.offsetWidth : '?'),
+      ].join('\n');
+    }
+    updateDebugOverlay();
+    setInterval(updateDebugOverlay, 1000);
+  }
   boot();
 });
 </script>
