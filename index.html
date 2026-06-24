@@ -242,13 +242,10 @@
   </div>
 
   <div id="spv-screen-jadwal" class="mscreen">
-    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+    <div style="background:white;padding:16px 14px 10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
       <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Jadwal Maintenance</div>
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button onclick="spvJadwalToggle('unit',this)" class="vpill on" id="spv-jt-unit">Per Unit</button>
-        <button onclick="spvJadwalToggle('tipe',this)" class="vpill" id="spv-jt-tipe">Per Tipe</button>
-      </div>
-      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;" id="spv-jadwal-filters"></div>
+      <select id="spv-jadwal-unit-filter" onchange="setSPVJadwalUnitFilter(this.value)" class="finput" style="margin-bottom:10px;font-size:14px;padding:9px 12px;"><option value="all">Semua Unit</option></select>
+      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;" id="spv-jadwal-filters"></div>
     </div>
     <div id="spv-jadwal-list"></div>
   </div>
@@ -580,6 +577,7 @@ let adminPipelineTab = 'pending_spv';
 let spvJadwalMode = 'unit';
 let adminJadwalMode = 'unit';
 let spvJadwalFilter = 'Semua';
+let spvJadwalUnitFilter = 'all';
 let spvSRUnitFilter = 'all';
 let spvSRSort = 'date';
 let spvRiwayatUnit = null;
@@ -1224,7 +1222,19 @@ async function loadSPVJadwal() {
   const filterEl = document.getElementById('spv-jadwal-filters');
   const filters = ['Semua','Overdue','Due Soon','OK'];
   filterEl.innerHTML = filters.map(f => `<button class="vpill ${f === spvJadwalFilter ? 'on' : ''}" onclick="setSpvJadwalFilter('${f}')">${f}</button>`).join('');
+  const unitSel = document.getElementById('spv-jadwal-unit-filter');
+  if (unitSel && unitSel.options.length <= 1) {
+    try {
+      const { data: units } = await sb.from('units').select('id, code').order('code');
+      if (units) units.forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = u.code; unitSel.appendChild(o); });
+    } catch (e) {}
+  }
   await renderSPVJadwal();
+}
+
+function setSPVJadwalUnitFilter(val) {
+  spvJadwalUnitFilter = val;
+  renderSPVJadwal();
 }
 
 function spvJadwalToggle(mode, el) {
@@ -1244,7 +1254,9 @@ async function renderSPVJadwal() {
   const container = document.getElementById('spv-jadwal-list');
   container.innerHTML = '<div style=”padding:20px;text-align:center;”><div class=”spinner”></div></div>';
   try {
-    const { data: scheds } = await sb.from('maintenance_schedules').select('id, unit_id, type_name, interval_hm, last_hm, last_date, units(code, name, current_hm)').order('unit_id');
+    let query = sb.from('maintenance_schedules').select('id, unit_id, type_name, interval_hm, last_hm, last_date, units(id, code, name, current_hm)').order('unit_id');
+    if (spvJadwalUnitFilter !== 'all') query = query.eq('unit_id', spvJadwalUnitFilter);
+    const { data: scheds } = await query;
     if (!scheds) { container.innerHTML = ''; return; }
     const filterMap = { 'Semua': null, 'Overdue': 'OVERDUE', 'Due Soon': 'DUE SOON', 'OK': 'OK' };
     const filterVal = filterMap[spvJadwalFilter];
@@ -1255,24 +1267,78 @@ async function renderSPVJadwal() {
       return { ...s, hm, remaining: rem, status: st, hm_due: (s.last_hm || 0) + s.interval_hm };
     });
     if (filterVal) data = data.filter(d => d.status === filterVal);
-    if (data.length === 0) { container.innerHTML = '<div style=”padding:20px;text-align:center;color:#94A3B8;font-size:14px;”>Tidak ada data.</div>'; return; }
-    if (spvJadwalMode === 'unit') data.sort((a,b) => (a.units?.code||'').localeCompare(b.units?.code||''));
-    else data.sort((a,b) => a.type_name.localeCompare(b.type_name));
-    container.innerHTML = `<div style=”overflow-x:auto;padding:0 14px 14px;”>
-      <table class=”dt” style=”min-width:600px;”>
-        <thead><tr><th>Unit</th><th>Tipe Maintenance</th><th>Interval</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>HM Due</th><th>HM Skrg</th><th>Sisa HM</th><th>Status</th></tr></thead>
-        <tbody>${data.map(d => `<tr class=”${d.status === 'OVERDUE' ? 'row-overdue' : d.status === 'DUE SOON' ? 'row-duesoon' : ''}”>
-          <td style=”font-weight:700;”>${d.units ? d.units.code : '-'}</td>
-          <td>${d.type_name}</td>
-          <td>${d.interval_hm}</td>
-          <td>${d.last_hm ?? '-'}</td>
-          <td>${formatDate(d.last_date)}</td>
-          <td>${d.last_hm != null ? d.hm_due : '-'}</td>
-          <td>${d.hm}</td>
-          <td style=”font-weight:700;color:${d.remaining < 0 ? '#DC2626' : '#374151'};”>${d.last_hm != null ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</td>
-          <td>${badge(d.status)}</td>
-        </tr>`).join('')}</tbody>
-      </table></div>`;
+    if (data.length === 0) { container.innerHTML = '<div style=”padding:20px;text-align:center;color:#94A3B8;font-size:15px;”>Tidak ada data.</div>'; return; }
+    data.sort((a,b) => (a.units?.code||'').localeCompare(b.units?.code||'') || a.type_name.localeCompare(b.type_name));
+
+    if (spvJadwalUnitFilter !== 'all') {
+      // Card/bubble view for single unit — large readable cards
+      const unitName = data[0]?.units?.code || '';
+      const currentHM = data[0]?.hm || 0;
+      container.innerHTML = `<div style=”padding:0 14px 14px;”>
+        <div style=”background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;”>
+          <div style=”font-size:15px;font-weight:800;color:#1E3A8A;”>${unitName}</div>
+          <div style=”font-size:14px;font-weight:700;color:#1D4ED8;”>HM Sekarang: ${currentHM.toLocaleString()}</div>
+        </div>
+        ${data.map(d => {
+          const borderColor = d.status === 'OVERDUE' ? '#EF4444' : d.status === 'DUE SOON' ? '#F59E0B' : '#10B981';
+          const bgColor = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
+          const sisaColor = d.remaining < 0 ? '#DC2626' : d.remaining === 0 ? '#D97706' : '#059669';
+          const hasData = d.last_hm != null;
+          return `<div style=”background:${bgColor};border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);border-left:4px solid ${borderColor};”>
+            <div style=”display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;”>
+              <div style=”font-size:16px;font-weight:800;color:#1E293B;”>${d.type_name}</div>
+              ${badge(d.status)}
+            </div>
+            <div style=”display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;”>
+              <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
+                <div style=”font-size:11px;color:#64748B;margin-bottom:2px;”>Interval</div>
+                <div style=”font-size:15px;font-weight:700;color:#374151;”>${d.interval_hm} HM</div>
+              </div>
+              <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
+                <div style=”font-size:11px;color:#64748B;margin-bottom:2px;”>HM Terakhir</div>
+                <div style=”font-size:15px;font-weight:700;color:#374151;”>${hasData ? d.last_hm.toLocaleString() : '-'}</div>
+              </div>
+              <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
+                <div style=”font-size:11px;color:#64748B;margin-bottom:2px;”>HM Due</div>
+                <div style=”font-size:15px;font-weight:700;color:#374151;”>${hasData ? d.hm_due.toLocaleString() : '-'}</div>
+              </div>
+              <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
+                <div style=”font-size:11px;color:#64748B;margin-bottom:2px;”>Tgl Terakhir</div>
+                <div style=”font-size:13px;font-weight:600;color:#374151;”>${formatDate(d.last_date)}</div>
+              </div>
+            </div>
+            <div style=”background:${d.remaining < 0 ? '#FEE2E2' : d.remaining < d.interval_hm * 0.15 ? '#FEF3C7' : '#D1FAE5'};border-radius:8px;padding:10px 14px;text-align:center;”>
+              <div style=”font-size:11px;color:#64748B;margin-bottom:2px;”>Sisa HM</div>
+              <div style=”font-size:22px;font-weight:900;color:${sisaColor};”>${hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    } else {
+      // Compact scrollable table for all units
+      container.innerHTML = `<div style=”overflow-x:auto;padding:0 14px 14px;”>
+        <table style=”width:100%;border-collapse:collapse;font-size:14px;min-width:480px;”>
+          <thead><tr style=”background:#F8FAFC;”>
+            <th style=”padding:10px 12px;text-align:left;font-weight:700;color:#64748B;border-bottom:2px solid #E2E8F0;white-space:nowrap;”>Unit</th>
+            <th style=”padding:10px 12px;text-align:left;font-weight:700;color:#64748B;border-bottom:2px solid #E2E8F0;white-space:nowrap;”>Tipe</th>
+            <th style=”padding:10px 12px;text-align:left;font-weight:700;color:#64748B;border-bottom:2px solid #E2E8F0;white-space:nowrap;”>HM Due</th>
+            <th style=”padding:10px 12px;text-align:left;font-weight:700;color:#64748B;border-bottom:2px solid #E2E8F0;white-space:nowrap;”>Sisa HM</th>
+            <th style=”padding:10px 12px;text-align:left;font-weight:700;color:#64748B;border-bottom:2px solid #E2E8F0;white-space:nowrap;”>Status</th>
+          </tr></thead>
+          <tbody>${data.map(d => {
+            const rowBg = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
+            const sisaColor = d.remaining < 0 ? '#DC2626' : '#374151';
+            const hasData = d.last_hm != null;
+            return `<tr style=”background:${rowBg};border-bottom:1px solid #F1F5F9;”>
+              <td style=”padding:10px 12px;font-weight:700;font-size:14px;”>${d.units?.code || '-'}</td>
+              <td style=”padding:10px 12px;font-size:13px;”>${d.type_name}</td>
+              <td style=”padding:10px 12px;font-size:14px;”>${hasData ? d.hm_due.toLocaleString() : '-'}</td>
+              <td style=”padding:10px 12px;font-weight:800;font-size:15px;color:${sisaColor};”>${hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</td>
+              <td style=”padding:10px 12px;”>${badge(d.status)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`;
+    }
   } catch (e) { showToast('Error jadwal: ' + e.message); }
 }
 
