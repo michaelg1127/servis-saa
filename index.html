@@ -11,8 +11,8 @@
   .mob-view { display: none; } .mob-view.on { display: block; }
   .mscreen { display: none; } .mscreen.on { display: block; }
   .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 62px; background: white; border-top: 1px solid #E2E8F0; display: flex; z-index: 100; }
-  .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; color: #94A3B8; cursor: pointer; gap: 2px; padding: 4px 0; transition: color 0.15s; }
-  .nav-tab svg { width: 22px; height: 22px; }
+  .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: #94A3B8; cursor: pointer; gap: 3px; padding: 5px 0; transition: color 0.15s; }
+  .nav-tab svg { width: 23px; height: 23px; }
   .nav-tab.on { color: #1D4ED8; }
   .dscreen { display: none; } .dscreen.on { display: block; }
   .slink { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; font-size: 14px; color: #475569; cursor: pointer; margin-bottom: 2px; transition: all 0.15s; }
@@ -26,9 +26,9 @@
   .dt tr.grp td { background: #F1F5F9; font-weight: 700; color: #1E293B; }
   .dt tr.row-overdue td { background: #FFF1F2 !important; }
   .dt tr.row-duesoon td { background: #FFFBEB !important; }
-  .ptab { padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #F1F5F9; color: #64748B; cursor: pointer; white-space: nowrap; border: none; transition: all 0.15s; }
+  .ptab { padding: 9px 15px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #F1F5F9; color: #64748B; cursor: pointer; white-space: nowrap; border: none; transition: all 0.15s; }
   .ptab.on { background: #1E3A8A; color: white; }
-  .vpill { padding: 6px 13px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #F1F5F9; color: #64748B; cursor: pointer; border: none; transition: all 0.15s; }
+  .vpill { padding: 8px 15px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #F1F5F9; color: #64748B; cursor: pointer; border: none; transition: all 0.15s; }
   .vpill.on { background: #1D4ED8; color: white; }
   .finput { width: 100%; border: 1.5px solid #E2E8F0; border-radius: 11px; padding: 13px 15px; font-size: 15px; outline: none; box-sizing: border-box; background: white; transition: border-color 0.15s; }
   .finput:focus { border-color: #1D4ED8; }
@@ -64,7 +64,7 @@
   .inline-table-wrap { overflow-x: auto; }
   .pipeline-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 0 14px 8px; scrollbar-width: none; }
   .pipeline-tabs::-webkit-scrollbar { display: none; }
-  .unit-pill { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #F1F5F9; color: #475569; cursor: pointer; border: none; white-space: nowrap; }
+  .unit-pill { padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #F1F5F9; color: #475569; cursor: pointer; border: none; white-space: nowrap; }
   .unit-pill.on { background: #1D4ED8; color: white; }
   .progress-bar-wrap { display: flex; align-items: center; margin: 8px 0 0; }
   .prog-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
@@ -219,11 +219,12 @@
 <!-- ===== SPV MOBILE VIEW ===== -->
 <div id="view-spv" class="mob-view" style="padding-bottom:72px;">
   <div id="spv-screen-dashboard" class="mscreen">
-    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:12px;">
-      <div style="font-size:18px;font-weight:800;color:#1E3A8A;">Dashboard SPV</div>
+    <div style="background:white;padding:18px 16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:14px;">
+      <div style="font-size:20px;font-weight:800;color:#1E3A8A;">Dashboard SPV</div>
+      <div style="font-size:13px;color:#94A3B8;margin-top:2px;">Tap kartu untuk filter jadwal</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px;margin-bottom:12px;" id="spv-stats"></div>
-    <div style="padding:0 14px 8px;font-size:13px;font-weight:700;color:#374151;">Status Unit</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 14px;margin-bottom:16px;" id="spv-stats"></div>
+    <div style="padding:0 16px 10px;font-size:14px;font-weight:700;color:#374151;">Status Unit</div>
     <div id="spv-unit-list"></div>
   </div>
 
@@ -259,9 +260,11 @@
 
   <div id="spv-screen-riwayat" class="mscreen">
     <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
-      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Riwayat Per Unit</div>
+      <div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:10px;">Riwayat Per Unit</div>
       <div id="spv-riwayat-unit-pills" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;"></div>
     </div>
+    <div id="spv-riwayat-schedule" style="padding:0 14px 4px;"></div>
+    <div style="padding:4px 16px 10px;font-size:14px;font-weight:700;color:#374151;">Riwayat Servis</div>
     <div id="spv-riwayat-log" style="padding:0 14px;"></div>
   </div>
 
@@ -1013,14 +1016,14 @@ async function loadSPVStats() {
     }
     const statsEl = document.getElementById('spv-stats');
     statsEl.innerHTML = [
-      { label: 'Total Unit', value: units ? units.length : 0, color: '#1D4ED8', bg: '#EFF6FF' },
-      { label: 'Overdue', value: overdue, color: '#DC2626', bg: '#FEF2F2' },
-      { label: 'Due Soon', value: dueSoon, color: '#D97706', bg: '#FFFBEB' },
-      { label: 'Request Baru', value: srs ? srs.length : 0, color: '#7C3AED', bg: '#F5F3FF' },
+      { label: 'Total Unit', value: units ? units.length : 0, color: '#1D4ED8', bg: '#EFF6FF', fn: "spvDashFilter('Semua')" },
+      { label: 'Overdue', value: overdue, color: '#DC2626', bg: '#FEF2F2', fn: "spvDashFilter('Overdue')" },
+      { label: 'Due Soon', value: dueSoon, color: '#D97706', bg: '#FFFBEB', fn: "spvDashFilter('Due Soon')" },
+      { label: 'Pend. Servis', value: srs ? srs.length : 0, color: '#7C3AED', bg: '#F5F3FF', fn: "switchSpvScreen('permintaan',document.querySelectorAll('#view-spv .nav-tab')[1])" },
     ].map(s => `
-      <div style="background:${s.bg};border-radius:14px;padding:14px;text-align:center;">
-        <div style="font-size:28px;font-weight:800;color:${s.color};">${s.value}</div>
-        <div style="font-size:11px;color:#64748B;font-weight:600;">${s.label}</div>
+      <div onclick="${s.fn}" style="background:${s.bg};border-radius:16px;padding:18px 14px;text-align:center;cursor:pointer;active:opacity:.7;-webkit-tap-highlight-color:rgba(0,0,0,0.1);">
+        <div style="font-size:32px;font-weight:900;color:${s.color};line-height:1;">${s.value}</div>
+        <div style="font-size:13px;color:#64748B;font-weight:600;margin-top:6px;">${s.label}</div>
       </div>`).join('');
   } catch (e) { showToast('Error stats: ' + e.message); }
 }
@@ -1035,14 +1038,16 @@ async function loadSPVUnitList() {
       const unitScheds = scheds ? scheds.filter(s => s.unit_id === u.id) : [];
       const statuses = unitScheds.map(s => mStatus(s.interval_hm, s.last_hm, u.current_hm || 0));
       const worst = statuses.includes('OVERDUE') ? 'OVERDUE' : statuses.includes('DUE SOON') ? 'DUE SOON' : 'OK';
-      return `<div class="m-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-size:14px;font-weight:700;color:#1E293B;">${u.code} â€” ${u.name}</div>
-            <div style="font-size:12px;color:#64748B;">${u.model || ''} &nbsp;|&nbsp; Operator: ${u.profiles ? u.profiles.name : 'â€”'}</div>
-            <div style="font-size:12px;font-weight:700;color:#1D4ED8;margin-top:2px;">HM: ${u.current_hm || 0}</div>
+      const borderColor = worst === 'OVERDUE' ? '#EF4444' : worst === 'DUE SOON' ? '#F59E0B' : '#10B981';
+      return `<div class=”m-card” style=”border-left:4px solid ${borderColor};”>
+        <div style=”display:flex;align-items:center;justify-content:space-between;”>
+          <div style=”flex:1;min-width:0;”>
+            <div style=”font-size:16px;font-weight:800;color:#1E293B;”>${u.code} &mdash; ${u.name}</div>
+            <div style=”font-size:13px;color:#64748B;margin-top:2px;”>${u.model || ''}</div>
+            <div style=”font-size:13px;color:#64748B;”>Operator: ${u.profiles ? u.profiles.name : '&mdash;'}</div>
+            <div style=”font-size:15px;font-weight:700;color:#1D4ED8;margin-top:4px;”>HM: ${(u.current_hm || 0).toLocaleString()}</div>
           </div>
-          ${badge(worst)}
+          <div style=”flex-shrink:0;margin-left:10px;”>${badge(worst)}</div>
         </div>
       </div>`;
     }).join('');
@@ -1098,13 +1103,13 @@ async function renderSPVSRList() {
         </div>`;
       }
       return `<div class="m-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div style="font-size:14px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
           ${badge(sr.urgency)}
         </div>
-        <div style="font-size:14px;font-weight:600;color:#1E293B;">${sr.category}</div>
-        <div style="font-size:12px;color:#64748B;">${sr.units ? sr.units.code : ''} &nbsp;|&nbsp; ${sr.profiles ? sr.profiles.name : 'Unknown'}</div>
-        <div style="font-size:12px;color:#374151;margin-top:4px;">${sr.description}</div>
+        <div style="font-size:16px;font-weight:700;color:#1E293B;">${sr.category}</div>
+        <div style="font-size:13px;color:#64748B;margin-top:3px;">${sr.units ? sr.units.code : ''} &nbsp;|&nbsp; ${sr.profiles ? sr.profiles.name : 'Unknown'}</div>
+        <div style="font-size:13px;color:#374151;margin-top:4px;">${sr.description}</div>
         ${actions}
       </div>`;
     }).join('');
@@ -1198,6 +1203,7 @@ async function loadSPVRiwayatLog(unitId, el) {
   spvRiwayatUnit = unitId;
   document.querySelectorAll('#spv-riwayat-unit-pills .unit-pill').forEach(b => b.classList.remove('on'));
   if (el) el.classList.add('on');
+  loadSPVRiwayatSchedule(unitId);
   const logEl = document.getElementById('spv-riwayat-log');
   if (!logEl) return;
   logEl.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
@@ -1216,6 +1222,50 @@ async function loadSPVRiwayatLog(unitId, el) {
         ${l.notes ? `<div style="font-size:12px;color:#64748B;margin-top:2px;font-style:italic;">${l.notes}</div>` : ''}
       </div>`).join('');
   } catch (e) { logEl.innerHTML = '<div style="color:#EF4444;font-size:13px;padding:10px;">Error: ' + e.message + '</div>'; }
+}
+
+async function loadSPVRiwayatSchedule(unitId) {
+  const el = document.getElementById('spv-riwayat-schedule');
+  if (!el) return;
+  el.innerHTML = '<div style="padding:10px 0;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const [{ data: unit }, { data: scheds }] = await Promise.all([
+      sb.from('units').select('code, current_hm').eq('id', unitId).single(),
+      sb.from('maintenance_schedules').select('type_name, interval_hm, last_hm, last_date').eq('unit_id', unitId).order('type_name')
+    ]);
+    if (!scheds || scheds.length === 0) { el.innerHTML = ''; return; }
+    const hm = unit ? unit.current_hm || 0 : 0;
+    const data = scheds.map(s => {
+      const rem = mRemaining(s.interval_hm, s.last_hm, hm);
+      const st = mStatus(s.interval_hm, s.last_hm, hm);
+      return { ...s, remaining: rem, status: st, hm_due: (s.last_hm || 0) + s.interval_hm };
+    }).sort((a, b) => a.remaining - b.remaining);
+    el.innerHTML = `<div style="background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:16px;font-weight:800;color:#1E3A8A;">${unit?.code || ''}</div>
+      <div style="font-size:14px;font-weight:700;color:#1D4ED8;">HM Skrg: ${hm.toLocaleString()}</div>
+    </div>
+    <div style="font-size:14px;font-weight:700;color:#374151;margin-bottom:8px;">Jadwal Maintenance</div>
+    <div style="overflow-x:auto;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.07);background:white;margin-bottom:12px;">
+      <table class="dt" style="min-width:380px;">
+        <thead><tr><th>Tipe</th><th>HM Terakhir</th><th>HM Due</th><th>Sisa HM</th><th>Status</th></tr></thead>
+        <tbody>${data.map(d => `<tr class="${d.status === 'OVERDUE' ? 'row-overdue' : d.status === 'DUE SOON' ? 'row-duesoon' : ''}">
+          <td style="font-size:13px;">${d.type_name}</td>
+          <td>${d.last_hm != null ? d.last_hm.toLocaleString() : '-'}</td>
+          <td>${d.last_hm != null ? d.hm_due.toLocaleString() : '-'}</td>
+          <td style="font-weight:800;color:${d.remaining < 0 ? '#DC2626' : '#374151'};">${d.last_hm != null ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</td>
+          <td>${badge(d.status)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  } catch (e) { el.innerHTML = ''; }
+}
+
+function spvDashFilter(filter) {
+  spvJadwalFilter = filter;
+  const navTabs = document.querySelectorAll('#view-spv .nav-tab');
+  switchSpvScreen('jadwal', navTabs[2]);
+  document.querySelectorAll('#spv-jadwal-filters .vpill').forEach(b => b.classList.toggle('on', b.textContent === filter));
+  renderSPVJadwal();
 }
 
 async function loadSPVJadwal() {
@@ -1315,26 +1365,24 @@ async function renderSPVJadwal() {
         }).join('')}
       </div>`;
     } else {
-      // Compact scrollable table for all units
+      // Full scrollable table for all units — matches admin jadwal style
       container.innerHTML = `<div style=”overflow-x:auto;padding:0 14px 14px;”>
-        <table style=”width:100%;border-collapse:collapse;font-size:14px;min-width:480px;”>
-          <thead><tr style=”background:#F8FAFC;”>
-            <th style=”padding:10px 12px;text-align:left;font-weight:700;color:#64748B;border-bottom:2px solid #E2E8F0;white-space:nowrap;”>Unit</th>
-            <th style=”padding:10px 12px;text-align:left;font-weight:700;color:#64748B;border-bottom:2px solid #E2E8F0;white-space:nowrap;”>Tipe</th>
-            <th style=”padding:10px 12px;text-align:left;font-weight:700;color:#64748B;border-bottom:2px solid #E2E8F0;white-space:nowrap;”>HM Due</th>
-            <th style=”padding:10px 12px;text-align:left;font-weight:700;color:#64748B;border-bottom:2px solid #E2E8F0;white-space:nowrap;”>Sisa HM</th>
-            <th style=”padding:10px 12px;text-align:left;font-weight:700;color:#64748B;border-bottom:2px solid #E2E8F0;white-space:nowrap;”>Status</th>
+        <table class=”dt” style=”min-width:660px;”>
+          <thead><tr>
+            <th>Unit</th><th>Tipe Maintenance</th><th>Interval</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>HM Due</th><th>HM Skrg</th><th>Sisa HM</th><th>Status</th>
           </tr></thead>
           <tbody>${data.map(d => {
-            const rowBg = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
-            const sisaColor = d.remaining < 0 ? '#DC2626' : '#374151';
             const hasData = d.last_hm != null;
-            return `<tr style=”background:${rowBg};border-bottom:1px solid #F1F5F9;”>
-              <td style=”padding:10px 12px;font-weight:700;font-size:14px;”>${d.units?.code || '-'}</td>
-              <td style=”padding:10px 12px;font-size:13px;”>${d.type_name}</td>
-              <td style=”padding:10px 12px;font-size:14px;”>${hasData ? d.hm_due.toLocaleString() : '-'}</td>
-              <td style=”padding:10px 12px;font-weight:800;font-size:15px;color:${sisaColor};”>${hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</td>
-              <td style=”padding:10px 12px;”>${badge(d.status)}</td>
+            return `<tr class=”${d.status === 'OVERDUE' ? 'row-overdue' : d.status === 'DUE SOON' ? 'row-duesoon' : ''}”>
+              <td style=”font-weight:700;”>${d.units?.code || '-'}</td>
+              <td>${d.type_name}</td>
+              <td>${d.interval_hm}</td>
+              <td>${hasData ? d.last_hm.toLocaleString() : '-'}</td>
+              <td>${formatDate(d.last_date)}</td>
+              <td>${hasData ? d.hm_due.toLocaleString() : '-'}</td>
+              <td>${d.hm.toLocaleString()}</td>
+              <td style=”font-weight:800;color:${d.remaining < 0 ? '#DC2626' : '#374151'};”>${hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</td>
+              <td>${badge(d.status)}</td>
             </tr>`;
           }).join('')}</tbody>
         </table></div>`;
