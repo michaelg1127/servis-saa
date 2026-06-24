@@ -655,7 +655,7 @@ function statusLabel(s) {
     'scheduled': 'Terjadwal', 'in_progress': 'Dikerjakan',
     'done_confirm': 'Konfirmasi', 'confirmed': 'Selesai', 'rejected': 'Ditolak',
     'pending': 'Pending', 'done': 'Selesai', 'approved': 'Disetujui',
-    'in_progress': 'Dikerjakan',
+    'OVERDUE': 'LEWAT', 'DUE SOON': 'HAMPIR',
   };
   return labels[s] || s;
 }
@@ -1036,8 +1036,8 @@ async function loadSPVStats() {
     const statsEl = document.getElementById('spv-stats');
     statsEl.innerHTML = [
       { label: 'Total Unit', value: units ? units.length : 0, color: '#1D4ED8', bg: '#EFF6FF', fn: "spvDashFilter('Semua')" },
-      { label: 'Overdue', value: overdue, color: '#DC2626', bg: '#FEF2F2', fn: "spvDashFilter('Overdue')" },
-      { label: 'Due Soon', value: dueSoon, color: '#D97706', bg: '#FFFBEB', fn: "spvDashFilter('Due Soon')" },
+      { label: 'Lewat', value: overdue, color: '#DC2626', bg: '#FEF2F2', fn: "spvDashFilter('Lewat')" },
+      { label: 'Hampir', value: dueSoon, color: '#D97706', bg: '#FFFBEB', fn: "spvDashFilter('Hampir')" },
       { label: 'Pend. Servis', value: srs ? srs.length : 0, color: '#7C3AED', bg: '#F5F3FF', fn: "switchSpvScreen('permintaan',document.querySelectorAll('#view-spv .nav-tab')[1])" },
     ].map(s => `
       <div onclick="${s.fn}" style="background:${s.bg};border-radius:14px;padding:20px 12px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.1);">
@@ -1049,27 +1049,64 @@ async function loadSPVStats() {
 
 async function loadSPVUnitList() {
   try {
-    const { data: units } = await sb.from('units').select('id, code, name, model, current_hm, profiles(name)').order('code');
-    const { data: scheds } = await sb.from('maintenance_schedules').select('unit_id, interval_hm, last_hm');
+    const { data: units } = await sb.from('units').select('id, code, name, model, current_hm, operator_name, profiles(name)').order('code');
+    const { data: scheds } = await sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm');
     const container = document.getElementById('spv-unit-list');
     if (!units) { container.innerHTML = ''; return; }
-    container.innerHTML = units.map(u => {
+    const sortOrder = { 'OVERDUE': 0, 'DUE SOON': 1, 'OK': 2 };
+    const enriched = units.map(u => {
       const unitScheds = scheds ? scheds.filter(s => s.unit_id === u.id) : [];
-      const statuses = unitScheds.map(s => mStatus(s.interval_hm, s.last_hm, u.current_hm || 0));
+      const schedsWithMeta = unitScheds.map(s => ({
+        ...s,
+        remaining: mRemaining(s.interval_hm, s.last_hm, u.current_hm || 0),
+        status: mStatus(s.interval_hm, s.last_hm, u.current_hm || 0),
+      }));
+      const statuses = schedsWithMeta.map(s => s.status);
       const worst = statuses.includes('OVERDUE') ? 'OVERDUE' : statuses.includes('DUE SOON') ? 'DUE SOON' : 'OK';
-      const borderColor = worst === 'OVERDUE' ? '#EF4444' : worst === 'DUE SOON' ? '#F59E0B' : '#10B981';
-      return `<div class="m-card" style="border-left:4px solid ${borderColor};">
+      const alertItems = schedsWithMeta.filter(s => s.status !== 'OK').sort((a, b) => a.remaining - b.remaining).slice(0, 3);
+      return { ...u, worst, alertItems };
+    });
+    enriched.sort((a, b) => (sortOrder[a.worst] - sortOrder[b.worst]) || a.code.localeCompare(b.code));
+    container.innerHTML = enriched.map(u => {
+      const borderColor = u.worst === 'OVERDUE' ? '#EF4444' : u.worst === 'DUE SOON' ? '#F59E0B' : '#10B981';
+      const opName = u.profiles ? u.profiles.name : (u.operator_name || '&mdash;');
+      const topItemsHTML = u.alertItems.length > 0 ? `<div style="margin-top:8px;border-top:1px solid #F1F5F9;padding-top:7px;">${u.alertItems.map(s => {
+        const c = s.remaining < 0 ? '#DC2626' : '#D97706';
+        const t = s.remaining < 0 ? '(' + Math.abs(s.remaining) + ') HM' : s.remaining + ' HM';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:3px;"><span style="color:#374151;font-weight:600;">${s.type_name}</span><span style="color:${c};font-weight:700;">${t}</span></div>`;
+      }).join('')}</div>` : '';
+      return `<div class="m-card" style="border-left:4px solid ${borderColor};cursor:pointer;" onclick="openRiwayatForUnit('${u.id}')">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
           <span style="font-size:17px;font-weight:800;color:#1E293B;">${u.code}</span>
-          ${badge(worst)}
+          ${badge(u.worst)}
         </div>
         <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:2px;">${u.name}</div>
         <div style="font-size:13px;color:#64748B;">${u.model || ''}</div>
-        <div style="font-size:13px;color:#64748B;">Operator: ${u.profiles ? u.profiles.name : '&mdash;'}</div>
+        <div style="font-size:13px;color:#64748B;">Operator: ${opName}</div>
         <div style="font-size:15px;font-weight:700;color:#1D4ED8;margin-top:5px;">HM: ${(u.current_hm || 0).toLocaleString()}</div>
+        ${topItemsHTML}
       </div>`;
     }).join('');
   } catch (e) { showToast('Error unit list: ' + e.message); }
+}
+
+async function openRiwayatForUnit(unitId) {
+  document.querySelectorAll('#view-spv .mscreen').forEach(s => s.classList.remove('on'));
+  document.querySelectorAll('#view-spv .nav-tab').forEach(t => t.classList.remove('on'));
+  const screen = document.getElementById('spv-screen-riwayat');
+  if (screen) screen.classList.add('on');
+  const navTabs = document.querySelectorAll('#view-spv .nav-tab');
+  if (navTabs[4]) navTabs[4].classList.add('on');
+  await initSPVRiwayat();
+  const pillsEl = document.getElementById('spv-riwayat-unit-pills');
+  if (!pillsEl) return;
+  for (const pill of pillsEl.querySelectorAll('.unit-pill')) {
+    if ((pill.getAttribute('onclick') || '').includes(unitId)) {
+      await loadSPVRiwayatLog(unitId, pill);
+      pill.scrollIntoView({ block: 'nearest', inline: 'center' });
+      return;
+    }
+  }
 }
 
 const pipelineStages = ['pending_spv','approved_spv','scheduled','in_progress','done_confirm','confirmed'];
@@ -1291,7 +1328,7 @@ function spvDashFilter(filter) {
 
 async function loadSPVJadwal() {
   const filterEl = document.getElementById('spv-jadwal-filters');
-  const filters = ['Semua','Overdue','Due Soon','OK'];
+  const filters = ['Semua','Lewat','Hampir','OK'];
   filterEl.innerHTML = filters.map(f => `<button class="vpill ${f === spvJadwalFilter ? 'on' : ''}" onclick="setSpvJadwalFilter('${f}')">${f}</button>`).join('');
   const unitSel = document.getElementById('spv-jadwal-unit-filter');
   if (unitSel && unitSel.options.length <= 1) {
@@ -1329,7 +1366,7 @@ async function renderSPVJadwal() {
     if (spvJadwalUnitFilter !== 'all') query = query.eq('unit_id', spvJadwalUnitFilter);
     const { data: scheds } = await query;
     if (!scheds) { container.innerHTML = ''; return; }
-    const filterMap = { 'Semua': null, 'Overdue': 'OVERDUE', 'Due Soon': 'DUE SOON', 'OK': 'OK' };
+    const filterMap = { 'Semua': null, 'Lewat': 'OVERDUE', 'Hampir': 'DUE SOON', 'OK': 'OK' };
     const filterVal = filterMap[spvJadwalFilter];
     let data = scheds.map(s => {
       const hm = s.units ? s.units.current_hm || 0 : 0;
