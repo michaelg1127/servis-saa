@@ -167,7 +167,7 @@
         <div id="op-hm-today-status" style="font-size:12px;color:#16A34A;font-weight:600;"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <input type="number" id="op-hm-input" class="finput" placeholder="Masukkan HM saat ini" style="flex:1;padding:10px 12px;font-size:14px;">
+        <input type="number" id="op-hm-input" class="finput" placeholder="Masukkan HM saat ini" step="1" style="flex:1;padding:10px 12px;font-size:14px;">
         <button onclick="submitHMUpdate()" class="btn-primary" style="padding:12px 16px;font-size:15px;white-space:nowrap;">Update</button>
       </div>
     </div>
@@ -298,15 +298,16 @@
     <div class="m-card">
       <div style="margin-bottom:14px;">
         <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Unit</label>
-        <select id="spv-log-unit" class="finput"></select>
+        <select id="spv-log-unit" class="finput" onchange="loadSPVCatatTypes(this.value)"></select>
       </div>
       <div style="margin-bottom:14px;">
         <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Maintenance</label>
-        <input type="text" id="spv-log-type" class="finput" placeholder="e.g. Oli Mesin, Filter Hidrolik">
+        <input type="text" id="spv-log-type" class="finput" list="spv-types-datalist" placeholder="Ketik atau pilih dari daftar...">
+        <datalist id="spv-types-datalist"></datalist>
       </div>
       <div style="margin-bottom:14px;">
         <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis</label>
-        <input type="number" id="spv-log-hm" class="finput" placeholder="Masukkan HM">
+        <input type="number" id="spv-log-hm" class="finput" placeholder="Masukkan HM" step="1">
       </div>
       <div style="margin-bottom:14px;">
         <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis</label>
@@ -407,7 +408,7 @@
       </div>
       <div style="margin-bottom:14px;">
         <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis</label>
-        <input type="number" id="mkn-log-hm" class="finput" placeholder="Masukkan HM">
+        <input type="number" id="mkn-log-hm" class="finput" placeholder="Masukkan HM" step="1">
       </div>
       <div style="margin-bottom:14px;">
         <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis</label>
@@ -745,7 +746,8 @@ function closeModalOnBg(e) {
 
 function formatDate(d) {
   if (!d) return '&mdash;';
-  return new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+  const dt = new Date(d.length === 10 ? d + 'T00:00:00' : d);
+  return String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0') + '/' + dt.getFullYear();
 }
 
 function formatCurrency(n) {
@@ -939,7 +941,7 @@ async function checkHMUpdateToday() {
 }
 
 async function submitHMUpdate() {
-  const val = parseFloat(document.getElementById('op-hm-input').value);
+  const val = parseInt(document.getElementById('op-hm-input').value);
   if (!val || val <= 0) { showToast('Masukkan nilai HM yang valid.'); return; }
   if (currentUnit && val < (currentUnit.current_hm || 0)) {
     showToast('HM baru tidak boleh lebih kecil dari HM saat ini.'); return;
@@ -1584,10 +1586,20 @@ async function initSPVCatat() {
   } catch (e) {}
 }
 
+async function loadSPVCatatTypes(unitId) {
+  const dl = document.getElementById('spv-types-datalist');
+  if (!dl) return;
+  if (!unitId) { dl.innerHTML = ''; return; }
+  try {
+    const { data } = await sb.from('maintenance_schedules').select('type_name').eq('unit_id', unitId).order('type_name');
+    dl.innerHTML = (data || []).map(s => `<option value="${s.type_name}">`).join('');
+  } catch (e) {}
+}
+
 async function submitSPVServiceLog() {
   const unitId = document.getElementById('spv-log-unit').value;
   const mType = document.getElementById('spv-log-type').value.trim();
-  const hm = parseFloat(document.getElementById('spv-log-hm').value);
+  const hm = parseInt(document.getElementById('spv-log-hm').value);
   const date = document.getElementById('spv-log-date').value;
   const mekanik = document.getElementById('spv-log-mekanik').value.trim();
   const parts = document.getElementById('spv-log-parts').value.trim();
@@ -2215,7 +2227,7 @@ function openEditServiceLog(l) {
     <label style="font-size:12px;font-weight:600;color:#374151;">Tanggal Servis</label>
     <input id="esl-date" type="date" class="finput" style="margin-bottom:10px;" value="${l.service_date || ''}">
     <label style="font-size:12px;font-weight:600;color:#374151;">HM saat Servis</label>
-    <input id="esl-hm" type="number" step="0.1" class="finput" style="margin-bottom:10px;" value="${l.hm_at_service || ''}">
+    <input id="esl-hm" type="number" step="1" class="finput" style="margin-bottom:10px;" value="${l.hm_at_service || ''}">
     <label style="font-size:12px;font-weight:600;color:#374151;">Nama Mekanik</label>
     <input id="esl-mkn" class="finput" style="margin-bottom:10px;" value="${l.mkn_name || ''}">
     <label style="font-size:12px;font-weight:600;color:#374151;">Parts Digunakan</label>
@@ -2235,7 +2247,7 @@ async function saveServiceLogEdit() {
   const updates = {
     maintenance_type: document.getElementById('esl-type').value.trim(),
     service_date: document.getElementById('esl-date').value,
-    hm_at_service: parseFloat(document.getElementById('esl-hm').value) || 0,
+    hm_at_service: parseInt(document.getElementById('esl-hm').value) || 0,
     mkn_name: document.getElementById('esl-mkn').value.trim(),
     parts_used: document.getElementById('esl-parts').value.trim(),
     cost_idr: parseInt(document.getElementById('esl-cost').value) || 0,
