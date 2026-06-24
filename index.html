@@ -7,18 +7,22 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F1F5F9; margin: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F1F5F9; margin: 0; font-size: 16px; }
   .mob-view { display: none; } .mob-view.on { display: block; }
   .mscreen { display: none; } .mscreen.on { display: block; }
-  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 62px; background: white; border-top: 1px solid #E2E8F0; display: flex; z-index: 100; }
-  .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; color: #94A3B8; cursor: pointer; gap: 3px; padding: 5px 0; transition: color 0.15s; }
-  .nav-tab svg { width: 23px; height: 23px; }
+  /* ── Bottom nav ── */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #E2E8F0; display: flex; z-index: 100; min-height: 68px; padding-bottom: env(safe-area-inset-bottom); }
+  .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; color: #94A3B8; cursor: pointer; gap: 4px; padding: 10px 2px; transition: color 0.15s; -webkit-tap-highlight-color: transparent; }
+  .nav-tab svg { width: 26px; height: 26px; }
   .nav-tab.on { color: #1D4ED8; }
+  /* ── Admin desktop ── */
   .dscreen { display: none; } .dscreen.on { display: block; }
   .slink { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; font-size: 14px; color: #475569; cursor: pointer; margin-bottom: 2px; transition: all 0.15s; }
   .slink:hover { background: #F1F5F9; }
   .slink.on { background: #EFF6FF; color: #1D4ED8; font-weight: 600; }
-  .m-card { background: white; border-radius: 16px; margin: 0 14px 10px; padding: 15px 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+  /* ── Cards ── */
+  .m-card { background: white; border-radius: 16px; margin: 0 16px 12px; padding: 18px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
+  /* ── Tables ── */
   .dt { width: 100%; border-collapse: collapse; font-size: 13px; }
   .dt th { background: #F8FAFC; padding: 10px 13px; text-align: left; font-weight: 600; color: #64748B; border-bottom: 2px solid #E2E8F0; white-space: nowrap; }
   .dt td { padding: 10px 13px; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
@@ -26,26 +30,31 @@
   .dt tr.grp td { background: #F1F5F9; font-weight: 700; color: #1E293B; }
   .dt tr.row-overdue td { background: #FFF1F2 !important; }
   .dt tr.row-duesoon td { background: #FFFBEB !important; }
-  .ptab { padding: 9px 15px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #F1F5F9; color: #64748B; cursor: pointer; white-space: nowrap; border: none; transition: all 0.15s; }
+  /* ── Filter pills ── */
+  .ptab { padding: 10px 16px; border-radius: 22px; font-size: 14px; font-weight: 600; background: #F1F5F9; color: #64748B; cursor: pointer; white-space: nowrap; border: none; transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
   .ptab.on { background: #1E3A8A; color: white; }
-  .vpill { padding: 8px 15px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #F1F5F9; color: #64748B; cursor: pointer; border: none; transition: all 0.15s; }
+  .vpill { padding: 9px 16px; border-radius: 22px; font-size: 13px; font-weight: 600; background: #F1F5F9; color: #64748B; cursor: pointer; border: none; transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
   .vpill.on { background: #1D4ED8; color: white; }
-  .finput { width: 100%; border: 1.5px solid #E2E8F0; border-radius: 11px; padding: 13px 15px; font-size: 15px; outline: none; box-sizing: border-box; background: white; transition: border-color 0.15s; }
+  /* ── CRITICAL: 16px prevents iOS auto-zoom on input focus ── */
+  .finput { width: 100%; border: 1.5px solid #E2E8F0; border-radius: 14px; padding: 14px 16px; font-size: 16px; outline: none; box-sizing: border-box; background: white; transition: border-color 0.15s; -webkit-appearance: none; }
   .finput:focus { border-color: #1D4ED8; }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .modal-box { background: white; border-radius: 16px; padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
-  .btn-primary { background: #1D4ED8; color: white; border: none; border-radius: 11px; padding: 13px 20px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  /* ── Modals ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; display: flex; align-items: flex-end; justify-content: center; padding: 0; }
+  .modal-box { background: white; border-radius: 20px 20px 0 0; padding: 24px 20px; width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto; }
+  /* ── Buttons ── */
+  .btn-primary { background: #1D4ED8; color: white; border: none; border-radius: 14px; padding: 15px 20px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.15s; width: 100%; -webkit-tap-highlight-color: transparent; }
   .btn-primary:hover { background: #1E40AF; }
   .btn-primary:disabled { background: #93C5FD; cursor: not-allowed; }
-  .btn-secondary { background: #F1F5F9; color: #475569; border: none; border-radius: 11px; padding: 12px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
-  .btn-danger { background: #EF4444; color: white; border: none; border-radius: 11px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
-  .btn-success { background: #10B981; color: white; border: none; border-radius: 11px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
-  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 90vw; text-align: center; animation: slideDown 0.3s ease; }
+  .btn-secondary { background: #F1F5F9; color: #475569; border: none; border-radius: 14px; padding: 14px 18px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .btn-danger { background: #EF4444; color: white; border: none; border-radius: 12px; padding: 12px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-success { background: #10B981; color: white; border: none; border-radius: 12px; padding: 12px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  /* ── Toast ── */
+  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 14px 22px; border-radius: 14px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-width: 90vw; text-align: center; animation: slideDown 0.3s ease; }
   .toast.error { background: #EF4444; color: white; }
   .toast.success { background: #10B981; color: white; }
   .toast.info { background: #1D4ED8; color: white; }
   @keyframes slideDown { from { top: -20px; opacity: 0; } to { top: 16px; opacity: 1; } }
-  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #E2E8F0; border-top-color: #1D4ED8; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2.5px solid #E2E8F0; border-top-color: #1D4ED8; border-radius: 50%; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .status-step { display: flex; align-items: center; gap: 6px; }
   .status-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
@@ -59,12 +68,12 @@
   .desk-content { margin-left: 224px; padding: 28px; min-height: 100vh; }
   @media (max-width: 768px) { .desk-content { margin-left: 0; } }
   .stat-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
-  .hm-banner { background: #FEF3C7; border: 1.5px solid #FCD34D; border-radius: 14px; margin: 0 14px 10px; padding: 14px 16px; }
-  select.finput { appearance: auto; }
+  .hm-banner { background: #FEF3C7; border: 1.5px solid #FCD34D; border-radius: 14px; margin: 0 16px 12px; padding: 16px; }
+  select.finput { appearance: auto; -webkit-appearance: auto; }
   .inline-table-wrap { overflow-x: auto; }
-  .pipeline-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 0 14px 8px; scrollbar-width: none; }
+  .pipeline-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 0 16px 10px; scrollbar-width: none; }
   .pipeline-tabs::-webkit-scrollbar { display: none; }
-  .unit-pill { padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #F1F5F9; color: #475569; cursor: pointer; border: none; white-space: nowrap; }
+  .unit-pill { padding: 9px 18px; border-radius: 22px; font-size: 13px; font-weight: 600; background: #F1F5F9; color: #475569; cursor: pointer; border: none; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
   .unit-pill.on { background: #1D4ED8; color: white; }
   .progress-bar-wrap { display: flex; align-items: center; margin: 8px 0 0; }
   .prog-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
@@ -73,12 +82,15 @@
   .prog-dot.active { background: #1D4ED8; border-color: #1D4ED8; }
   .prog-line { flex: 1; height: 2px; background: #E2E8F0; margin: 0 -1px; align-self: center; }
   .prog-line.done { background: #10B981; }
-  .prog-label { font-size: 9px; color: #94A3B8; margin-top: 3px; text-align: center; }
+  .prog-label { font-size: 10px; color: #94A3B8; margin-top: 3px; text-align: center; }
   .prog-label.done { color: #10B981; }
   .prog-label.active { color: #1D4ED8; font-weight: 700; }
-  textarea.finput { resize: vertical; min-height: 80px; }
+  textarea.finput { resize: vertical; min-height: 90px; }
   .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 224px; background: white; border-right: 1px solid #E2E8F0; padding: 20px 12px; overflow-y: auto; z-index: 50; }
   .table-wrap { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); background: white; }
+  /* ── Sticky mobile screen headers ── */
+  #view-spv .mscreen > div:first-child,
+  #view-mkn .mscreen > div:first-child { position: sticky; top: 0; z-index: 20; }
 </style>
 </head>
 <body>
@@ -137,12 +149,12 @@
 <div id="view-operator" class="mob-view" style="padding-bottom:72px;">
   <div id="op-screen-beranda" class="mscreen">
     <div style="background:white;padding:16px 14px 12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
-      <div style="font-size:11px;color:#94A3B8;font-weight:600;letter-spacing:0.5px;">UNIT ANDA</div>
+      <div style="font-size:12px;color:#94A3B8;font-weight:600;letter-spacing:0.5px;">UNIT ANDA</div>
       <div id="op-unit-code" style="font-size:22px;font-weight:800;color:#1E3A8A;"></div>
       <div id="op-unit-name" style="font-size:14px;color:#374151;font-weight:600;"></div>
       <div style="display:flex;gap:12px;margin-top:6px;">
-        <div style="font-size:12px;color:#64748B;" id="op-unit-model"></div>
-        <div style="font-size:12px;font-weight:700;color:#1D4ED8;">HM: <span id="op-unit-hm">â€”</span></div>
+        <div style=”font-size:13px;color:#64748B;” id=”op-unit-model”></div>
+        <div style=”font-size:13px;font-weight:700;color:#1D4ED8;”>HM: <span id=”op-unit-hm”>â€”</span></div>
       </div>
     </div>
     <!-- HM Banner -->
@@ -150,7 +162,7 @@
       <div style="font-size:13px;font-weight:700;color:#92400E;margin-bottom:8px;">ðŸ“Š Update HM Hari Ini</div>
       <div style="display:flex;gap:8px;align-items:center;">
         <input type="number" id="op-hm-input" class="finput" placeholder="Masukkan HM saat ini" style="flex:1;padding:10px 12px;font-size:14px;">
-        <button onclick="submitHMUpdate()" class="btn-primary" style="padding:10px 16px;font-size:13px;white-space:nowrap;">Submit</button>
+        <button onclick="submitHMUpdate()" class="btn-primary" style="padding:12px 16px;font-size:15px;white-space:nowrap;">Submit</button>
       </div>
     </div>
     <!-- Maintenance Schedule -->
@@ -233,7 +245,7 @@
       <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Permintaan Servis</div>
       <div class="pipeline-tabs" id="spv-pipeline-tabs"></div>
       <div style="display:flex;align-items:center;gap:8px;padding:8px 0 10px;overflow-x:auto;scrollbar-width:none;">
-        <select id="spv-sr-unit-filter" onchange="setSPVSRUnitFilter(this.value)" style="font-size:12px;padding:5px 10px;border:1.5px solid #E2E8F0;border-radius:20px;background:white;color:#475569;font-weight:600;outline:none;flex-shrink:0;"><option value="all">Semua Unit</option></select>
+        <select id="spv-sr-unit-filter" onchange="setSPVSRUnitFilter(this.value)" style="font-size:13px;padding:8px 12px;border:1.5px solid #E2E8F0;border-radius:20px;background:white;color:#475569;font-weight:600;outline:none;flex-shrink:0;-webkit-appearance:none;"><option value="all">Semua Unit</option></select>
         <button class="vpill on" onclick="setSPVSRSort('date',this)">Terbaru</button>
         <button class="vpill" onclick="setSPVSRSort('unit',this)">Per Unit</button>
         <button class="vpill" onclick="setSPVSRSort('type',this)">Per Tipe</button>
@@ -631,7 +643,7 @@ function badge(status) {
     'LOW': 'background:#DBEAFE;color:#2563EB;',
   };
   const style = map[status] || 'background:#F1F5F9;color:#475569;';
-  return `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;${style}">${statusLabel(status)}</span>`;
+  return `<span style="display:inline-block;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;${style}">${statusLabel(status)}</span>`;
 }
 
 function statusLabel(s) {
@@ -895,7 +907,7 @@ async function loadOpSchedule() {
           <div style="font-size:14px;font-weight:700;color:#1E293B;">${s.type_name}</div>
           ${badge(s.status)}
         </div>
-        <div style="font-size:12px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.last_hm} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
+        <div style="font-size:13px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.last_hm} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
         <div style="font-size:13px;font-weight:600;margin-top:6px;color:${s.remaining < 0 ? '#DC2626' : s.status === 'DUE SOON' ? '#D97706' : '#16A34A'};">
           ${s.remaining < 0 ? `Terlambat ${Math.abs(s.remaining)} HM` : `Sisa ${s.remaining} HM`}
         </div>
@@ -944,11 +956,11 @@ async function loadOpMyReq() {
     container.innerHTML = srs.map(sr => `
       <div class="m-card" style="cursor:pointer;" onclick="toggleSRDetail('sr-detail-${sr.id}')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
+          <div style=”font-size:14px;font-weight:800;color:#1D4ED8;”>${sr.sr_number}</div>
           ${badge(sr.urgency)}
         </div>
-        <div style="font-size:14px;font-weight:600;color:#1E293B;">${sr.category}</div>
-        <div style="font-size:12px;color:#64748B;">${sr.units ? sr.units.code + ' â€” ' + sr.units.name : ''} &nbsp;|&nbsp; ${formatDate(sr.created_at)}</div>
+        <div style=”font-size:15px;font-weight:600;color:#1E293B;”>${sr.category}</div>
+        <div style=”font-size:13px;color:#64748B;”>${sr.units ? sr.units.code + ' â€” ' + sr.units.name : ''} &nbsp;|&nbsp; ${formatDate(sr.created_at)}</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
           ${badge(sr.status)}
           <svg style="width:14px;height:14px;color:#94A3B8;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
@@ -1094,12 +1106,12 @@ async function renderSPVSRList() {
       let actions = '';
       if (spvPipelineTab === 'pending_spv') {
         actions = `<div style="display:flex;gap:8px;margin-top:10px;">
-          <button class="btn-success" style="flex:1;font-size:12px;padding:8px;" onclick="openApproveSRModal('${sr.id}','${sr.sr_number}')">Setujui</button>
-          <button class="btn-danger" style="flex:1;font-size:12px;padding:8px;" onclick="openRejectSRModal('${sr.id}','${sr.sr_number}')">Tolak</button>
+          <button class="btn-success" style="flex:1;font-size:14px;padding:10px 14px;" onclick="openApproveSRModal('${sr.id}','${sr.sr_number}')">Setujui</button>
+          <button class="btn-danger" style="flex:1;font-size:14px;padding:10px 14px;" onclick="openRejectSRModal('${sr.id}','${sr.sr_number}')">Tolak</button>
         </div>`;
       } else if (spvPipelineTab === 'done_confirm') {
         actions = `<div style="margin-top:10px;">
-          <button class="btn-success" style="width:100%;font-size:12px;padding:8px;" onclick="confirmSR('${sr.id}')">Konfirmasi Selesai</button>
+          <button class="btn-success" style="width:100%;font-size:14px;padding:10px 14px;" onclick="confirmSR('${sr.id}')">Konfirmasi Selesai</button>
         </div>`;
       }
       return `<div class="m-card">
@@ -1213,13 +1225,13 @@ async function loadSPVRiwayatLog(unitId, el) {
     logEl.innerHTML = logs.map(l => `
       <div style="background:white;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-size:14px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
-          <div style="font-size:12px;color:#94A3B8;">${formatDate(l.service_date)}</div>
+          <div style="font-size:15px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
+          <div style="font-size:13px;color:#94A3B8;">${formatDate(l.service_date)}</div>
         </div>
-        <div style="font-size:12px;color:#64748B;">HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '&mdash;'}</div>
-        ${l.parts_used ? `<div style="font-size:12px;color:#374151;margin-top:4px;">Parts: ${l.parts_used}</div>` : ''}
-        ${l.cost_idr ? `<div style="font-size:12px;font-weight:600;color:#1D4ED8;margin-top:2px;">${formatCurrency(l.cost_idr)}</div>` : ''}
-        ${l.notes ? `<div style="font-size:12px;color:#64748B;margin-top:2px;font-style:italic;">${l.notes}</div>` : ''}
+        <div style="font-size:13px;color:#64748B;">HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '&mdash;'}</div>
+        ${l.parts_used ? `<div style="font-size:13px;color:#374151;margin-top:4px;">Parts: ${l.parts_used}</div>` : ''}
+        ${l.cost_idr ? `<div style="font-size:13px;font-weight:600;color:#1D4ED8;margin-top:2px;">${formatCurrency(l.cost_idr)}</div>` : ''}
+        ${l.notes ? `<div style="font-size:13px;color:#64748B;margin-top:2px;font-style:italic;">${l.notes}</div>` : ''}
       </div>`).join('');
   } catch (e) { logEl.innerHTML = '<div style="color:#EF4444;font-size:13px;padding:10px;">Error: ' + e.message + '</div>'; }
 }
@@ -1341,24 +1353,24 @@ async function renderSPVJadwal() {
             </div>
             <div style=”display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;”>
               <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
-                <div style=”font-size:11px;color:#64748B;margin-bottom:2px;”>Interval</div>
+                <div style=”font-size:12px;color:#64748B;margin-bottom:2px;”>Interval</div>
                 <div style=”font-size:15px;font-weight:700;color:#374151;”>${d.interval_hm} HM</div>
               </div>
               <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
-                <div style=”font-size:11px;color:#64748B;margin-bottom:2px;”>HM Terakhir</div>
+                <div style=”font-size:12px;color:#64748B;margin-bottom:2px;”>HM Terakhir</div>
                 <div style=”font-size:15px;font-weight:700;color:#374151;”>${hasData ? d.last_hm.toLocaleString() : '-'}</div>
               </div>
               <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
-                <div style=”font-size:11px;color:#64748B;margin-bottom:2px;”>HM Due</div>
+                <div style=”font-size:12px;color:#64748B;margin-bottom:2px;”>HM Due</div>
                 <div style=”font-size:15px;font-weight:700;color:#374151;”>${hasData ? d.hm_due.toLocaleString() : '-'}</div>
               </div>
               <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
-                <div style=”font-size:11px;color:#64748B;margin-bottom:2px;”>Tgl Terakhir</div>
+                <div style=”font-size:12px;color:#64748B;margin-bottom:2px;”>Tgl Terakhir</div>
                 <div style=”font-size:13px;font-weight:600;color:#374151;”>${formatDate(d.last_date)}</div>
               </div>
             </div>
             <div style=”background:${d.remaining < 0 ? '#FEE2E2' : d.remaining < d.interval_hm * 0.15 ? '#FEF3C7' : '#D1FAE5'};border-radius:8px;padding:10px 14px;text-align:center;”>
-              <div style=”font-size:11px;color:#64748B;margin-bottom:2px;”>Sisa HM</div>
+              <div style=”font-size:12px;color:#64748B;margin-bottom:2px;”>Sisa HM</div>
               <div style=”font-size:22px;font-weight:900;color:${sisaColor};”>${hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</div>
             </div>
           </div>`;
@@ -1402,11 +1414,11 @@ async function loadSPVPenugasan() {
       <div class="m-card">
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div>
-            <div style="font-size:14px;font-weight:700;color:#1E293B;">${u.code} â€” ${u.name}</div>
-            <div style="font-size:12px;color:#64748B;">${u.model || ''}</div>
-            <div style="font-size:12px;font-weight:600;color:#374151;margin-top:2px;">Operator: ${u.profiles ? u.profiles.name : 'Belum ada'}</div>
+            <div style=”font-size:15px;font-weight:700;color:#1E293B;”>${u.code} â€” ${u.name}</div>
+            <div style=”font-size:13px;color:#64748B;”>${u.model || ''}</div>
+            <div style=”font-size:13px;font-weight:600;color:#374151;margin-top:2px;”>Operator: ${u.profiles ? u.profiles.name : 'Belum ada'}</div>
           </div>
-          <button class="btn-secondary" style="font-size:12px;padding:8px 12px;" onclick="openChangeOperatorModal('${u.id}','${u.assigned_operator_id || ''}')">Ganti</button>
+          <button class=”btn-secondary” style=”font-size:13px;padding:10px 14px;” onclick=”openChangeOperatorModal('${u.id}','${u.assigned_operator_id || ''}')”>Ganti</button>
         </div>
       </div>`).join('');
   } catch (e) { showToast('Error penugasan: ' + e.message); }
@@ -1473,14 +1485,14 @@ async function renderMKNJobOrders() {
     container.innerHTML = sorted.map(jo => `
       <div class="m-card" style="cursor:pointer;" onclick="openJOActionModal('${jo.id}','${jo.status}','${jo.jo_number}','${jo.units ? jo.units.code : ''}')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${jo.jo_number}</div>
+          <div style=”font-size:14px;font-weight:800;color:#1D4ED8;”>${jo.jo_number}</div>
           ${badge(jo.priority)}
         </div>
-        <div style="font-size:14px;font-weight:600;color:#1E293B;">${jo.units ? jo.units.code + ' â€” ' + jo.units.name : 'Unit tidak ditemukan'}</div>
-        <div style="font-size:12px;color:#64748B;">${jo.type}</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
+        <div style=”font-size:15px;font-weight:600;color:#1E293B;”>${jo.units ? jo.units.code + ' â€” ' + jo.units.name : 'Unit tidak ditemukan'}</div>
+        <div style=”font-size:13px;color:#64748B;”>${jo.type}</div>
+        <div style=”display:flex;align-items:center;justify-content:space-between;margin-top:6px;”>
           ${badge(jo.status)}
-          <div style="font-size:11px;color:#94A3B8;">${jo.scheduled_date ? formatDate(jo.scheduled_date) : 'â€”'}</div>
+          <div style=”font-size:13px;color:#94A3B8;”>${jo.scheduled_date ? formatDate(jo.scheduled_date) : 'â€”'}</div>
         </div>
       </div>`).join('');
   } catch (e) { showToast('Error JO: ' + e.message); }
@@ -1534,15 +1546,15 @@ async function loadMKNPermintaan() {
     container.innerHTML = srs.map(sr => `
       <div class="m-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
+          <div style=”font-size:14px;font-weight:800;color:#1D4ED8;”>${sr.sr_number}</div>
           ${badge(sr.urgency)}
         </div>
-        <div style="font-size:14px;font-weight:600;color:#1E293B;">${sr.category}</div>
-        <div style="font-size:12px;color:#64748B;">${sr.units ? sr.units.code + ' â€” ' + sr.units.name : ''}</div>
-        <div style="font-size:12px;color:#374151;margin-top:4px;">${sr.description}</div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button onclick="openAcceptSRModal('${sr.id}','${sr.sr_number}')" class="btn-success" style="flex:1;font-size:12px;padding:8px;">Terima</button>
-          <button onclick="mknRejectSR('${sr.id}')" class="btn-danger" style="flex:1;font-size:12px;padding:8px;">Tolak</button>
+        <div style=”font-size:15px;font-weight:600;color:#1E293B;”>${sr.category}</div>
+        <div style=”font-size:13px;color:#64748B;”>${sr.units ? sr.units.code + ' â€” ' + sr.units.name : ''}</div>
+        <div style=”font-size:13px;color:#374151;margin-top:4px;”>${sr.description}</div>
+        <div style=”display:flex;gap:8px;margin-top:10px;”>
+          <button onclick=”openAcceptSRModal('${sr.id}','${sr.sr_number}')” class=”btn-success” style=”flex:1;font-size:14px;padding:10px 14px;”>Terima</button>
+          <button onclick=”mknRejectSR('${sr.id}')” class=”btn-danger” style=”flex:1;font-size:14px;padding:10px 14px;”>Tolak</button>
         </div>
       </div>`).join('');
   } catch (e) { showToast('Error: ' + e.message); }
@@ -1591,11 +1603,11 @@ async function loadMKNParts() {
     container.innerHTML = prs.map(pr => `
       <div class="m-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${pr.pr_number}</div>
+          <div style=”font-size:14px;font-weight:800;color:#1D4ED8;”>${pr.pr_number}</div>
           ${badge(pr.status)}
         </div>
-        <div style="font-size:14px;font-weight:600;color:#1E293B;">${pr.part_name}</div>
-        <div style="font-size:12px;color:#64748B;">Qty: ${pr.qty} ${pr.uom} &nbsp;|&nbsp; JO: ${pr.job_orders ? pr.job_orders.jo_number : 'â€”'} &nbsp;|&nbsp; Unit: ${pr.units ? pr.units.code : 'â€”'}</div>
+        <div style=”font-size:15px;font-weight:600;color:#1E293B;”>${pr.part_name}</div>
+        <div style=”font-size:13px;color:#64748B;”>Qty: ${pr.qty} ${pr.uom} &nbsp;|&nbsp; JO: ${pr.job_orders ? pr.job_orders.jo_number : 'â€”'} &nbsp;|&nbsp; Unit: ${pr.units ? pr.units.code : 'â€”'}</div>
       </div>`).join('');
   } catch (e) { showToast('Error parts: ' + e.message); }
 }
