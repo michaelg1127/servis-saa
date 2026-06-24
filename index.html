@@ -591,7 +591,7 @@ let allProfiles = [];
 let allUnits = [];
 let allMknProfiles = [];
 let allOperatorProfiles = [];
-let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+let isMobile = window.innerWidth <= 1024;
 
 // ============================================================
 // UTILITY FUNCTIONS
@@ -806,13 +806,6 @@ async function routeByRole() {
     return;
   }
   if (['operator','spv','mkn'].includes(role)) {
-    if (!isMobile) {
-      document.getElementById('wrong-device-icon').textContent = 'ðŸ“±';
-      document.getElementById('wrong-device-title').textContent = 'Gunakan Ponsel';
-      document.getElementById('wrong-device-msg').textContent = 'Tampilan ' + role.toUpperCase() + ' hanya tersedia di ponsel/tablet.';
-      show('wrong-device-screen', 'flex');
-      return;
-    }
     if (role === 'operator') {
       const view = document.getElementById('view-operator');
       view.style.display = 'block'; view.classList.add('on');
@@ -1249,29 +1242,37 @@ async function setSpvJadwalFilter(f) {
 
 async function renderSPVJadwal() {
   const container = document.getElementById('spv-jadwal-list');
-  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  container.innerHTML = '<div style=”padding:20px;text-align:center;”><div class=”spinner”></div></div>';
   try {
-    const { data: scheds } = await sb.from('maintenance_schedules').select('id, unit_id, type_name, interval_hm, last_hm, last_date, units(code, name, current_hm)');
+    const { data: scheds } = await sb.from('maintenance_schedules').select('id, unit_id, type_name, interval_hm, last_hm, last_date, units(code, name, current_hm)').order('unit_id');
     if (!scheds) { container.innerHTML = ''; return; }
-    let filtered = scheds.map(s => {
+    const filterMap = { 'Semua': null, 'Overdue': 'OVERDUE', 'Due Soon': 'DUE SOON', 'OK': 'OK' };
+    const filterVal = filterMap[spvJadwalFilter];
+    let data = scheds.map(s => {
       const hm = s.units ? s.units.current_hm || 0 : 0;
-      return { ...s, remaining: mRemaining(s.interval_hm, s.last_hm, hm), status: mStatus(s.interval_hm, s.last_hm, hm), hm };
+      const rem = mRemaining(s.interval_hm, s.last_hm, hm);
+      const st = mStatus(s.interval_hm, s.last_hm, hm);
+      return { ...s, hm, remaining: rem, status: st, hm_due: (s.last_hm || 0) + s.interval_hm };
     });
-    if (spvJadwalFilter !== 'Semua') {
-      const filterMap = { 'Overdue': 'OVERDUE', 'Due Soon': 'DUE SOON', 'OK': 'OK' };
-      filtered = filtered.filter(s => s.status === filterMap[spvJadwalFilter]);
-    }
-    if (filtered.length === 0) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada data.</div>'; return; }
-    filtered.sort((a,b) => a.remaining - b.remaining);
-    container.innerHTML = filtered.map(s => `
-      <div class="m-card" style="${s.status === 'OVERDUE' ? 'border-left:3px solid #EF4444;' : s.status === 'DUE SOON' ? 'border-left:3px solid #F59E0B;' : ''}">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
-          <div style="font-size:13px;font-weight:700;color:#1E293B;">${s.units ? s.units.code : 'â€”'} | ${s.type_name}</div>
-          ${badge(s.status)}
-        </div>
-        <div style="font-size:11px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.last_hm} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
-        <div style="font-size:12px;font-weight:600;margin-top:4px;color:${s.remaining < 0 ? '#DC2626' : '#64748B'};">${s.remaining < 0 ? 'Terlambat ' + Math.abs(s.remaining) + ' HM' : 'Sisa ' + s.remaining + ' HM'} &nbsp;(HM: ${s.hm})</div>
-      </div>`).join('');
+    if (filterVal) data = data.filter(d => d.status === filterVal);
+    if (data.length === 0) { container.innerHTML = '<div style=”padding:20px;text-align:center;color:#94A3B8;font-size:14px;”>Tidak ada data.</div>'; return; }
+    if (spvJadwalMode === 'unit') data.sort((a,b) => (a.units?.code||'').localeCompare(b.units?.code||''));
+    else data.sort((a,b) => a.type_name.localeCompare(b.type_name));
+    container.innerHTML = `<div style=”overflow-x:auto;padding:0 14px 14px;”>
+      <table class=”dt” style=”min-width:600px;”>
+        <thead><tr><th>Unit</th><th>Tipe Maintenance</th><th>Interval</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>HM Due</th><th>HM Skrg</th><th>Sisa HM</th><th>Status</th></tr></thead>
+        <tbody>${data.map(d => `<tr class=”${d.status === 'OVERDUE' ? 'row-overdue' : d.status === 'DUE SOON' ? 'row-duesoon' : ''}”>
+          <td style=”font-weight:700;”>${d.units ? d.units.code : '-'}</td>
+          <td>${d.type_name}</td>
+          <td>${d.interval_hm}</td>
+          <td>${d.last_hm ?? '-'}</td>
+          <td>${formatDate(d.last_date)}</td>
+          <td>${d.last_hm != null ? d.hm_due : '-'}</td>
+          <td>${d.hm}</td>
+          <td style=”font-weight:700;color:${d.remaining < 0 ? '#DC2626' : '#374151'};”>${d.last_hm != null ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</td>
+          <td>${badge(d.status)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
   } catch (e) { showToast('Error jadwal: ' + e.message); }
 }
 
