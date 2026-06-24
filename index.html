@@ -1,9 +1,9 @@
-!DOCTYPE html>
-<html lang="id">
+<!DOCTYPE html>
+<html lang=”id”>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>SERVIS SAA â€” PT Surya Alam Armada</title>
+<meta charset=”UTF-8”>
+<meta name=”viewport” content=”width=device-width, initial-scale=1.0, maximum-scale=1.0”>
+<title>SERVIS SAA &mdash; PT Surya Alam Armada</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -231,6 +231,12 @@
     <div style="background:white;padding:16px 14px 0;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:0;">
       <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Permintaan Servis</div>
       <div class="pipeline-tabs" id="spv-pipeline-tabs"></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0 10px;overflow-x:auto;scrollbar-width:none;">
+        <select id="spv-sr-unit-filter" onchange="setSPVSRUnitFilter(this.value)" style="font-size:12px;padding:5px 10px;border:1.5px solid #E2E8F0;border-radius:20px;background:white;color:#475569;font-weight:600;outline:none;flex-shrink:0;"><option value="all">Semua Unit</option></select>
+        <button class="vpill on" onclick="setSPVSRSort('date',this)">Terbaru</button>
+        <button class="vpill" onclick="setSPVSRSort('unit',this)">Per Unit</button>
+        <button class="vpill" onclick="setSPVSRSort('type',this)">Per Tipe</button>
+      </div>
     </div>
     <div id="spv-sr-list" style="padding-top:10px;"></div>
   </div>
@@ -254,6 +260,14 @@
     <div id="spv-penugasan-list"></div>
   </div>
 
+  <div id="spv-screen-riwayat" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Riwayat Per Unit</div>
+      <div id="spv-riwayat-unit-pills" style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;"></div>
+    </div>
+    <div id="spv-riwayat-log" style="padding:0 14px;"></div>
+  </div>
+
   <nav class="bottom-nav">
     <div class="nav-tab on" onclick="switchSpvScreen('dashboard',this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -270,6 +284,10 @@
     <div class="nav-tab" onclick="switchSpvScreen('penugasan',this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
       Penugasan
+    </div>
+    <div class="nav-tab" onclick="switchSpvScreen('riwayat',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Riwayat
     </div>
   </nav>
 </div>
@@ -562,6 +580,9 @@ let adminPipelineTab = 'pending_spv';
 let spvJadwalMode = 'unit';
 let adminJadwalMode = 'unit';
 let spvJadwalFilter = 'Semua';
+let spvSRUnitFilter = 'all';
+let spvSRSort = 'date';
+let spvRiwayatUnit = null;
 let adminJadwalFilter = 'Semua';
 let mknJOSort = 'Semua';
 let adminRiwayatUnit = null;
@@ -1043,6 +1064,13 @@ const pipelineLabels = { pending_spv:'Pending SPV', approved_spv:'Disetujui', sc
 async function loadSPVPermintaan() {
   const tabsEl = document.getElementById('spv-pipeline-tabs');
   tabsEl.innerHTML = pipelineStages.map(s => `<button class="ptab ${s === spvPipelineTab ? 'on' : ''}" onclick="setSpvPipelineTab('${s}')">${pipelineLabels[s]}</button>`).join('');
+  const unitSel = document.getElementById('spv-sr-unit-filter');
+  if (unitSel && unitSel.options.length <= 1) {
+    try {
+      const { data: units } = await sb.from('units').select('id, code').order('code');
+      if (units) units.forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = u.code; unitSel.appendChild(o); });
+    } catch (e) {}
+  }
   await renderSPVSRList();
 }
 
@@ -1056,10 +1084,16 @@ async function renderSPVSRList() {
   const container = document.getElementById('spv-sr-list');
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const { data: srs } = await sb.from('service_requests').select('id, sr_number, unit_id, category, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name), profiles!service_requests_submitted_by_fkey(name)').eq('status', spvPipelineTab).order('created_at', { ascending: false });
-    if (!srs || srs.length === 0) {
+    let query = sb.from('service_requests').select('id, sr_number, unit_id, category, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name), profiles!service_requests_submitted_by_fkey(name)').eq('status', spvPipelineTab);
+    if (spvSRUnitFilter !== 'all') query = query.eq('unit_id', spvSRUnitFilter);
+    query = query.order('created_at', { ascending: false });
+    const { data: rawSrs } = await query;
+    if (!rawSrs || rawSrs.length === 0) {
       container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada request.</div>'; return;
     }
+    let srs = [...rawSrs];
+    if (spvSRSort === 'unit') srs.sort((a, b) => (a.units?.code || '').localeCompare(b.units?.code || ''));
+    else if (spvSRSort === 'type') srs.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
     container.innerHTML = srs.map(sr => {
       let actions = '';
       if (spvPipelineTab === 'pending_spv') {
@@ -1142,6 +1176,55 @@ async function confirmSR(srId) {
     showToast('Pekerjaan dikonfirmasi selesai!', 'success');
     await renderSPVSRList();
   } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+function setSPVSRUnitFilter(val) {
+  spvSRUnitFilter = val;
+  renderSPVSRList();
+}
+
+function setSPVSRSort(sort, el) {
+  spvSRSort = sort;
+  document.querySelectorAll('#spv-screen-permintaan .vpill').forEach(b => b.classList.remove('on'));
+  if (el) el.classList.add('on');
+  renderSPVSRList();
+}
+
+async function initSPVRiwayat() {
+  const pillsEl = document.getElementById('spv-riwayat-unit-pills');
+  if (!pillsEl) return;
+  if (spvRiwayatUnit && pillsEl.children.length > 0) return;
+  try {
+    const { data: units } = await sb.from('units').select('id, code').order('code');
+    if (!units || units.length === 0) return;
+    pillsEl.innerHTML = units.map((u, i) => `<button class="unit-pill ${i === 0 ? 'on' : ''}" onclick="loadSPVRiwayatLog('${u.id}', this)">${u.code}</button>`).join('');
+    spvRiwayatUnit = units[0].id;
+    await loadSPVRiwayatLog(units[0].id, pillsEl.children[0]);
+  } catch (e) { showToast('Error riwayat: ' + e.message); }
+}
+
+async function loadSPVRiwayatLog(unitId, el) {
+  spvRiwayatUnit = unitId;
+  document.querySelectorAll('#spv-riwayat-unit-pills .unit-pill').forEach(b => b.classList.remove('on'));
+  if (el) el.classList.add('on');
+  const logEl = document.getElementById('spv-riwayat-log');
+  if (!logEl) return;
+  logEl.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: logs } = await sb.from('service_log').select('id, maintenance_type, hm_at_service, service_date, mkn_name, parts_used, cost_idr, notes').eq('unit_id', unitId).order('service_date', { ascending: false });
+    if (!logs || logs.length === 0) { logEl.innerHTML = '<div style="padding:16px;color:#94A3B8;font-size:13px;">Belum ada riwayat servis.</div>'; return; }
+    logEl.innerHTML = logs.map(l => `
+      <div style="background:white;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:14px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
+          <div style="font-size:12px;color:#94A3B8;">${formatDate(l.service_date)}</div>
+        </div>
+        <div style="font-size:12px;color:#64748B;">HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '&mdash;'}</div>
+        ${l.parts_used ? `<div style="font-size:12px;color:#374151;margin-top:4px;">Parts: ${l.parts_used}</div>` : ''}
+        ${l.cost_idr ? `<div style="font-size:12px;font-weight:600;color:#1D4ED8;margin-top:2px;">${formatCurrency(l.cost_idr)}</div>` : ''}
+        ${l.notes ? `<div style="font-size:12px;color:#64748B;margin-top:2px;font-style:italic;">${l.notes}</div>` : ''}
+      </div>`).join('');
+  } catch (e) { logEl.innerHTML = '<div style="color:#EF4444;font-size:13px;padding:10px;">Error: ' + e.message + '</div>'; }
 }
 
 async function loadSPVJadwal() {
@@ -1240,6 +1323,7 @@ function switchSpvScreen(name, el) {
   const screen = document.getElementById('spv-screen-' + name);
   if (screen) screen.classList.add('on');
   if (el) el.classList.add('on');
+  if (name === 'riwayat') initSPVRiwayat();
 }
 
 // ============================================================
