@@ -235,7 +235,7 @@
       <div style="font-size:20px;font-weight:800;color:#1E3A8A;">Dashboard SPV</div>
       <div style="font-size:13px;color:#94A3B8;margin-top:2px;">Tap kartu untuk filter jadwal</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 14px;margin-bottom:16px;" id="spv-stats"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px;margin-bottom:16px;width:100%;box-sizing:border-box;" id="spv-stats"></div>
     <div style="padding:0 16px 10px;font-size:14px;font-weight:700;color:#374151;">Status Unit</div>
     <div id="spv-unit-list"></div>
   </div>
@@ -1033,8 +1033,8 @@ async function loadSPVStats() {
       { label: 'Due Soon', value: dueSoon, color: '#D97706', bg: '#FFFBEB', fn: "spvDashFilter('Due Soon')" },
       { label: 'Pend. Servis', value: srs ? srs.length : 0, color: '#7C3AED', bg: '#F5F3FF', fn: "switchSpvScreen('permintaan',document.querySelectorAll('#view-spv .nav-tab')[1])" },
     ].map(s => `
-      <div onclick="${s.fn}" style="background:${s.bg};border-radius:16px;padding:18px 14px;text-align:center;cursor:pointer;active:opacity:.7;-webkit-tap-highlight-color:rgba(0,0,0,0.1);">
-        <div style="font-size:32px;font-weight:900;color:${s.color};line-height:1;">${s.value}</div>
+      <div onclick="${s.fn}" style="background:${s.bg};border-radius:14px;padding:20px 12px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.1);width:100%;">
+        <div style="font-size:30px;font-weight:900;color:${s.color};line-height:1;">${s.value}</div>
         <div style="font-size:13px;color:#64748B;font-weight:600;margin-top:6px;">${s.label}</div>
       </div>`).join('');
   } catch (e) { showToast('Error stats: ' + e.message); }
@@ -1263,13 +1263,12 @@ async function loadSPVRiwayatSchedule(unitId) {
         const sisaColor = d.remaining < 0 ? '#DC2626' : d.status === 'DUE SOON' ? '#D97706' : '#16A34A';
         const rowBg = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
         const sisaText = hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-';
-        return `<div style="background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}display:flex;align-items:center;gap:8px;">
-          <div style="flex:1;min-width:0;">
+        return `<div style="background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
             <div style="font-size:13px;font-weight:600;color:#1E293B;">${d.type_name}</div>
-            ${hasData ? `<div style="font-size:12px;color:#94A3B8;margin-top:1px;">Due: ${d.hm_due.toLocaleString()} HM</div>` : ''}
+            ${badge(d.status)}
           </div>
-          <div style="font-size:15px;font-weight:800;color:${sisaColor};min-width:50px;text-align:right;">${sisaText}</div>
-          <div style="flex-shrink:0;">${badge(d.status)}</div>
+          <div style="font-size:15px;font-weight:800;color:${sisaColor};">${hasData ? 'Sisa: ' + sisaText + ' HM' : '— belum ada data'}</div>
         </div>`;
       }).join('')}
     </div>`;
@@ -1404,10 +1403,12 @@ async function renderSPVJadwal() {
             const sisaColor = d.remaining < 0 ? '#DC2626' : d.status === 'DUE SOON' ? '#D97706' : '#16A34A';
             const rowBg = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
             const sisaText = hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-';
-            return `<div style=”background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}display:flex;align-items:center;gap:8px;”>
-              <div style=”flex:1;font-size:13px;font-weight:600;color:#1E293B;”>${d.type_name}</div>
-              <div style=”font-size:14px;font-weight:800;color:${sisaColor};min-width:55px;text-align:right;”>${sisaText}</div>
-              <div style=”flex-shrink:0;”>${badge(d.status)}</div>
+            return `<div style=”background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}”>
+              <div style=”display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;”>
+                <div style=”font-size:13px;font-weight:600;color:#1E293B;”>${d.type_name}</div>
+                ${badge(d.status)}
+              </div>
+              <div style=”font-size:15px;font-weight:800;color:${sisaColor};”>${hasData ? 'Sisa: ' + sisaText + ' HM' : '— belum ada data'}</div>
             </div>`;
           }).join('')}
         </div>`;
