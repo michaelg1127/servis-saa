@@ -1,8 +1,8 @@
 ﻿<!DOCTYPE html>
-<html lang=”id”>
+<html lang="id">
 <head>
-<meta charset=”UTF-8”>
-<meta name=”viewport” content=”width=device-width, initial-scale=1.0”>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SERVIS SAA &mdash; PT Surya Alam Armada</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -156,13 +156,13 @@
       <div id="op-unit-code" style="font-size:22px;font-weight:800;color:#1E3A8A;"></div>
       <div id="op-unit-name" style="font-size:14px;color:#374151;font-weight:600;"></div>
       <div style="display:flex;gap:12px;margin-top:6px;">
-        <div style=”font-size:13px;color:#64748B;” id=”op-unit-model”></div>
-        <div style=”font-size:13px;font-weight:700;color:#1D4ED8;”>HM: <span id=”op-unit-hm”>&mdash;</span></div>
+        <div style="font-size:13px;color:#64748B;" id="op-unit-model"></div>
+        <div style="font-size:13px;font-weight:700;color:#1D4ED8;">HM: <span id="op-unit-hm">&mdash;</span></div>
       </div>
     </div>
     <!-- HM Banner -->
     <div id="op-hm-banner" class="hm-banner" style="display:none;">
-      <div style="font-size:13px;font-weight:700;color:#92400E;margin-bottom:8px;">ðŸ“Š Update HM Hari Ini</div>
+      <div style="font-size:13px;font-weight:700;color:#92400E;margin-bottom:8px;">ðŸ"Š Update HM Hari Ini</div>
       <div style="display:flex;gap:8px;align-items:center;">
         <input type="number" id="op-hm-input" class="finput" placeholder="Masukkan HM saat ini" style="flex:1;padding:10px 12px;font-size:14px;">
         <button onclick="submitHMUpdate()" class="btn-primary" style="padding:12px 16px;font-size:15px;white-space:nowrap;">Submit</button>
@@ -963,11 +963,11 @@ async function loadOpMyReq() {
     container.innerHTML = srs.map(sr => `
       <div class="m-card" style="cursor:pointer;" onclick="toggleSRDetail('sr-detail-${sr.id}')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style=”font-size:14px;font-weight:800;color:#1D4ED8;”>${sr.sr_number}</div>
+          <div style="font-size:14px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
           ${badge(sr.urgency)}
         </div>
-        <div style=”font-size:15px;font-weight:600;color:#1E293B;”>${sr.category}</div>
-        <div style=”font-size:13px;color:#64748B;”>${sr.units ? sr.units.code + ' &mdash; ' + sr.units.name : ''} &nbsp;|&nbsp; ${formatDate(sr.created_at)}</div>
+        <div style="font-size:15px;font-weight:600;color:#1E293B;">${sr.category}</div>
+        <div style="font-size:13px;color:#64748B;">${sr.units ? sr.units.code + ' &mdash; ' + sr.units.name : ''} &nbsp;|&nbsp; ${formatDate(sr.created_at)}</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
           ${badge(sr.status)}
           <svg style="width:14px;height:14px;color:#94A3B8;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
@@ -1058,15 +1058,15 @@ async function loadSPVUnitList() {
       const statuses = unitScheds.map(s => mStatus(s.interval_hm, s.last_hm, u.current_hm || 0));
       const worst = statuses.includes('OVERDUE') ? 'OVERDUE' : statuses.includes('DUE SOON') ? 'DUE SOON' : 'OK';
       const borderColor = worst === 'OVERDUE' ? '#EF4444' : worst === 'DUE SOON' ? '#F59E0B' : '#10B981';
-      return `<div class=”m-card” style=”border-left:4px solid ${borderColor};”>
-        <div style=”display:flex;align-items:center;gap:8px;margin-bottom:5px;”>
-          <span style=”font-size:17px;font-weight:800;color:#1E293B;”>${u.code}</span>
+      return `<div class="m-card" style="border-left:4px solid ${borderColor};">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+          <span style="font-size:17px;font-weight:800;color:#1E293B;">${u.code}</span>
           ${badge(worst)}
         </div>
-        <div style=”font-size:14px;font-weight:600;color:#374151;margin-bottom:2px;”>${u.name}</div>
-        <div style=”font-size:13px;color:#64748B;”>${u.model || ''}</div>
-        <div style=”font-size:13px;color:#64748B;”>Operator: ${u.profiles ? u.profiles.name : '&mdash;'}</div>
-        <div style=”font-size:15px;font-weight:700;color:#1D4ED8;margin-top:5px;”>HM: ${(u.current_hm || 0).toLocaleString()}</div>
+        <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:2px;">${u.name}</div>
+        <div style="font-size:13px;color:#64748B;">${u.model || ''}</div>
+        <div style="font-size:13px;color:#64748B;">Operator: ${u.profiles ? u.profiles.name : '&mdash;'}</div>
+        <div style="font-size:15px;font-weight:700;color:#1D4ED8;margin-top:5px;">HM: ${(u.current_hm || 0).toLocaleString()}</div>
       </div>`;
     }).join('');
   } catch (e) { showToast('Error unit list: ' + e.message); }
@@ -1323,7 +1323,7 @@ async function setSpvJadwalFilter(f) {
 
 async function renderSPVJadwal() {
   const container = document.getElementById('spv-jadwal-list');
-  container.innerHTML = '<div style=”padding:20px;text-align:center;”><div class=”spinner”></div></div>';
+  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
     let query = sb.from('maintenance_schedules').select('id, unit_id, type_name, interval_hm, last_hm, last_date, units(id, code, name, current_hm)').order('unit_id');
     if (spvJadwalUnitFilter !== 'all') query = query.eq('unit_id', spvJadwalUnitFilter);
@@ -1338,49 +1338,49 @@ async function renderSPVJadwal() {
       return { ...s, hm, remaining: rem, status: st, hm_due: (s.last_hm || 0) + s.interval_hm };
     });
     if (filterVal) data = data.filter(d => d.status === filterVal);
-    if (data.length === 0) { container.innerHTML = '<div style=”padding:20px;text-align:center;color:#94A3B8;font-size:15px;”>Tidak ada data.</div>'; return; }
+    if (data.length === 0) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:15px;">Tidak ada data.</div>'; return; }
     data.sort((a,b) => (a.units?.code||'').localeCompare(b.units?.code||'') || a.type_name.localeCompare(b.type_name));
 
     if (spvJadwalUnitFilter !== 'all') {
       // Card/bubble view for single unit — large readable cards
       const unitName = data[0]?.units?.code || '';
       const currentHM = data[0]?.hm || 0;
-      container.innerHTML = `<div style=”padding:0 14px 14px;”>
-        <div style=”background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;”>
-          <div style=”font-size:15px;font-weight:800;color:#1E3A8A;”>${unitName}</div>
-          <div style=”font-size:14px;font-weight:700;color:#1D4ED8;”>HM Sekarang: ${currentHM.toLocaleString()}</div>
+      container.innerHTML = `<div style="padding:0 14px 14px;">
+        <div style="background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:15px;font-weight:800;color:#1E3A8A;">${unitName}</div>
+          <div style="font-size:14px;font-weight:700;color:#1D4ED8;">HM Sekarang: ${currentHM.toLocaleString()}</div>
         </div>
         ${data.map(d => {
           const borderColor = d.status === 'OVERDUE' ? '#EF4444' : d.status === 'DUE SOON' ? '#F59E0B' : '#10B981';
           const bgColor = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
           const sisaColor = d.remaining < 0 ? '#DC2626' : d.remaining === 0 ? '#D97706' : '#059669';
           const hasData = d.last_hm != null;
-          return `<div style=”background:${bgColor};border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);border-left:4px solid ${borderColor};”>
-            <div style=”display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;”>
-              <div style=”font-size:16px;font-weight:800;color:#1E293B;”>${d.type_name}</div>
+          return `<div style="background:${bgColor};border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);border-left:4px solid ${borderColor};">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <div style="font-size:16px;font-weight:800;color:#1E293B;">${d.type_name}</div>
               ${badge(d.status)}
             </div>
-            <div style=”display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;”>
-              <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
-                <div style=”font-size:12px;color:#64748B;margin-bottom:2px;”>Interval</div>
-                <div style=”font-size:15px;font-weight:700;color:#374151;”>${d.interval_hm} HM</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+              <div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;">
+                <div style="font-size:12px;color:#64748B;margin-bottom:2px;">Interval</div>
+                <div style="font-size:15px;font-weight:700;color:#374151;">${d.interval_hm} HM</div>
               </div>
-              <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
-                <div style=”font-size:12px;color:#64748B;margin-bottom:2px;”>HM Terakhir</div>
-                <div style=”font-size:15px;font-weight:700;color:#374151;”>${hasData ? d.last_hm.toLocaleString() : '-'}</div>
+              <div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;">
+                <div style="font-size:12px;color:#64748B;margin-bottom:2px;">HM Terakhir</div>
+                <div style="font-size:15px;font-weight:700;color:#374151;">${hasData ? d.last_hm.toLocaleString() : '-'}</div>
               </div>
-              <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
-                <div style=”font-size:12px;color:#64748B;margin-bottom:2px;”>HM Due</div>
-                <div style=”font-size:15px;font-weight:700;color:#374151;”>${hasData ? d.hm_due.toLocaleString() : '-'}</div>
+              <div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;">
+                <div style="font-size:12px;color:#64748B;margin-bottom:2px;">HM Due</div>
+                <div style="font-size:15px;font-weight:700;color:#374151;">${hasData ? d.hm_due.toLocaleString() : '-'}</div>
               </div>
-              <div style=”background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;”>
-                <div style=”font-size:12px;color:#64748B;margin-bottom:2px;”>Tgl Terakhir</div>
-                <div style=”font-size:13px;font-weight:600;color:#374151;”>${formatDate(d.last_date)}</div>
+              <div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;">
+                <div style="font-size:12px;color:#64748B;margin-bottom:2px;">Tgl Terakhir</div>
+                <div style="font-size:13px;font-weight:600;color:#374151;">${formatDate(d.last_date)}</div>
               </div>
             </div>
-            <div style=”background:${d.remaining < 0 ? '#FEE2E2' : d.remaining < d.interval_hm * 0.15 ? '#FEF3C7' : '#D1FAE5'};border-radius:8px;padding:10px 14px;text-align:center;”>
-              <div style=”font-size:12px;color:#64748B;margin-bottom:2px;”>Sisa HM</div>
-              <div style=”font-size:22px;font-weight:900;color:${sisaColor};”>${hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</div>
+            <div style="background:${d.remaining < 0 ? '#FEE2E2' : d.remaining < d.interval_hm * 0.15 ? '#FEF3C7' : '#D1FAE5'};border-radius:8px;padding:10px 14px;text-align:center;">
+              <div style="font-size:12px;color:#64748B;margin-bottom:2px;">Sisa HM</div>
+              <div style="font-size:22px;font-weight:900;color:${sisaColor};">${hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</div>
             </div>
           </div>`;
         }).join('')}
@@ -1394,27 +1394,27 @@ async function renderSPVJadwal() {
         if (!byUnit[k]) { byUnit[k] = { code: d.units?.code || k, hm: d.hm, items: [] }; unitOrder.push(k); }
         byUnit[k].items.push(d);
       });
-      container.innerHTML = '<div style=”padding:0 14px 14px;”>' + unitOrder.map(k => {
+      container.innerHTML = '<div style="padding:0 14px 14px;">' + unitOrder.map(k => {
         const grp = byUnit[k];
         const hasOverdue = grp.items.some(d => d.status === 'OVERDUE');
         const hasDueSoon = grp.items.some(d => d.status === 'DUE SOON');
         const borderColor = hasOverdue ? '#EF4444' : hasDueSoon ? '#F59E0B' : '#10B981';
-        return `<div style=”background:white;border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${borderColor};”>
-          <div style=”background:#F8FAFC;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #F1F5F9;”>
-            <div style=”font-size:15px;font-weight:800;color:#1E3A8A;”>${grp.code}</div>
-            <div style=”font-size:13px;font-weight:700;color:#1D4ED8;”>HM: ${grp.hm.toLocaleString()}</div>
+        return `<div style="background:white;border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${borderColor};">
+          <div style="background:#F8FAFC;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #F1F5F9;">
+            <div style="font-size:15px;font-weight:800;color:#1E3A8A;">${grp.code}</div>
+            <div style="font-size:13px;font-weight:700;color:#1D4ED8;">HM: ${grp.hm.toLocaleString()}</div>
           </div>
           ${grp.items.map((d, i) => {
             const hasData = d.last_hm != null;
             const sisaColor = d.remaining < 0 ? '#DC2626' : d.status === 'DUE SOON' ? '#D97706' : '#16A34A';
             const rowBg = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
             const sisaText = hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-';
-            return `<div style=”background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}”>
-              <div style=”display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;”>
-                <div style=”font-size:13px;font-weight:600;color:#1E293B;”>${d.type_name}</div>
+            return `<div style="background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+                <div style="font-size:13px;font-weight:600;color:#1E293B;">${d.type_name}</div>
                 ${badge(d.status)}
               </div>
-              <div style=”font-size:15px;font-weight:800;color:${sisaColor};”>${hasData ? 'Sisa: ' + sisaText + ' HM' : '— belum ada data'}</div>
+              <div style="font-size:15px;font-weight:800;color:${sisaColor};">${hasData ? 'Sisa: ' + sisaText + ' HM' : '— belum ada data'}</div>
             </div>`;
           }).join('')}
         </div>`;
@@ -1435,11 +1435,11 @@ async function loadSPVPenugasan() {
       <div class="m-card">
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div>
-            <div style=”font-size:15px;font-weight:700;color:#1E293B;”>${u.code} &mdash; ${u.name}</div>
-            <div style=”font-size:13px;color:#64748B;”>${u.model || ''}</div>
-            <div style=”font-size:13px;font-weight:600;color:#374151;margin-top:2px;”>Operator: ${u.profiles ? u.profiles.name : 'Belum ada'}</div>
+            <div style="font-size:15px;font-weight:700;color:#1E293B;">${u.code} &mdash; ${u.name}</div>
+            <div style="font-size:13px;color:#64748B;">${u.model || ''}</div>
+            <div style="font-size:13px;font-weight:600;color:#374151;margin-top:2px;">Operator: ${u.profiles ? u.profiles.name : 'Belum ada'}</div>
           </div>
-          <button class=”btn-secondary” style=”font-size:13px;padding:10px 14px;” onclick=”openChangeOperatorModal('${u.id}','${u.assigned_operator_id || ''}')”>Ganti</button>
+          <button class="btn-secondary" style="font-size:13px;padding:10px 14px;" onclick="openChangeOperatorModal('${u.id}','${u.assigned_operator_id || ''}')">Ganti</button>
         </div>
       </div>`).join('');
   } catch (e) { showToast('Error penugasan: ' + e.message); }
@@ -1506,14 +1506,14 @@ async function renderMKNJobOrders() {
     container.innerHTML = sorted.map(jo => `
       <div class="m-card" style="cursor:pointer;" onclick="openJOActionModal('${jo.id}','${jo.status}','${jo.jo_number}','${jo.units ? jo.units.code : ''}')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style=”font-size:14px;font-weight:800;color:#1D4ED8;”>${jo.jo_number}</div>
+          <div style="font-size:14px;font-weight:800;color:#1D4ED8;">${jo.jo_number}</div>
           ${badge(jo.priority)}
         </div>
-        <div style=”font-size:15px;font-weight:600;color:#1E293B;”>${jo.units ? jo.units.code + ' &mdash; ' + jo.units.name : 'Unit tidak ditemukan'}</div>
-        <div style=”font-size:13px;color:#64748B;”>${jo.type}</div>
-        <div style=”display:flex;align-items:center;justify-content:space-between;margin-top:6px;”>
+        <div style="font-size:15px;font-weight:600;color:#1E293B;">${jo.units ? jo.units.code + ' &mdash; ' + jo.units.name : 'Unit tidak ditemukan'}</div>
+        <div style="font-size:13px;color:#64748B;">${jo.type}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
           ${badge(jo.status)}
-          <div style=”font-size:13px;color:#94A3B8;”>${jo.scheduled_date ? formatDate(jo.scheduled_date) : '&mdash;'}</div>
+          <div style="font-size:13px;color:#94A3B8;">${jo.scheduled_date ? formatDate(jo.scheduled_date) : '&mdash;'}</div>
         </div>
       </div>`).join('');
   } catch (e) { showToast('Error JO: ' + e.message); }
@@ -1567,15 +1567,15 @@ async function loadMKNPermintaan() {
     container.innerHTML = srs.map(sr => `
       <div class="m-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style=”font-size:14px;font-weight:800;color:#1D4ED8;”>${sr.sr_number}</div>
+          <div style="font-size:14px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
           ${badge(sr.urgency)}
         </div>
-        <div style=”font-size:15px;font-weight:600;color:#1E293B;”>${sr.category}</div>
-        <div style=”font-size:13px;color:#64748B;”>${sr.units ? sr.units.code + ' &mdash; ' + sr.units.name : ''}</div>
-        <div style=”font-size:13px;color:#374151;margin-top:4px;”>${sr.description}</div>
-        <div style=”display:flex;gap:8px;margin-top:10px;”>
-          <button onclick=”openAcceptSRModal('${sr.id}','${sr.sr_number}')” class=”btn-success” style=”flex:1;font-size:14px;padding:10px 14px;”>Terima</button>
-          <button onclick=”mknRejectSR('${sr.id}')” class=”btn-danger” style=”flex:1;font-size:14px;padding:10px 14px;”>Tolak</button>
+        <div style="font-size:15px;font-weight:600;color:#1E293B;">${sr.category}</div>
+        <div style="font-size:13px;color:#64748B;">${sr.units ? sr.units.code + ' &mdash; ' + sr.units.name : ''}</div>
+        <div style="font-size:13px;color:#374151;margin-top:4px;">${sr.description}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="openAcceptSRModal('${sr.id}','${sr.sr_number}')" class="btn-success" style="flex:1;font-size:14px;padding:10px 14px;">Terima</button>
+          <button onclick="mknRejectSR('${sr.id}')" class="btn-danger" style="flex:1;font-size:14px;padding:10px 14px;">Tolak</button>
         </div>
       </div>`).join('');
   } catch (e) { showToast('Error: ' + e.message); }
@@ -1624,11 +1624,11 @@ async function loadMKNParts() {
     container.innerHTML = prs.map(pr => `
       <div class="m-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style=”font-size:14px;font-weight:800;color:#1D4ED8;”>${pr.pr_number}</div>
+          <div style="font-size:14px;font-weight:800;color:#1D4ED8;">${pr.pr_number}</div>
           ${badge(pr.status)}
         </div>
-        <div style=”font-size:15px;font-weight:600;color:#1E293B;”>${pr.part_name}</div>
-        <div style=”font-size:13px;color:#64748B;”>Qty: ${pr.qty} ${pr.uom} &nbsp;|&nbsp; JO: ${pr.job_orders ? pr.job_orders.jo_number : '&mdash;'} &nbsp;|&nbsp; Unit: ${pr.units ? pr.units.code : '&mdash;'}</div>
+        <div style="font-size:15px;font-weight:600;color:#1E293B;">${pr.part_name}</div>
+        <div style="font-size:13px;color:#64748B;">Qty: ${pr.qty} ${pr.uom} &nbsp;|&nbsp; JO: ${pr.job_orders ? pr.job_orders.jo_number : '&mdash;'} &nbsp;|&nbsp; Unit: ${pr.units ? pr.units.code : '&mdash;'}</div>
       </div>`).join('');
   } catch (e) { showToast('Error parts: ' + e.message); }
 }
@@ -2046,46 +2046,46 @@ async function loadAdminRiwayatLog(unitId) {
   if (!el) return;
   try {
     const { data: logs } = await sb.from('service_log').select('id, maintenance_type, hm_at_service, service_date, mkn_name, parts_used, cost_idr, notes, created_at').eq('unit_id', unitId).order('service_date', { ascending: false });
-    if (!logs || logs.length === 0) { el.innerHTML = '<div style=”padding:16px;color:#94A3B8;font-size:13px;”>Belum ada riwayat servis.</div>'; return; }
+    if (!logs || logs.length === 0) { el.innerHTML = '<div style="padding:16px;color:#94A3B8;font-size:13px;">Belum ada riwayat servis.</div>'; return; }
     el.innerHTML = logs.map(l => `
-      <div style=”background:white;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);”>
-        <div style=”display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;”>
-          <div style=”font-size:14px;font-weight:700;color:#1E293B;”>${l.maintenance_type}</div>
-          <div style=”font-size:12px;color:#94A3B8;”>${formatDate(l.service_date)}</div>
+      <div style="background:white;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:14px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
+          <div style="font-size:12px;color:#94A3B8;">${formatDate(l.service_date)}</div>
         </div>
-        <div style=”font-size:12px;color:#64748B;”>HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '&mdash;'}</div>
-        ${l.parts_used ? `<div style=”font-size:12px;color:#374151;margin-top:4px;”>Parts: ${l.parts_used}</div>` : ''}
-        ${l.cost_idr ? `<div style=”font-size:12px;font-weight:600;color:#1D4ED8;margin-top:2px;”>${formatCurrency(l.cost_idr)}</div>` : ''}
-        ${l.notes ? `<div style=”font-size:12px;color:#64748B;margin-top:2px;font-style:italic;”>${l.notes}</div>` : ''}
-        <div style=”display:flex;gap:8px;margin-top:10px;”>
-          <button class=”btn-secondary” style=”font-size:11px;padding:5px 12px;” onclick='openEditServiceLog(${JSON.stringify(l)})'>Edit</button>
-          <button class=”btn-danger” style=”font-size:11px;padding:5px 12px;” onclick=”deleteServiceLog('${l.id}')”>Hapus</button>
+        <div style="font-size:12px;color:#64748B;">HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '&mdash;'}</div>
+        ${l.parts_used ? `<div style="font-size:12px;color:#374151;margin-top:4px;">Parts: ${l.parts_used}</div>` : ''}
+        ${l.cost_idr ? `<div style="font-size:12px;font-weight:600;color:#1D4ED8;margin-top:2px;">${formatCurrency(l.cost_idr)}</div>` : ''}
+        ${l.notes ? `<div style="font-size:12px;color:#64748B;margin-top:2px;font-style:italic;">${l.notes}</div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn-secondary" style="font-size:11px;padding:5px 12px;" onclick='openEditServiceLog(${JSON.stringify(l)})'>Edit</button>
+          <button class="btn-danger" style="font-size:11px;padding:5px 12px;" onclick="deleteServiceLog('${l.id}')">Hapus</button>
         </div>
       </div>`).join('');
-  } catch (e) { el.innerHTML = '<div style=”color:#EF4444;font-size:13px;padding:10px;”>Error: ' + e.message + '</div>'; }
+  } catch (e) { el.innerHTML = '<div style="color:#EF4444;font-size:13px;padding:10px;">Error: ' + e.message + '</div>'; }
 }
 
 function openEditServiceLog(l) {
   showModal(`
-    <div style=”font-size:16px;font-weight:700;color:#1E293B;margin-bottom:16px;”>Edit Service Record</div>
-    <input type=”hidden” id=”esl-id” value=”${l.id}”>
-    <label style=”font-size:12px;font-weight:600;color:#374151;”>Jenis Maintenance</label>
-    <input id=”esl-type” class=”finput” style=”margin-bottom:10px;” value=”${l.maintenance_type || ''}”>
-    <label style=”font-size:12px;font-weight:600;color:#374151;”>Tanggal Servis</label>
-    <input id=”esl-date” type=”date” class=”finput” style=”margin-bottom:10px;” value=”${l.service_date || ''}”>
-    <label style=”font-size:12px;font-weight:600;color:#374151;”>HM saat Servis</label>
-    <input id=”esl-hm” type=”number” step=”0.1” class=”finput” style=”margin-bottom:10px;” value=”${l.hm_at_service || ''}”>
-    <label style=”font-size:12px;font-weight:600;color:#374151;”>Nama Mekanik</label>
-    <input id=”esl-mkn” class=”finput” style=”margin-bottom:10px;” value=”${l.mkn_name || ''}”>
-    <label style=”font-size:12px;font-weight:600;color:#374151;”>Parts Digunakan</label>
-    <input id=”esl-parts” class=”finput” style=”margin-bottom:10px;” value=”${l.parts_used || ''}”>
-    <label style=”font-size:12px;font-weight:600;color:#374151;”>Biaya (Rp)</label>
-    <input id=”esl-cost” type=”number” class=”finput” style=”margin-bottom:10px;” value=”${l.cost_idr || ''}”>
-    <label style=”font-size:12px;font-weight:600;color:#374151;”>Catatan</label>
-    <textarea id=”esl-notes” class=”finput” style=”margin-bottom:16px;”>${l.notes || ''}</textarea>
-    <div style=”display:flex;gap:8px;”>
-      <button onclick=”saveServiceLogEdit()” class=”btn-primary” style=”flex:1;”>Simpan</button>
-      <button onclick=”closeModal()” class=”btn-secondary” style=”flex:1;”>Batal</button>
+    <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:16px;">Edit Service Record</div>
+    <input type="hidden" id="esl-id" value="${l.id}">
+    <label style="font-size:12px;font-weight:600;color:#374151;">Jenis Maintenance</label>
+    <input id="esl-type" class="finput" style="margin-bottom:10px;" value="${l.maintenance_type || ''}">
+    <label style="font-size:12px;font-weight:600;color:#374151;">Tanggal Servis</label>
+    <input id="esl-date" type="date" class="finput" style="margin-bottom:10px;" value="${l.service_date || ''}">
+    <label style="font-size:12px;font-weight:600;color:#374151;">HM saat Servis</label>
+    <input id="esl-hm" type="number" step="0.1" class="finput" style="margin-bottom:10px;" value="${l.hm_at_service || ''}">
+    <label style="font-size:12px;font-weight:600;color:#374151;">Nama Mekanik</label>
+    <input id="esl-mkn" class="finput" style="margin-bottom:10px;" value="${l.mkn_name || ''}">
+    <label style="font-size:12px;font-weight:600;color:#374151;">Parts Digunakan</label>
+    <input id="esl-parts" class="finput" style="margin-bottom:10px;" value="${l.parts_used || ''}">
+    <label style="font-size:12px;font-weight:600;color:#374151;">Biaya (Rp)</label>
+    <input id="esl-cost" type="number" class="finput" style="margin-bottom:10px;" value="${l.cost_idr || ''}">
+    <label style="font-size:12px;font-weight:600;color:#374151;">Catatan</label>
+    <textarea id="esl-notes" class="finput" style="margin-bottom:16px;">${l.notes || ''}</textarea>
+    <div style="display:flex;gap:8px;">
+      <button onclick="saveServiceLogEdit()" class="btn-primary" style="flex:1;">Simpan</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
     </div>`);
 }
 
@@ -2111,11 +2111,11 @@ async function saveServiceLogEdit() {
 
 async function deleteServiceLog(id) {
   showModal(`
-    <div style=”font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;”>Hapus Record Servis?</div>
-    <div style=”color:#64748B;font-size:14px;margin-bottom:20px;”>Tindakan ini tidak dapat dibatalkan.</div>
-    <div style=”display:flex;gap:8px;”>
-      <button onclick=”confirmDeleteServiceLog('${id}')” class=”btn-danger” style=”flex:1;”>Hapus</button>
-      <button onclick=”closeModal()” class=”btn-secondary” style=”flex:1;”>Batal</button>
+    <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Hapus Record Servis?</div>
+    <div style="color:#64748B;font-size:14px;margin-bottom:20px;">Tindakan ini tidak dapat dibatalkan.</div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="confirmDeleteServiceLog('${id}')" class="btn-danger" style="flex:1;">Hapus</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
     </div>`);
 }
 
