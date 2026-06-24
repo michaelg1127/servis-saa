@@ -160,12 +160,15 @@
         <div style="font-size:13px;font-weight:700;color:#1D4ED8;">HM: <span id="op-unit-hm">&mdash;</span></div>
       </div>
     </div>
-    <!-- HM Banner -->
-    <div id="op-hm-banner" class="hm-banner" style="display:none;">
-      <div style="font-size:13px;font-weight:700;color:#92400E;margin-bottom:8px;">ðŸ"Š Update HM Hari Ini</div>
+    <!-- HM Editor (always visible) -->
+    <div id="op-hm-banner" class="hm-banner">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:13px;font-weight:700;color:#92400E;">Edit HM Unit</div>
+        <div id="op-hm-today-status" style="font-size:12px;color:#16A34A;font-weight:600;"></div>
+      </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <input type="number" id="op-hm-input" class="finput" placeholder="Masukkan HM saat ini" style="flex:1;padding:10px 12px;font-size:14px;">
-        <button onclick="submitHMUpdate()" class="btn-primary" style="padding:12px 16px;font-size:15px;white-space:nowrap;">Submit</button>
+        <button onclick="submitHMUpdate()" class="btn-primary" style="padding:12px 16px;font-size:15px;white-space:nowrap;">Update</button>
       </div>
     </div>
     <!-- Maintenance Schedule -->
@@ -228,6 +231,10 @@
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       Permintaan Saya
     </div>
+    <div class="nav-tab" onclick="doLogout()" style="color:#EF4444;">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      Keluar
+    </div>
   </nav>
 </div>
 
@@ -283,6 +290,48 @@
     <div id="spv-riwayat-log" style="padding:0 14px;"></div>
   </div>
 
+  <div id="spv-screen-catat" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;">Catat Servis</div>
+      <div style="font-size:13px;color:#94A3B8;margin-top:2px;">Input log servis langsung per unit</div>
+    </div>
+    <div class="m-card">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Unit</label>
+        <select id="spv-log-unit" class="finput"></select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Maintenance</label>
+        <input type="text" id="spv-log-type" class="finput" placeholder="e.g. Oli Mesin, Filter Hidrolik">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis</label>
+        <input type="number" id="spv-log-hm" class="finput" placeholder="Masukkan HM">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis</label>
+        <input type="date" id="spv-log-date" class="finput">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Mekanik</label>
+        <input type="text" id="spv-log-mekanik" class="finput" placeholder="Nama mekanik (opsional)">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts Digunakan</label>
+        <textarea id="spv-log-parts" class="finput" placeholder="Daftar parts..."></textarea>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Biaya (IDR)</label>
+        <input type="number" id="spv-log-cost" class="finput" placeholder="0">
+      </div>
+      <div style="margin-bottom:18px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label>
+        <textarea id="spv-log-notes" class="finput" placeholder="Catatan tambahan..."></textarea>
+      </div>
+      <button onclick="submitSPVServiceLog()" class="btn-primary" style="width:100%;">Simpan Log Servis</button>
+    </div>
+  </div>
+
   <nav class="bottom-nav">
     <div class="nav-tab on" onclick="switchSpvScreen('dashboard',this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -303,6 +352,14 @@
     <div class="nav-tab" onclick="switchSpvScreen('riwayat',this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       Riwayat
+    </div>
+    <div class="nav-tab" onclick="switchSpvScreen('catat',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+      Catat
+    </div>
+    <div class="nav-tab" onclick="doLogout()" style="color:#EF4444;">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      Keluar
     </div>
   </nav>
 </div>
@@ -388,6 +445,10 @@
     <div class="nav-tab" onclick="switchMknScreen('selesaikan',this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       Selesaikan
+    </div>
+    <div class="nav-tab" onclick="doLogout()" style="color:#EF4444;">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      Keluar
     </div>
   </nav>
 </div>
@@ -873,8 +934,8 @@ async function checkHMUpdateToday() {
   if (!currentUnit) return;
   const today = todayISO();
   const { data } = await sb.from('hm_updates').select('id').eq('unit_id', currentUnit.id).gte('recorded_at', today + 'T00:00:00').lte('recorded_at', today + 'T23:59:59');
-  const banner = document.getElementById('op-hm-banner');
-  banner.style.display = (data && data.length > 0) ? 'none' : 'block';
+  const status = document.getElementById('op-hm-today-status');
+  if (status) status.textContent = (data && data.length > 0) ? 'Sudah update hari ini' : '';
 }
 
 async function submitHMUpdate() {
@@ -890,8 +951,9 @@ async function submitHMUpdate() {
     if (e2) throw e2;
     currentUnit.current_hm = val;
     document.getElementById('op-unit-hm').textContent = val;
-    document.getElementById('op-hm-banner').style.display = 'none';
     document.getElementById('op-hm-input').value = '';
+    const status = document.getElementById('op-hm-today-status');
+    if (status) status.textContent = 'Sudah update hari ini';
     showToast('HM berhasil diupdate!', 'success');
     await loadOpSchedule();
   } catch (e) { showToast('Gagal update HM: ' + e.message); }
@@ -1509,6 +1571,48 @@ function switchSpvScreen(name, el) {
   if (screen) screen.classList.add('on');
   if (el) el.classList.add('on');
   if (name === 'riwayat') initSPVRiwayat();
+  if (name === 'catat') initSPVCatat();
+}
+
+async function initSPVCatat() {
+  const unitSel = document.getElementById('spv-log-unit');
+  if (!unitSel || unitSel.options.length > 1) return;
+  try {
+    const { data: units } = await sb.from('units').select('id, code, name').order('code');
+    if (units) unitSel.innerHTML = '<option value="">-- Pilih Unit --</option>' + units.map(u => `<option value="${u.id}">${u.code} — ${u.name}</option>`).join('');
+    document.getElementById('spv-log-date').value = todayISO();
+  } catch (e) {}
+}
+
+async function submitSPVServiceLog() {
+  const unitId = document.getElementById('spv-log-unit').value;
+  const mType = document.getElementById('spv-log-type').value.trim();
+  const hm = parseFloat(document.getElementById('spv-log-hm').value);
+  const date = document.getElementById('spv-log-date').value;
+  const mekanik = document.getElementById('spv-log-mekanik').value.trim();
+  const parts = document.getElementById('spv-log-parts').value.trim();
+  const cost = parseInt(document.getElementById('spv-log-cost').value) || 0;
+  const notes = document.getElementById('spv-log-notes').value.trim();
+  if (!unitId || !mType || !hm || !date) { showToast('Unit, Tipe, HM, dan Tanggal wajib diisi.'); return; }
+  try {
+    const { data: unit } = await sb.from('units').select('code').eq('id', unitId).single();
+    const { error } = await sb.from('service_log').insert({
+      unit_id: unitId, unit_code: unit ? unit.code : '',
+      maintenance_type: mType, hm_at_service: hm, service_date: date,
+      mkn_name: mekanik || null, parts_used: parts || null, cost_idr: cost, notes: notes || null,
+    });
+    if (error) throw error;
+    await sb.from('maintenance_schedules').update({ last_hm: hm, last_date: date }).eq('unit_id', unitId).eq('type_name', mType);
+    showToast('Log servis berhasil disimpan!', 'success');
+    document.getElementById('spv-log-unit').value = '';
+    document.getElementById('spv-log-type').value = '';
+    document.getElementById('spv-log-hm').value = '';
+    document.getElementById('spv-log-mekanik').value = '';
+    document.getElementById('spv-log-parts').value = '';
+    document.getElementById('spv-log-cost').value = '';
+    document.getElementById('spv-log-notes').value = '';
+    document.getElementById('spv-log-date').value = todayISO();
+  } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
 // ============================================================
