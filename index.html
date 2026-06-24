@@ -160,8 +160,8 @@
         <div style="font-size:13px;font-weight:700;color:#1D4ED8;">HM: <span id="op-unit-hm">&mdash;</span></div>
       </div>
     </div>
-    <!-- HM Editor (always visible) -->
-    <div id="op-hm-banner" class="hm-banner">
+    <!-- HM Editor (shown after unit loads) -->
+    <div id="op-hm-banner" class="hm-banner" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <div style="font-size:13px;font-weight:700;color:#92400E;">Edit HM Unit</div>
         <div id="op-hm-today-status" style="font-size:12px;color:#16A34A;font-weight:600;"></div>
@@ -919,6 +919,7 @@ async function loadOperatorData() {
       document.getElementById('op-unit-model').textContent = currentUnit.model;
       document.getElementById('op-unit-hm').textContent = currentUnit.current_hm || 0;
       document.getElementById('op-req-unit-label').innerHTML = `Unit: ${currentUnit.code} &mdash; ${currentUnit.name}`;
+      document.getElementById('op-hm-banner').style.display = 'block';
       await checkHMUpdateToday();
       await loadOpSchedule();
     } else {
@@ -941,6 +942,7 @@ async function checkHMUpdateToday() {
 }
 
 async function submitHMUpdate() {
+  if (!currentUnit) { showToast('Belum ada unit yang ditugaskan.'); return; }
   const val = parseInt(document.getElementById('op-hm-input').value);
   if (!val || val <= 0) { showToast('Masukkan nilai HM yang valid.'); return; }
   if (currentUnit && val < (currentUnit.current_hm || 0)) {
@@ -1578,22 +1580,38 @@ function switchSpvScreen(name, el) {
 
 async function initSPVCatat() {
   const unitSel = document.getElementById('spv-log-unit');
-  if (!unitSel || unitSel.options.length > 1) return;
+  if (!unitSel || unitSel.options.length > 1) {
+    document.getElementById('spv-log-date').value = todayISO();
+    return;
+  }
   try {
     const { data: units } = await sb.from('units').select('id, code, name').order('code');
     if (units) unitSel.innerHTML = '<option value="">-- Pilih Unit --</option>' + units.map(u => `<option value="${u.id}">${u.code} — ${u.name}</option>`).join('');
     document.getElementById('spv-log-date').value = todayISO();
+    await loadSPVCatatTypes('');
   } catch (e) {}
 }
+
+const COMMON_MAINTENANCE_TYPES = ['Filter Hidrolik','Filter Oli Mesin','Filter Solar','Filter Udara','Greasing','Oli Final Drive','Oli Hidrolik','Oli Mesin','Oli Swing','Racor'];
 
 async function loadSPVCatatTypes(unitId) {
   const dl = document.getElementById('spv-types-datalist');
   if (!dl) return;
-  if (!unitId) { dl.innerHTML = ''; return; }
   try {
-    const { data } = await sb.from('maintenance_schedules').select('type_name').eq('unit_id', unitId).order('type_name');
-    dl.innerHTML = (data || []).map(s => `<option value="${s.type_name}">`).join('');
-  } catch (e) {}
+    let types = [];
+    if (unitId) {
+      const { data } = await sb.from('maintenance_schedules').select('type_name').eq('unit_id', unitId).order('type_name');
+      types = (data || []).map(s => s.type_name);
+    }
+    if (types.length === 0) {
+      const { data: all } = await sb.from('maintenance_schedules').select('type_name').order('type_name');
+      types = [...new Set((all || []).map(s => s.type_name))];
+    }
+    if (types.length === 0) types = COMMON_MAINTENANCE_TYPES;
+    dl.innerHTML = types.map(t => `<option value="${t}">`).join('');
+  } catch (e) {
+    dl.innerHTML = COMMON_MAINTENANCE_TYPES.map(t => `<option value="${t}">`).join('');
+  }
 }
 
 async function submitSPVServiceLog() {
