@@ -404,18 +404,20 @@
 <!-- ===== MKN MOBILE VIEW ===== -->
 <div id="view-mkn" class="mob-view" style="padding-bottom:72px;">
   <div id="mkn-screen-jo" class="mscreen">
-    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
-      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;">Job Order</div>
-      <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;" id="mkn-jo-sort-pills"></div>
+    <div style="background:white;padding:16px 14px 0;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:12px;">Job Order</div>
+      <div style="display:flex;border-bottom:2px solid #E2E8F0;" id="mkn-jo-subtabs">
+        <button id="mkn-subtab-menunggu" onclick="switchMknJOSubTab('menunggu')"
+          style="flex:1;padding:10px 0;font-size:14px;font-weight:700;border:none;background:none;cursor:pointer;color:#1D4ED8;border-bottom:3px solid #1D4ED8;margin-bottom:-2px;">
+          Menunggu <span id="mkn-count-menunggu" style="background:#DBEAFE;color:#1D4ED8;border-radius:10px;padding:1px 7px;font-size:12px;margin-left:4px;">0</span>
+        </button>
+        <button id="mkn-subtab-dikerjakan" onclick="switchMknJOSubTab('dikerjakan')"
+          style="flex:1;padding:10px 0;font-size:14px;font-weight:700;border:none;background:none;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">
+          Dikerjakan <span id="mkn-count-dikerjakan" style="background:#F1F5F9;color:#64748B;border-radius:10px;padding:1px 7px;font-size:12px;margin-left:4px;">0</span>
+        </button>
+      </div>
     </div>
     <div id="mkn-jo-list"></div>
-  </div>
-
-  <div id="mkn-screen-permintaan" class="mscreen">
-    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
-      <div style="font-size:16px;font-weight:700;color:#1E293B;">Permintaan Masuk</div>
-    </div>
-    <div id="mkn-sr-list"></div>
   </div>
 
   <div id="mkn-screen-parts" class="mscreen">
@@ -425,63 +427,14 @@
     <div id="mkn-parts-list"></div>
   </div>
 
-  <div id="mkn-screen-selesaikan" class="mscreen">
-    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
-      <div style="font-size:16px;font-weight:700;color:#1E293B;">Selesaikan Pekerjaan</div>
-    </div>
-    <div class="m-card">
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Unit</label>
-        <select id="mkn-log-unit" class="finput" onchange="loadMknJOForUnit()"></select>
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Job Order</label>
-        <select id="mkn-log-jo" class="finput"></select>
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Maintenance</label>
-        <input type="text" id="mkn-log-type" class="finput" placeholder="e.g. Service 250 HM">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis</label>
-        <input type="number" id="mkn-log-hm" class="finput" placeholder="Masukkan HM" step="1">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis</label>
-        <input type="date" id="mkn-log-date" class="finput">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts Digunakan</label>
-        <textarea id="mkn-log-parts" class="finput" placeholder="Daftar parts yang digunakan..."></textarea>
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Biaya (IDR)</label>
-        <input type="number" id="mkn-log-cost" class="finput" placeholder="0">
-      </div>
-      <div style="margin-bottom:18px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label>
-        <textarea id="mkn-log-notes" class="finput" placeholder="Catatan tambahan..."></textarea>
-      </div>
-      <button onclick="submitServiceLog()" class="btn-primary" style="width:100%;">Simpan & Selesaikan</button>
-    </div>
-  </div>
-
   <nav class="bottom-nav">
     <div class="nav-tab on" onclick="switchMknScreen('jo',this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M12 12h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
       Job Order
     </div>
-    <div class="nav-tab" onclick="switchMknScreen('permintaan',this)">
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-      Permintaan
-    </div>
     <div class="nav-tab" onclick="switchMknScreen('parts',this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
       Parts
-    </div>
-    <div class="nav-tab" onclick="switchMknScreen('selesaikan',this)">
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      Selesaikan
     </div>
     <div class="nav-tab" onclick="doLogout()" style="color:#EF4444;">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -700,7 +653,7 @@ let spvSRUnitFilter = 'all';
 let spvSRSort = 'date';
 let spvRiwayatUnit = null;
 let adminJadwalFilter = 'Semua';
-let mknJOSort = 'Semua';
+let mknJOSubTab = 'menunggu';
 let adminRiwayatUnit = null;
 let adminUserRoleFilter = 'all';
 let allProfiles = [];
@@ -969,7 +922,6 @@ async function loadOperatorData() {
       document.getElementById('op-unit-name').textContent = 'Hubungi SPV / Admin';
     }
     await loadOpMyReq();
-    await loadMknUnitsForSelesaikan();
   } catch (e) {
     showToast('Error memuat data: ' + e.message);
   }
@@ -1298,9 +1250,16 @@ async function approveSR(srId) {
   const mknId = document.getElementById('modal-mkn-select').value;
   if (!mknId) { showToast('Pilih MKN terlebih dahulu.'); return; }
   try {
-    const { error } = await sb.from('service_requests').update({ status: 'approved_spv', assigned_mkn_id: mknId, spv_approved_at: new Date().toISOString() }).eq('id', srId);
-    if (error) throw error;
-    closeModal(); showToast('Request disetujui!', 'success');
+    const { data: sr, error: fetchErr } = await sb.from('service_requests').select('unit_id, category').eq('id', srId).single();
+    if (fetchErr) throw fetchErr;
+    const { error: srErr } = await sb.from('service_requests').update({ status: 'scheduled', assigned_mkn_id: mknId, spv_approved_at: new Date().toISOString() }).eq('id', srId);
+    if (srErr) throw srErr;
+    const { error: joErr } = await sb.from('job_orders').insert({
+      unit_id: sr.unit_id, type: sr.category, assigned_mkn_id: mknId,
+      priority: 'MED', status: 'pending', created_by: currentProfile.id, linked_sr_id: srId,
+    });
+    if (joErr) throw joErr;
+    closeModal(); showToast('Request disetujui & Job Order dibuat!', 'success');
     await renderSPVSRList();
     await loadSPVStats();
   } catch (e) { showToast('Gagal: ' + e.message); }
@@ -1703,62 +1662,111 @@ async function submitSPVServiceLog() {
 // MKN
 // ============================================================
 async function loadMKNData() {
-  await Promise.all([loadMKNJobOrders(), loadMKNPermintaan(), loadMKNParts(), loadMknUnitsForSelesaikan()]);
+  await Promise.all([loadMKNJobOrders(), loadMKNParts()]);
+}
+
+function switchMknJOSubTab(tab) {
+  mknJOSubTab = tab;
+  const btns = { menunggu: document.getElementById('mkn-subtab-menunggu'), dikerjakan: document.getElementById('mkn-subtab-dikerjakan') };
+  Object.entries(btns).forEach(([key, btn]) => {
+    if (!btn) return;
+    const active = key === tab;
+    btn.style.color = active ? '#1D4ED8' : '#94A3B8';
+    btn.style.borderBottom = active ? '3px solid #1D4ED8' : '3px solid transparent';
+    btn.style.fontWeight = active ? '700' : '600';
+  });
+  renderMKNJobList();
 }
 
 async function loadMKNJobOrders() {
-  const pills = document.getElementById('mkn-jo-sort-pills');
-  const sorts = ['Semua','Per Unit','Prioritas'];
-  pills.innerHTML = sorts.map(s => `<button class="vpill ${s === mknJOSort ? 'on' : ''}" onclick="setMknJOSort('${s}')">${s}</button>`).join('');
-  await renderMKNJobOrders();
+  await renderMKNJobList();
 }
 
-function setMknJOSort(s) {
-  mknJOSort = s;
-  document.querySelectorAll('#mkn-jo-sort-pills .vpill').forEach(el => el.classList.toggle('on', el.textContent === s));
-  renderMKNJobOrders();
-}
-
-async function renderMKNJobOrders() {
+async function renderMKNJobList() {
   const container = document.getElementById('mkn-jo-list');
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const { data: jos } = await sb.from('job_orders').select('id, jo_number, unit_id, type, status, priority, scheduled_date, created_at, units(code, name)').eq('assigned_mkn_id', currentProfile.id).neq('status', 'done').order('created_at', { ascending: false });
-    if (!jos || jos.length === 0) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada job order aktif.</div>'; return; }
-    let sorted = [...jos];
-    if (mknJOSort === 'Per Unit') sorted.sort((a,b) => (a.units?.code||'').localeCompare(b.units?.code||''));
-    else if (mknJOSort === 'Prioritas') { const p = { HIGH:0, MED:1, LOW:2 }; sorted.sort((a,b) => (p[a.priority]||2) - (p[b.priority]||2)); }
-    container.innerHTML = sorted.map(jo => `
-      <div class="m-card" style="cursor:pointer;" onclick="openJOActionModal('${jo.id}','${jo.status}','${jo.jo_number}','${jo.units ? jo.units.code : ''}')">
+    const { data: jos } = await sb.from('job_orders')
+      .select('id, jo_number, unit_id, type, status, priority, scheduled_date, created_at, units(code, name)')
+      .eq('assigned_mkn_id', currentProfile.id)
+      .in('status', ['pending','in_progress'])
+      .order('created_at', { ascending: false });
+    const menunggu = (jos || []).filter(j => j.status === 'pending');
+    const dikerjakan = (jos || []).filter(j => j.status === 'in_progress');
+    // Update count badges
+    const cm = document.getElementById('mkn-count-menunggu');
+    const cd = document.getElementById('mkn-count-dikerjakan');
+    if (cm) { cm.textContent = menunggu.length; cm.style.background = menunggu.length > 0 ? '#DBEAFE' : '#F1F5F9'; cm.style.color = menunggu.length > 0 ? '#1D4ED8' : '#64748B'; }
+    if (cd) { cd.textContent = dikerjakan.length; cd.style.background = dikerjakan.length > 0 ? '#D1FAE5' : '#F1F5F9'; cd.style.color = dikerjakan.length > 0 ? '#065F46' : '#64748B'; }
+    const list = mknJOSubTab === 'menunggu' ? menunggu : dikerjakan;
+    if (list.length === 0) {
+      const msg = mknJOSubTab === 'menunggu' ? 'Tidak ada pekerjaan menunggu.' : 'Tidak ada pekerjaan sedang dikerjakan.';
+      container.innerHTML = `<div style="padding:32px 20px;text-align:center;color:#94A3B8;font-size:14px;">${msg}</div>`;
+      return;
+    }
+    container.innerHTML = list.map(jo => {
+      const isPending = jo.status === 'pending';
+      return `
+      <div class="m-card" style="cursor:pointer;" onclick="openJOActionModal('${jo.id}','${jo.status}','${jo.jo_number}','${jo.units ? jo.units.code : ''}','${(jo.type||'').replace(/'/g,"\\'")}')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <div style="font-size:14px;font-weight:800;color:#1D4ED8;">${jo.jo_number}</div>
           ${badge(jo.priority)}
         </div>
         <div style="font-size:15px;font-weight:600;color:#1E293B;">${jo.units ? jo.units.code + ' &mdash; ' + jo.units.name : 'Unit tidak ditemukan'}</div>
-        <div style="font-size:13px;color:#64748B;">${jo.type}</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
-          ${badge(jo.status)}
-          <div style="font-size:13px;color:#94A3B8;">${jo.scheduled_date ? formatDate(jo.scheduled_date) : '&mdash;'}</div>
+        <div style="font-size:13px;color:#64748B;margin-top:2px;">${jo.type}</div>
+        <div style="margin-top:10px;">
+          <button class="${isPending ? 'btn-primary' : 'btn-success'}" style="width:100%;font-size:14px;padding:10px;" onclick="event.stopPropagation();openJOActionModal('${jo.id}','${jo.status}','${jo.jo_number}','${jo.units ? jo.units.code : ''}','${(jo.type||'').replace(/'/g,"\\'")}')">
+            ${isPending ? 'Terima' : 'Selesaikan'}
+          </button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch (e) { showToast('Error JO: ' + e.message); }
 }
 
-function openJOActionModal(joId, status, joNum, unitCode) {
+function openJOActionModal(joId, status, joNum, unitCode, joType) {
   if (status === 'pending') {
-    showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;">Job Order: ${joNum}</div>
-      <div style="font-size:13px;color:#64748B;margin-bottom:16px;">Unit: ${unitCode}</div>
-      <button onclick="startJO('${joId}')" class="btn-primary" style="width:100%;margin-bottom:8px;">Mulai Kerjakan</button>
+    showModal(`
+      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:4px;">${joNum}</div>
+      <div style="font-size:13px;color:#64748B;margin-bottom:6px;">Unit: ${unitCode}</div>
+      <div style="font-size:13px;color:#374151;margin-bottom:20px;">${joType}</div>
+      <button onclick="acceptJO('${joId}')" class="btn-primary" style="width:100%;margin-bottom:8px;">Terima &amp; Mulai Kerjakan</button>
       <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Tutup</button>`);
   } else if (status === 'in_progress') {
-    showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;">Job Order: ${joNum}</div>
-      <div style="font-size:13px;color:#64748B;margin-bottom:16px;">Unit: ${unitCode} &mdash; Sedang dikerjakan</div>
-      <button onclick="closeModal();prefillSelesaikan('${joId}')" class="btn-success" style="width:100%;margin-bottom:8px;">Tandai Selesai</button>
-      <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Tutup</button>`);
+    const today = todayISO();
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const minDate = yesterday.toISOString().split('T')[0];
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    const maxDate = tomorrow.toISOString().split('T')[0];
+    showModal(`
+      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:4px;">${joNum}</div>
+      <div style="font-size:13px;color:#64748B;margin-bottom:16px;">Unit: ${unitCode} &mdash; ${joType}</div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis <span style="color:#EF4444;">*</span></label>
+        <input type="number" id="mkn-modal-hm" class="finput" placeholder="Masukkan HM" step="1">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis <span style="color:#EF4444;">*</span></label>
+        <input type="date" id="mkn-modal-date" class="finput" value="${today}" min="${minDate}" max="${maxDate}">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts Digunakan</label>
+        <textarea id="mkn-modal-parts" class="finput" placeholder="Daftar parts..." rows="2"></textarea>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Biaya (IDR)</label>
+        <input type="number" id="mkn-modal-cost" class="finput" placeholder="0">
+      </div>
+      <div style="margin-bottom:18px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label>
+        <textarea id="mkn-modal-notes" class="finput" placeholder="Catatan tambahan..." rows="2"></textarea>
+      </div>
+      <button onclick="submitServiceLog('${joId}','${joType}')" class="btn-success" style="width:100%;margin-bottom:8px;">Simpan &amp; Selesaikan</button>
+      <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Batal</button>`);
   }
 }
 
-async function startJO(joId) {
+async function acceptJO(joId) {
   try {
     const { error } = await sb.from('job_orders').update({ status: 'in_progress' }).eq('id', joId);
     if (error) throw error;
@@ -1766,91 +1774,40 @@ async function startJO(joId) {
     if (jo && jo.linked_sr_id) {
       await sb.from('service_requests').update({ status: 'in_progress' }).eq('id', jo.linked_sr_id);
     }
-    closeModal(); showToast('Job Order dimulai!', 'success');
-    await renderMKNJobOrders();
+    closeModal(); showToast('Job Order diterima, selamat bekerja!', 'success');
+    mknJOSubTab = 'dikerjakan';
+    await renderMKNJobList();
+    // Update sub-tab highlight
+    switchMknJOSubTab('dikerjakan');
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
-async function prefillSelesaikan(joId) {
-  switchMknScreen('selesaikan', document.querySelectorAll('#view-mkn .nav-tab')[3]);
+async function submitServiceLog(joId, joType) {
+  const hm = parseInt(document.getElementById('mkn-modal-hm').value);
+  const date = document.getElementById('mkn-modal-date').value;
+  const parts = document.getElementById('mkn-modal-parts').value.trim();
+  const cost = parseInt(document.getElementById('mkn-modal-cost').value) || 0;
+  const notes = document.getElementById('mkn-modal-notes').value.trim();
+  if (!hm || !date) { showToast('HM dan tanggal wajib diisi.'); return; }
   try {
-    const { data: jo } = await sb.from('job_orders').select('id, unit_id, type, units(id, code)').eq('id', joId).single();
-    if (jo) {
-      const unitSel = document.getElementById('mkn-log-unit');
-      if (unitSel) unitSel.value = jo.unit_id;
-      await loadMknJOForUnit();
-      const joSel = document.getElementById('mkn-log-jo');
-      if (joSel) joSel.value = joId;
-      const typeIn = document.getElementById('mkn-log-type');
-      if (typeIn) typeIn.value = jo.type || '';
-    }
-  } catch (e) { /* ignore */ }
-}
-
-async function loadMKNPermintaan() {
-  const container = document.getElementById('mkn-sr-list');
-  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
-  try {
-    const { data: srs } = await sb.from('service_requests').select('id, sr_number, unit_id, category, description, urgency, status, created_at, units(code, name)').eq('assigned_mkn_id', currentProfile.id).eq('status', 'approved_spv').order('created_at', { ascending: false });
-    if (!srs || srs.length === 0) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada permintaan masuk.</div>'; return; }
-    container.innerHTML = srs.map(sr => `
-      <div class="m-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-size:14px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
-          ${badge(sr.urgency)}
-        </div>
-        <div style="font-size:15px;font-weight:600;color:#1E293B;">${sr.category}</div>
-        <div style="font-size:13px;color:#64748B;">${sr.units ? sr.units.code + ' &mdash; ' + sr.units.name : ''}</div>
-        <div style="font-size:13px;color:#374151;margin-top:4px;">${sr.description}</div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button onclick="openAcceptSRModal('${sr.id}','${sr.sr_number}')" class="btn-success" style="flex:1;font-size:14px;padding:10px 14px;">Terima</button>
-          <button onclick="mknRejectSR('${sr.id}')" class="btn-danger" style="flex:1;font-size:14px;padding:10px 14px;">Tolak</button>
-        </div>
-      </div>`).join('');
-  } catch (e) { showToast('Error: ' + e.message); }
-}
-
-function openAcceptSRModal(srId, srNum) {
-  showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;">Terima Request</div>
-    <div style="font-size:13px;color:#64748B;margin-bottom:12px;">SR: ${srNum}</div>
-    <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Jadwal Tanggal</label>
-    <input type="date" id="modal-sched-date" class="finput" value="${todayISO()}" style="margin-bottom:16px;">
-    <div style="display:flex;gap:8px;">
-      <button onclick="acceptSR('${srId}')" class="btn-success" style="flex:1;">Terima & Jadwalkan</button>
-      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
-    </div>`);
-}
-
-async function acceptSR(srId) {
-  const date = document.getElementById('modal-sched-date').value;
-  if (!date) { showToast('Pilih tanggal.'); return; }
-  try {
-    const { data: sr, error: srFetchErr } = await sb.from('service_requests').select('unit_id, category, assigned_mkn_id').eq('id', srId).single();
-    if (srFetchErr) throw srFetchErr;
-    const { error: srErr } = await sb.from('service_requests').update({ status: 'scheduled', scheduled_date: date }).eq('id', srId);
-    if (srErr) throw srErr;
-    const { error: joErr } = await sb.from('job_orders').insert({
-      unit_id: sr.unit_id,
-      type: sr.category,
-      assigned_mkn_id: sr.assigned_mkn_id,
-      scheduled_date: date,
-      priority: 'MED',
-      status: 'pending',
-      created_by: currentProfile.id,
-      linked_sr_id: srId,
+    const { data: jo } = await sb.from('job_orders').select('unit_id, type, linked_sr_id, units(code, name)').eq('id', joId).single();
+    const mType = joType || (jo ? jo.type : '');
+    const { error: e1 } = await sb.from('service_log').insert({
+      unit_id: jo.unit_id, unit_code: jo.units ? jo.units.code : '', maintenance_type: mType,
+      hm_at_service: hm, service_date: date, mkn_id: currentProfile.id,
+      mkn_name: currentProfile.name || '', parts_used: parts || null, cost_idr: cost,
+      notes: notes || null, job_order_id: joId, created_at: new Date().toISOString()
     });
-    if (joErr) throw joErr;
-    closeModal(); showToast('Request dijadwalkan & Job Order dibuat!', 'success');
-    await Promise.all([loadMKNPermintaan(), loadMKNJobOrders()]);
-  } catch (e) { showToast('Gagal: ' + e.message); }
-}
-
-async function mknRejectSR(srId) {
-  try {
-    const { error } = await sb.from('service_requests').update({ status: 'rejected', rejection_reason: 'Ditolak oleh MKN' }).eq('id', srId);
-    if (error) throw error;
-    showToast('Request ditolak.', 'info');
-    await loadMKNPermintaan();
+    if (e1) throw e1;
+    const { error: e2 } = await sb.from('job_orders').update({ status: 'done' }).eq('id', joId);
+    if (e2) throw e2;
+    if (jo && jo.linked_sr_id) {
+      await sb.from('service_requests').update({ status: 'done_confirm', completed_at: new Date().toISOString() }).eq('id', jo.linked_sr_id);
+    }
+    await sb.from('maintenance_schedules').update({ last_hm: hm, last_date: date }).eq('unit_id', jo.unit_id).eq('type_name', mType);
+    closeModal(); showToast('Pekerjaan selesai & dicatat!', 'success');
+    mknJOSubTab = 'dikerjakan';
+    await renderMKNJobList();
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
@@ -1873,76 +1830,6 @@ async function loadMKNParts() {
         <div style="font-size:13px;color:#64748B;">Qty: ${pr.qty} ${pr.uom} &nbsp;|&nbsp; JO: ${pr.job_orders ? pr.job_orders.jo_number : '&mdash;'} &nbsp;|&nbsp; Unit: ${pr.units ? pr.units.code : '&mdash;'}</div>
       </div>`).join('');
   } catch (e) { showToast('Error parts: ' + e.message); }
-}
-
-async function loadMknUnitsForSelesaikan() {
-  const unitSel = document.getElementById('mkn-log-unit');
-  if (!unitSel) return;
-  try {
-    const { data: jos } = await sb.from('job_orders').select('unit_id, units(id, code, name)').eq('assigned_mkn_id', currentProfile.id).eq('status', 'in_progress');
-    const seen = new Set();
-    const unitOpts = [];
-    if (jos) {
-      jos.forEach(jo => {
-        if (jo.units && !seen.has(jo.unit_id)) {
-          seen.add(jo.unit_id);
-          unitOpts.push(`<option value="${jo.unit_id}">${jo.units.code} &mdash; ${jo.units.name}</option>`);
-        }
-      });
-    }
-    unitSel.innerHTML = '<option value="">-- Pilih Unit --</option>' + unitOpts.join('');
-    document.getElementById('mkn-log-date').value = todayISO();
-  } catch (e) { /* ignore */ }
-}
-
-async function loadMknJOForUnit() {
-  const unitId = document.getElementById('mkn-log-unit').value;
-  const joSel = document.getElementById('mkn-log-jo');
-  if (!unitId) { joSel.innerHTML = '<option value="">-- Pilih JO --</option>'; return; }
-  try {
-    const { data: jos } = await sb.from('job_orders').select('id, jo_number, type').eq('assigned_mkn_id', currentProfile.id).eq('unit_id', unitId).eq('status', 'in_progress');
-    joSel.innerHTML = '<option value="">-- Pilih Job Order --</option>' + (jos || []).map(j => `<option value="${j.id}">${j.jo_number} &mdash; ${j.type}</option>`).join('');
-  } catch (e) { /* ignore */ }
-}
-
-async function submitServiceLog() {
-  const unitId = document.getElementById('mkn-log-unit').value;
-  const joId = document.getElementById('mkn-log-jo').value;
-  const mType = document.getElementById('mkn-log-type').value.trim();
-  const hm = parseInt(document.getElementById('mkn-log-hm').value);
-  const date = document.getElementById('mkn-log-date').value;
-  const parts = document.getElementById('mkn-log-parts').value.trim();
-  const cost = parseInt(document.getElementById('mkn-log-cost').value) || 0;
-  const notes = document.getElementById('mkn-log-notes').value.trim();
-  if (!unitId || !joId || !mType || !hm || !date) { showToast('Lengkapi semua field yang wajib.'); return; }
-  try {
-    const { data: unit } = await sb.from('units').select('code, name').eq('id', unitId).single();
-    const logNum = 'LOG-' + Date.now();
-    const { error: e1 } = await sb.from('service_log').insert({
-      unit_id: unitId, unit_code: unit ? unit.code : '', maintenance_type: mType,
-      hm_at_service: hm, service_date: date, mkn_id: currentProfile.id,
-      mkn_name: currentProfile.name || '', parts_used: parts, cost_idr: cost,
-      notes, job_order_id: joId, created_at: new Date().toISOString()
-    });
-    if (e1) throw e1;
-    const { error: e2 } = await sb.from('job_orders').update({ status: 'done' }).eq('id', joId);
-    if (e2) throw e2;
-    const { data: jo } = await sb.from('job_orders').select('linked_sr_id').eq('id', joId).single();
-    if (jo && jo.linked_sr_id) {
-      await sb.from('service_requests').update({ status: 'done_confirm', completed_at: new Date().toISOString() }).eq('id', jo.linked_sr_id);
-    }
-    // Update maintenance_schedules last_hm and last_date
-    await sb.from('maintenance_schedules').update({ last_hm: hm, last_date: date }).eq('unit_id', unitId).eq('type_name', mType);
-    showToast('Service log berhasil disimpan!', 'success');
-    document.getElementById('mkn-log-unit').value = '';
-    document.getElementById('mkn-log-jo').innerHTML = '<option value="">-- Pilih JO --</option>';
-    document.getElementById('mkn-log-type').value = '';
-    document.getElementById('mkn-log-hm').value = '';
-    document.getElementById('mkn-log-parts').value = '';
-    document.getElementById('mkn-log-cost').value = '';
-    document.getElementById('mkn-log-notes').value = '';
-    await loadMKNJobOrders();
-  } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
 function switchMknScreen(name, el) {
