@@ -1693,7 +1693,6 @@ async function renderMKNJobList() {
       .order('created_at', { ascending: false });
     const menunggu = (jos || []).filter(j => j.status === 'pending');
     const dikerjakan = (jos || []).filter(j => j.status === 'in_progress');
-    // Update count badges
     const cm = document.getElementById('mkn-count-menunggu');
     const cd = document.getElementById('mkn-count-dikerjakan');
     if (cm) { cm.textContent = menunggu.length; cm.style.background = menunggu.length > 0 ? '#DBEAFE' : '#F1F5F9'; cm.style.color = menunggu.length > 0 ? '#1D4ED8' : '#64748B'; }
@@ -1704,82 +1703,149 @@ async function renderMKNJobList() {
       container.innerHTML = `<div style="padding:32px 20px;text-align:center;color:#94A3B8;font-size:14px;">${msg}</div>`;
       return;
     }
-    container.innerHTML = list.map(jo => {
-      const isPending = jo.status === 'pending';
-      return `
-      <div class="m-card" style="cursor:pointer;" onclick="openJOActionModal('${jo.id}','${jo.status}','${jo.jo_number}','${jo.units ? jo.units.code : ''}','${(jo.type||'').replace(/'/g,"\\'")}')">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-size:14px;font-weight:800;color:#1D4ED8;">${jo.jo_number}</div>
-          ${badge(jo.priority)}
-        </div>
-        <div style="font-size:15px;font-weight:600;color:#1E293B;">${jo.units ? jo.units.code + ' &mdash; ' + jo.units.name : 'Unit tidak ditemukan'}</div>
-        <div style="font-size:13px;color:#64748B;margin-top:2px;">${jo.type}</div>
-        <div style="margin-top:10px;">
-          <button class="${isPending ? 'btn-primary' : 'btn-success'}" style="width:100%;font-size:14px;padding:10px;" onclick="event.stopPropagation();openJOActionModal('${jo.id}','${jo.status}','${jo.jo_number}','${jo.units ? jo.units.code : ''}','${(jo.type||'').replace(/'/g,"\\'")}')">
-            ${isPending ? 'Terima' : 'Selesaikan'}
-          </button>
-        </div>
-      </div>`;
-    }).join('');
+    // Group by unit, sorted by unit code
+    const byUnit = {};
+    list.forEach(jo => {
+      if (!byUnit[jo.unit_id]) byUnit[jo.unit_id] = { unit: jo.units, jobs: [] };
+      byUnit[jo.unit_id].jobs.push(jo);
+    });
+    const units = Object.entries(byUnit).sort((a,b) => (a[1].unit?.code||'').localeCompare(b[1].unit?.code||''));
+    const prioOrder = { HIGH:0, MED:1, LOW:2 };
+    if (mknJOSubTab === 'menunggu') {
+      container.innerHTML = units.map(([uid, {unit, jobs}]) => {
+        jobs.sort((a,b) => (prioOrder[a.priority]||1) - (prioOrder[b.priority]||1));
+        const rows = jobs.map(jo => `
+          <div id="jorow-${jo.id}" data-jo-id="${jo.id}" data-selected="1"
+            onclick="toggleJORow('${jo.id}','${uid}')"
+            style="display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:6px;border-radius:10px;background:#EFF6FF;border:2px solid #BFDBFE;cursor:pointer;user-select:none;">
+            <div id="jocheck-${jo.id}" style="width:24px;height:24px;border-radius:50%;background:#1D4ED8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="13" height="13" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:700;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${jo.type}</div>
+              <div style="font-size:11px;color:#94A3B8;">${jo.jo_number}</div>
+            </div>
+            ${badge(jo.priority)}
+          </div>`).join('');
+        return `
+          <div class="m-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+            <div style="background:#1E293B;padding:14px 16px;">
+              <div style="font-size:22px;font-weight:800;color:white;letter-spacing:1px;">${unit?.code || '?'}</div>
+              <div style="font-size:12px;color:#94A3B8;margin-top:2px;">${unit?.name || ''} &nbsp;·&nbsp; ${jobs.length} pekerjaan</div>
+            </div>
+            <div style="padding:12px 12px 0;" id="jobrows-${uid}">${rows}</div>
+            <div style="padding:10px 12px 12px;">
+              <button id="mulai-btn-${uid}" onclick="acceptSelectedJOs('${uid}')"
+                class="btn-primary" style="width:100%;font-size:15px;padding:13px;font-weight:700;border-radius:10px;">
+                Mulai (${jobs.length})
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+    } else {
+      container.innerHTML = units.map(([uid, {unit, jobs}]) => {
+        jobs.sort((a,b) => (prioOrder[a.priority]||1) - (prioOrder[b.priority]||1));
+        const rows = jobs.map(jo => `
+          <div style="padding:12px;margin-bottom:8px;border-radius:10px;background:#F0FDF4;border:1.5px solid #BBF7D0;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:700;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${jo.type}</div>
+                <div style="font-size:11px;color:#94A3B8;">${jo.jo_number}</div>
+              </div>
+              ${badge(jo.priority)}
+            </div>
+            <button onclick="openSelesaikanModal('${jo.id}','${jo.jo_number}','${unit?.code||''}','${(jo.type||'').replace(/'/g,"\\'")}')"
+              class="btn-success" style="width:100%;font-size:14px;padding:11px;border-radius:10px;font-weight:700;">
+              Selesaikan
+            </button>
+          </div>`).join('');
+        return `
+          <div class="m-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+            <div style="background:#064E3B;padding:14px 16px;">
+              <div style="font-size:22px;font-weight:800;color:white;letter-spacing:1px;">${unit?.code || '?'}</div>
+              <div style="font-size:12px;color:#6EE7B7;margin-top:2px;">${unit?.name || ''} &nbsp;·&nbsp; ${jobs.length} sedang dikerjakan</div>
+            </div>
+            <div style="padding:12px;">${rows}</div>
+          </div>`;
+      }).join('');
+    }
   } catch (e) { showToast('Error JO: ' + e.message); }
 }
 
-function openJOActionModal(joId, status, joNum, unitCode, joType) {
-  if (status === 'pending') {
-    showModal(`
-      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:4px;">${joNum}</div>
-      <div style="font-size:13px;color:#64748B;margin-bottom:6px;">Unit: ${unitCode}</div>
-      <div style="font-size:13px;color:#374151;margin-bottom:20px;">${joType}</div>
-      <button onclick="acceptJO('${joId}')" class="btn-primary" style="width:100%;margin-bottom:8px;">Terima &amp; Mulai Kerjakan</button>
-      <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Tutup</button>`);
-  } else if (status === 'in_progress') {
-    const today = todayISO();
-    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-    const minDate = yesterday.toISOString().split('T')[0];
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-    const maxDate = tomorrow.toISOString().split('T')[0];
-    showModal(`
-      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:4px;">${joNum}</div>
-      <div style="font-size:13px;color:#64748B;margin-bottom:16px;">Unit: ${unitCode} &mdash; ${joType}</div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis <span style="color:#EF4444;">*</span></label>
-        <input type="number" id="mkn-modal-hm" class="finput" placeholder="Masukkan HM" step="1">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis <span style="color:#EF4444;">*</span></label>
-        <input type="date" id="mkn-modal-date" class="finput" value="${today}" min="${minDate}" max="${maxDate}">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts Digunakan</label>
-        <textarea id="mkn-modal-parts" class="finput" placeholder="Daftar parts..." rows="2"></textarea>
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Biaya (IDR)</label>
-        <input type="number" id="mkn-modal-cost" class="finput" placeholder="0">
-      </div>
-      <div style="margin-bottom:18px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label>
-        <textarea id="mkn-modal-notes" class="finput" placeholder="Catatan tambahan..." rows="2"></textarea>
-      </div>
-      <button onclick="submitServiceLog('${joId}','${joType}')" class="btn-success" style="width:100%;margin-bottom:8px;">Simpan &amp; Selesaikan</button>
-      <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Batal</button>`);
+function toggleJORow(joId, unitId) {
+  const row = document.getElementById('jorow-' + joId);
+  const check = document.getElementById('jocheck-' + joId);
+  const selected = row.dataset.selected === '1';
+  if (selected) {
+    row.dataset.selected = '0';
+    row.style.background = '#F8FAFC';
+    row.style.border = '2px solid #E2E8F0';
+    check.style.background = '#CBD5E1';
+    check.innerHTML = '';
+  } else {
+    row.dataset.selected = '1';
+    row.style.background = '#EFF6FF';
+    row.style.border = '2px solid #BFDBFE';
+    check.style.background = '#1D4ED8';
+    check.innerHTML = '<svg width="13" height="13" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
   }
+  const btn = document.getElementById('mulai-btn-' + unitId);
+  if (!btn) return;
+  const count = document.querySelectorAll('#jobrows-' + unitId + ' [data-selected="1"]').length;
+  btn.textContent = count > 0 ? `Mulai (${count})` : 'Pilih pekerjaan dulu';
+  btn.disabled = count === 0;
+  btn.style.opacity = count === 0 ? '0.5' : '1';
 }
 
-async function acceptJO(joId) {
+async function acceptSelectedJOs(unitId) {
+  const rows = document.querySelectorAll('#jobrows-' + unitId + ' [data-selected="1"]');
+  const joIds = [...rows].map(r => r.dataset.joId);
+  if (joIds.length === 0) { showToast('Pilih pekerjaan terlebih dahulu.'); return; }
+  const btn = document.getElementById('mulai-btn-' + unitId);
+  if (btn) { btn.textContent = 'Memproses...'; btn.disabled = true; }
   try {
-    const { error } = await sb.from('job_orders').update({ status: 'in_progress' }).eq('id', joId);
-    if (error) throw error;
-    const { data: jo } = await sb.from('job_orders').select('linked_sr_id').eq('id', joId).single();
-    if (jo && jo.linked_sr_id) {
-      await sb.from('service_requests').update({ status: 'in_progress' }).eq('id', jo.linked_sr_id);
+    for (const joId of joIds) {
+      const { error } = await sb.from('job_orders').update({ status: 'in_progress' }).eq('id', joId);
+      if (error) throw error;
+      const { data: jo } = await sb.from('job_orders').select('linked_sr_id').eq('id', joId).single();
+      if (jo?.linked_sr_id) await sb.from('service_requests').update({ status: 'in_progress' }).eq('id', jo.linked_sr_id);
     }
-    closeModal(); showToast('Job Order diterima, selamat bekerja!', 'success');
-    mknJOSubTab = 'dikerjakan';
-    await renderMKNJobList();
-    // Update sub-tab highlight
+    showToast(`${joIds.length} pekerjaan dimulai!`, 'success');
     switchMknJOSubTab('dikerjakan');
-  } catch (e) { showToast('Gagal: ' + e.message); }
+  } catch (e) { showToast('Gagal: ' + e.message); if (btn) { btn.disabled = false; } }
+}
+
+function openSelesaikanModal(joId, joNum, unitCode, joType) {
+  const today = todayISO();
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const minDate = yesterday.toISOString().split('T')[0];
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const maxDate = tomorrow.toISOString().split('T')[0];
+  showModal(`
+    <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:2px;">${unitCode} — ${joType}</div>
+    <div style="font-size:12px;color:#94A3B8;margin-bottom:16px;">${joNum}</div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis <span style="color:#EF4444;">*</span></label>
+      <input type="number" id="mkn-modal-hm" class="finput" placeholder="Masukkan HM" step="1">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis <span style="color:#EF4444;">*</span></label>
+      <input type="date" id="mkn-modal-date" class="finput" value="${today}" min="${minDate}" max="${maxDate}">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts Digunakan</label>
+      <textarea id="mkn-modal-parts" class="finput" placeholder="Daftar parts..." rows="2"></textarea>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Biaya (IDR)</label>
+      <input type="number" id="mkn-modal-cost" class="finput" placeholder="0">
+    </div>
+    <div style="margin-bottom:18px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label>
+      <textarea id="mkn-modal-notes" class="finput" placeholder="Catatan tambahan..." rows="2"></textarea>
+    </div>
+    <button onclick="submitServiceLog('${joId}','${joType}')" class="btn-success" style="width:100%;margin-bottom:8px;padding:13px;font-size:15px;font-weight:700;">Simpan &amp; Selesaikan</button>
+    <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Batal</button>`);
 }
 
 async function submitServiceLog(joId, joType) {
