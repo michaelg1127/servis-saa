@@ -266,8 +266,7 @@
 
   <div id="spv-screen-jadwal" class="mscreen">
     <div style="background:white;padding:16px 14px 10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
-      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Jadwal Maintenance</div>
-      <select id="spv-jadwal-unit-filter" onchange="setSPVJadwalUnitFilter(this.value)" class="finput" style="margin-bottom:10px;font-size:14px;padding:9px 12px;"><option value="all">Semua Unit</option></select>
+      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Job Order Aktif</div>
       <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;" id="spv-jadwal-filters"></div>
     </div>
     <div id="spv-jadwal-list"></div>
@@ -700,9 +699,12 @@ function badge(status) {
     'pending': 'background:#FEF3C7;color:#D97706;',
     'done': 'background:#DCFCE7;color:#16A34A;',
     'approved': 'background:#DCFCE7;color:#16A34A;',
-    'Normal': 'background:#F1F5F9;color:#475569;',
+    'Normal': 'background:#E5E7EB;color:#6B7280;',
     'Urgent': 'background:#FEF3C7;color:#D97706;',
     'Darurat': 'background:#FEE2E2;color:#DC2626;',
+    'normal': 'background:#E5E7EB;color:#6B7280;',
+    'urgent': 'background:#FEF3C7;color:#D97706;',
+    'darurat': 'background:#FEE2E2;color:#DC2626;',
     'HIGH': 'background:#FEE2E2;color:#DC2626;',
     'MED': 'background:#FEF3C7;color:#D97706;',
     'LOW': 'background:#DBEAFE;color:#2563EB;',
@@ -718,6 +720,7 @@ function statusLabel(s) {
     'done_confirm': 'Konfirmasi', 'confirmed': 'Selesai', 'rejected': 'Ditolak',
     'pending': 'Pending', 'done': 'Selesai', 'approved': 'Disetujui',
     'OVERDUE': 'LEWAT', 'DUE SOON': 'HAMPIR',
+    'normal': 'Normal', 'urgent': 'Urgent', 'darurat': 'Darurat',
   };
   return labels[s] || s;
 }
@@ -1201,7 +1204,7 @@ async function renderSPVSRList() {
   const container = document.getElementById('spv-sr-list');
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    let query = sb.from('service_requests').select('id, sr_number, unit_id, category, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name), profiles!service_requests_submitted_by_fkey(name)').eq('status', spvPipelineTab);
+    let query = sb.from('service_requests').select('id, sr_number, unit_id, category, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name, operator_name), profiles!service_requests_submitted_by_fkey(name)').eq('status', spvPipelineTab);
     if (spvSRUnitFilter !== 'all') query = query.eq('unit_id', spvSRUnitFilter);
     query = query.order('created_at', { ascending: false });
     const { data: rawSrs } = await query;
@@ -1225,11 +1228,11 @@ async function renderSPVSRList() {
       }
       return `<div class="m-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div style="font-size:14px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
+          <div style="font-size:14px;font-weight:800;color:#1E293B;">${sr.units ? sr.units.code : '—'} &nbsp;|&nbsp; ${sr.units?.operator_name || sr.profiles?.name || '—'}</div>
           ${badge(sr.urgency)}
         </div>
         <div style="font-size:16px;font-weight:700;color:#1E293B;">${sr.category}</div>
-        <div style="font-size:13px;color:#64748B;margin-top:3px;">${sr.units ? sr.units.code : ''} &nbsp;|&nbsp; ${sr.profiles ? sr.profiles.name : 'Unknown'}</div>
+        <div style="font-size:12px;color:#94A3B8;margin-top:2px;">${sr.sr_number} &nbsp;·&nbsp; ${formatDate(sr.created_at)}</div>
         <div style="font-size:13px;color:#374151;margin-top:4px;">${sr.description}</div>
         ${actions}
       </div>`;
@@ -1385,24 +1388,17 @@ async function loadSPVRiwayatSchedule(unitId) {
 }
 
 function spvDashFilter(filter) {
-  spvJadwalFilter = filter;
+  spvJadwalFilter = 'Semua';
   const navTabs = document.querySelectorAll('#view-spv .nav-tab');
   switchSpvScreen('jadwal', navTabs[2]);
-  document.querySelectorAll('#spv-jadwal-filters .vpill').forEach(b => b.classList.toggle('on', b.textContent === filter));
+  document.querySelectorAll('#spv-jadwal-filters .vpill').forEach(b => b.classList.toggle('on', b.textContent === 'Semua'));
   renderSPVJadwal();
 }
 
 async function loadSPVJadwal() {
   const filterEl = document.getElementById('spv-jadwal-filters');
-  const filters = ['Semua','Lewat','Hampir','OK'];
+  const filters = ['Semua', 'Terjadwal', 'Dikerjakan'];
   filterEl.innerHTML = filters.map(f => `<button class="vpill ${f === spvJadwalFilter ? 'on' : ''}" onclick="setSpvJadwalFilter('${f}')">${f}</button>`).join('');
-  const unitSel = document.getElementById('spv-jadwal-unit-filter');
-  if (unitSel && unitSel.options.length <= 1) {
-    try {
-      const { data: units } = await sb.from('units').select('id, code').order('code');
-      if (units) units.forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = u.code; unitSel.appendChild(o); });
-    } catch (e) {}
-  }
   await renderSPVJadwal();
 }
 
@@ -1428,102 +1424,40 @@ async function renderSPVJadwal() {
   const container = document.getElementById('spv-jadwal-list');
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    let query = sb.from('maintenance_schedules').select('id, unit_id, type_name, interval_hm, last_hm, last_date, units(id, code, name, current_hm)').order('unit_id');
-    if (spvJadwalUnitFilter !== 'all') query = query.eq('unit_id', spvJadwalUnitFilter);
-    const { data: scheds } = await query;
-    if (!scheds) { container.innerHTML = ''; return; }
-    const filterMap = { 'Semua': null, 'Lewat': 'OVERDUE', 'Hampir': 'DUE SOON', 'OK': 'OK' };
-    const filterVal = filterMap[spvJadwalFilter];
-    let data = scheds.map(s => {
-      const hm = s.units ? s.units.current_hm || 0 : 0;
-      const rem = mRemaining(s.interval_hm, s.last_hm, hm);
-      const st = mStatus(s.interval_hm, s.last_hm, hm);
-      return { ...s, hm, remaining: rem, status: st, hm_due: (s.last_hm || 0) + s.interval_hm };
-    });
-    if (filterVal) data = data.filter(d => d.status === filterVal);
-    if (data.length === 0) { container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:15px;">Tidak ada data.</div>'; return; }
-    data.sort((a,b) => (a.units?.code||'').localeCompare(b.units?.code||'') || a.type_name.localeCompare(b.type_name));
-
-    if (spvJadwalUnitFilter !== 'all') {
-      // Card/bubble view for single unit — large readable cards
-      const unitName = data[0]?.units?.code || '';
-      const currentHM = data[0]?.hm || 0;
-      container.innerHTML = `<div style="padding:0 14px 14px;">
-        <div style="background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
-          <div style="font-size:15px;font-weight:800;color:#1E3A8A;">${unitName}</div>
-          <div style="font-size:14px;font-weight:700;color:#1D4ED8;">HM Sekarang: ${currentHM.toLocaleString()}</div>
-        </div>
-        ${data.map(d => {
-          const borderColor = d.status === 'OVERDUE' ? '#EF4444' : d.status === 'DUE SOON' ? '#F59E0B' : '#10B981';
-          const bgColor = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
-          const sisaColor = d.remaining < 0 ? '#DC2626' : d.remaining === 0 ? '#D97706' : '#059669';
-          const hasData = d.last_hm != null;
-          return `<div style="background:${bgColor};border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,0.08);border-left:4px solid ${borderColor};">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-              <div style="font-size:16px;font-weight:800;color:#1E293B;">${d.type_name}</div>
-              ${badge(d.status)}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-              <div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;">
-                <div style="font-size:12px;color:#64748B;margin-bottom:2px;">Interval</div>
-                <div style="font-size:15px;font-weight:700;color:#374151;">${d.interval_hm} HM</div>
-              </div>
-              <div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;">
-                <div style="font-size:12px;color:#64748B;margin-bottom:2px;">HM Terakhir</div>
-                <div style="font-size:15px;font-weight:700;color:#374151;">${hasData ? d.last_hm.toLocaleString() : '-'}</div>
-              </div>
-              <div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;">
-                <div style="font-size:12px;color:#64748B;margin-bottom:2px;">HM Due</div>
-                <div style="font-size:15px;font-weight:700;color:#374151;">${hasData ? d.hm_due.toLocaleString() : '-'}</div>
-              </div>
-              <div style="background:rgba(0,0,0,0.04);border-radius:8px;padding:8px 10px;">
-                <div style="font-size:12px;color:#64748B;margin-bottom:2px;">Tgl Terakhir</div>
-                <div style="font-size:13px;font-weight:600;color:#374151;">${formatDate(d.last_date)}</div>
-              </div>
-            </div>
-            <div style="background:${d.remaining < 0 ? '#FEE2E2' : d.remaining < d.interval_hm * 0.15 ? '#FEF3C7' : '#D1FAE5'};border-radius:8px;padding:10px 14px;text-align:center;">
-              <div style="font-size:12px;color:#64748B;margin-bottom:2px;">Sisa HM</div>
-              <div style="font-size:22px;font-weight:900;color:${sisaColor};">${hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-'}</div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>`;
-    } else {
-      // Mobile-friendly grouped cards per unit
-      const byUnit = {};
-      const unitOrder = [];
-      data.forEach(d => {
-        const k = d.units?.code || d.unit_id;
-        if (!byUnit[k]) { byUnit[k] = { code: d.units?.code || k, hm: d.hm, items: [] }; unitOrder.push(k); }
-        byUnit[k].items.push(d);
-      });
-      container.innerHTML = '<div style="padding:0 14px 14px;">' + unitOrder.map(k => {
-        const grp = byUnit[k];
-        const hasOverdue = grp.items.some(d => d.status === 'OVERDUE');
-        const hasDueSoon = grp.items.some(d => d.status === 'DUE SOON');
-        const borderColor = hasOverdue ? '#EF4444' : hasDueSoon ? '#F59E0B' : '#10B981';
-        return `<div style="background:white;border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.07);border-left:4px solid ${borderColor};">
-          <div style="background:#F8FAFC;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #F1F5F9;">
-            <div style="font-size:15px;font-weight:800;color:#1E3A8A;">${grp.code}</div>
-            <div style="font-size:13px;font-weight:700;color:#1D4ED8;">HM: ${grp.hm.toLocaleString()}</div>
-          </div>
-          ${grp.items.map((d, i) => {
-            const hasData = d.last_hm != null;
-            const sisaColor = d.remaining < 0 ? '#DC2626' : d.status === 'DUE SOON' ? '#D97706' : '#16A34A';
-            const rowBg = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
-            const sisaText = hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-';
-            return `<div style="background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
-                <div style="font-size:13px;font-weight:600;color:#1E293B;">${d.type_name}</div>
-                ${badge(d.status)}
-              </div>
-              <div style="font-size:15px;font-weight:800;color:${sisaColor};">${hasData ? 'Sisa: ' + sisaText + ' HM' : '— belum ada data'}</div>
-            </div>`;
-          }).join('')}
-        </div>`;
-      }).join('') + '</div>';
+    let query = sb.from('job_orders')
+      .select('id, jo_number, type, status, priority, scheduled_date, units(code, operator_name), profiles!job_orders_assigned_mkn_id_fkey(name)')
+      .in('status', ['scheduled', 'in_progress'])
+      .order('scheduled_date', { ascending: true });
+    if (spvJadwalFilter === 'Terjadwal') query = query.eq('status', 'scheduled');
+    else if (spvJadwalFilter === 'Dikerjakan') query = query.eq('status', 'in_progress');
+    const { data: jos, error } = await query;
+    if (error) throw error;
+    if (!jos || jos.length === 0) {
+      container.innerHTML = '<div style="padding:30px;text-align:center;color:#94A3B8;font-size:15px;">Tidak ada job order aktif.</div>';
+      return;
     }
-  } catch (e) { showToast('Error jadwal: ' + e.message); }
+    const priorityStyle = { HIGH: 'background:#FEE2E2;color:#DC2626;', MED: 'background:#FEF3C7;color:#D97706;', LOW: 'background:#DBEAFE;color:#2563EB;' };
+    container.innerHTML = '<div style="padding:0 14px 80px;">' + jos.map(jo => {
+      const pStyle = priorityStyle[jo.priority] || priorityStyle.MED;
+      const isActive = jo.status === 'in_progress';
+      const stStyle = isActive ? 'background:#DBEAFE;color:#1D4ED8;' : 'background:#D1FAE5;color:#059669;';
+      const stLabel = isActive ? 'Dikerjakan' : 'Terjadwal';
+      return `<div class="m-card" style="margin:0 0 10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:15px;font-weight:800;color:#1E293B;">${jo.units?.code || '—'} &nbsp;|&nbsp; ${jo.units?.operator_name || '—'}</div>
+          <span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;${stStyle}">${stLabel}</span>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:6px;">${jo.type}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:13px;color:#64748B;">Mekanik: <span style="font-weight:600;color:#1E293B;">${jo.profiles?.name || 'Belum ditugaskan'}</span></div>
+          <span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;${pStyle}">${jo.priority}</span>
+        </div>
+        <div style="font-size:12px;color:#94A3B8;margin-top:4px;">${jo.jo_number} &nbsp;·&nbsp; ${formatDate(jo.scheduled_date)}</div>
+      </div>`;
+    }).join('') + '</div>';
+  } catch (e) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:#EF4444;font-size:14px;">Error: ' + e.message + '</div>';
+  }
 }
 
 async function loadSPVPenugasan() {
