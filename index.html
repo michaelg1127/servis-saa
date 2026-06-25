@@ -1762,6 +1762,10 @@ async function startJO(joId) {
   try {
     const { error } = await sb.from('job_orders').update({ status: 'in_progress' }).eq('id', joId);
     if (error) throw error;
+    const { data: jo } = await sb.from('job_orders').select('linked_sr_id').eq('id', joId).single();
+    if (jo && jo.linked_sr_id) {
+      await sb.from('service_requests').update({ status: 'in_progress' }).eq('id', jo.linked_sr_id);
+    }
     closeModal(); showToast('Job Order dimulai!', 'success');
     await renderMKNJobOrders();
   } catch (e) { showToast('Gagal: ' + e.message); }
@@ -1821,10 +1825,23 @@ async function acceptSR(srId) {
   const date = document.getElementById('modal-sched-date').value;
   if (!date) { showToast('Pilih tanggal.'); return; }
   try {
-    const { error } = await sb.from('service_requests').update({ status: 'scheduled', scheduled_date: date }).eq('id', srId);
-    if (error) throw error;
-    closeModal(); showToast('Request dijadwalkan!', 'success');
-    await loadMKNPermintaan();
+    const { data: sr, error: srFetchErr } = await sb.from('service_requests').select('unit_id, category, assigned_mkn_id').eq('id', srId).single();
+    if (srFetchErr) throw srFetchErr;
+    const { error: srErr } = await sb.from('service_requests').update({ status: 'scheduled', scheduled_date: date }).eq('id', srId);
+    if (srErr) throw srErr;
+    const { error: joErr } = await sb.from('job_orders').insert({
+      unit_id: sr.unit_id,
+      type: sr.category,
+      assigned_mkn_id: sr.assigned_mkn_id,
+      scheduled_date: date,
+      priority: 'MED',
+      status: 'pending',
+      created_by: currentProfile.id,
+      linked_sr_id: srId,
+    });
+    if (joErr) throw joErr;
+    closeModal(); showToast('Request dijadwalkan & Job Order dibuat!', 'success');
+    await Promise.all([loadMKNPermintaan(), loadMKNJobOrders()]);
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
