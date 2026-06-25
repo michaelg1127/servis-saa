@@ -997,6 +997,12 @@ async function submitServiceRequest() {
   if (!category) { showToast('Pilih kategori terlebih dahulu.'); return; }
   if (!desc) { showToast('Deskripsi wajib diisi.'); return; }
   try {
+    const { data: existing } = await sb.from('service_requests')
+      .select('id').eq('unit_id', currentUnit.id).eq('category', category)
+      .not('status', 'in', '("rejected","confirmed")').limit(1);
+    if (existing && existing.length > 0) {
+      showToast('Sudah ada request aktif untuk kategori ini di unit Anda.', 'info'); return;
+    }
     const srNum = generateSRNumber();
     const { error } = await sb.from('service_requests').insert({
       sr_number: srNum, unit_id: currentUnit.id, category, description: desc,
@@ -1518,14 +1524,16 @@ async function submitCreateJO() {
   if (!unitId) { showToast('Pilih unit terlebih dahulu.'); return; }
   if (!type) { showToast('Masukkan tipe pekerjaan.'); return; }
   try {
+    const { data: existing } = await sb.from('job_orders')
+      .select('id').eq('unit_id', unitId).eq('type', type)
+      .in('status', ['pending','in_progress']).limit(1);
+    if (existing && existing.length > 0) {
+      showToast('Sudah ada Job Order aktif dengan tipe yang sama untuk unit ini.', 'info'); return;
+    }
     const { error } = await sb.from('job_orders').insert({
-      unit_id: unitId,
-      type,
-      assigned_mkn_id: mknId || null,
-      scheduled_date: date || null,
-      priority: spvJoPriority,
-      status: 'pending',
-      created_by: currentProfile.id,
+      unit_id: unitId, type, assigned_mkn_id: mknId || null,
+      scheduled_date: date || null, priority: spvJoPriority,
+      status: 'pending', created_by: currentProfile.id,
     });
     if (error) throw error;
     showToast('Job Order berhasil dibuat!', 'success');
@@ -1687,7 +1695,7 @@ async function renderMKNJobList() {
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
     const { data: jos } = await sb.from('job_orders')
-      .select('id, jo_number, unit_id, type, status, priority, scheduled_date, created_at, units(code, name)')
+      .select('id, jo_number, unit_id, type, status, priority, scheduled_date, created_at, linked_sr_id, units(code, name)')
       .eq('assigned_mkn_id', currentProfile.id)
       .in('status', ['pending','in_progress'])
       .order('created_at', { ascending: false });
@@ -1715,31 +1723,22 @@ async function renderMKNJobList() {
       container.innerHTML = units.map(([uid, {unit, jobs}]) => {
         jobs.sort((a,b) => (prioOrder[a.priority]||1) - (prioOrder[b.priority]||1));
         const rows = jobs.map(jo => `
-          <div id="jorow-${jo.id}" data-jo-id="${jo.id}" data-selected="1"
-            onclick="toggleJORow('${jo.id}','${uid}')"
-            style="display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:6px;border-radius:10px;background:#EFF6FF;border:2px solid #BFDBFE;cursor:pointer;user-select:none;">
-            <div id="jocheck-${jo.id}" style="width:24px;height:24px;border-radius:50%;background:#1D4ED8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <svg width="13" height="13" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
-            </div>
+          <div onclick="openJODetail('${jo.id}','${jo.jo_number}','${unit?.code||''}','${(jo.type||'').replace(/'/g,"\\'")}','${(jo.linked_sr_id||'')}')"
+            style="display:flex;align-items:center;gap:12px;padding:13px 12px;margin-bottom:6px;border-radius:10px;background:#F8FAFC;border:1.5px solid #E2E8F0;cursor:pointer;active:background:#EFF6FF;">
             <div style="flex:1;min-width:0;">
               <div style="font-size:14px;font-weight:700;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${jo.type}</div>
-              <div style="font-size:11px;color:#94A3B8;">${jo.jo_number}</div>
+              <div style="font-size:11px;color:#94A3B8;margin-top:2px;">${jo.jo_number}</div>
             </div>
             ${badge(jo.priority)}
+            <svg width="16" height="16" fill="none" stroke="#CBD5E1" stroke-width="2.5" viewBox="0 0 24 24" style="flex-shrink:0;"><path d="M9 18l6-6-6-6"/></svg>
           </div>`).join('');
         return `
           <div class="m-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
             <div style="background:#1E293B;padding:14px 16px;">
               <div style="font-size:22px;font-weight:800;color:white;letter-spacing:1px;">${unit?.code || '?'}</div>
-              <div style="font-size:12px;color:#94A3B8;margin-top:2px;">${unit?.name || ''} &nbsp;·&nbsp; ${jobs.length} pekerjaan</div>
+              <div style="font-size:12px;color:#94A3B8;margin-top:2px;">${unit?.name || ''} &nbsp;·&nbsp; ${jobs.length} pekerjaan menunggu</div>
             </div>
-            <div style="padding:12px 12px 0;" id="jobrows-${uid}">${rows}</div>
-            <div style="padding:10px 12px 12px;">
-              <button id="mulai-btn-${uid}" onclick="acceptSelectedJOs('${uid}')"
-                class="btn-primary" style="width:100%;font-size:15px;padding:13px;font-weight:700;border-radius:10px;">
-                Mulai (${jobs.length})
-              </button>
-            </div>
+            <div style="padding:10px 12px 12px;">${rows}</div>
           </div>`;
       }).join('');
     } else {
@@ -1772,47 +1771,40 @@ async function renderMKNJobList() {
   } catch (e) { showToast('Error JO: ' + e.message); }
 }
 
-function toggleJORow(joId, unitId) {
-  const row = document.getElementById('jorow-' + joId);
-  const check = document.getElementById('jocheck-' + joId);
-  const selected = row.dataset.selected === '1';
-  if (selected) {
-    row.dataset.selected = '0';
-    row.style.background = '#F8FAFC';
-    row.style.border = '2px solid #E2E8F0';
-    check.style.background = '#CBD5E1';
-    check.innerHTML = '';
-  } else {
-    row.dataset.selected = '1';
-    row.style.background = '#EFF6FF';
-    row.style.border = '2px solid #BFDBFE';
-    check.style.background = '#1D4ED8';
-    check.innerHTML = '<svg width="13" height="13" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
+async function openJODetail(joId, joNum, unitCode, joType, linkedSrId) {
+  let description = '';
+  if (linkedSrId) {
+    try {
+      const { data: sr } = await sb.from('service_requests').select('description').eq('id', linkedSrId).single();
+      if (sr?.description) description = sr.description;
+    } catch (e) { /* no description available */ }
   }
-  const btn = document.getElementById('mulai-btn-' + unitId);
-  if (!btn) return;
-  const count = document.querySelectorAll('#jobrows-' + unitId + ' [data-selected="1"]').length;
-  btn.textContent = count > 0 ? `Mulai (${count})` : 'Pilih pekerjaan dulu';
-  btn.disabled = count === 0;
-  btn.style.opacity = count === 0 ? '0.5' : '1';
+  const descHtml = description
+    ? `<div style="background:#F8FAFC;border-radius:10px;padding:12px;margin-bottom:20px;">
+        <div style="font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Deskripsi dari Operator</div>
+        <div style="font-size:14px;color:#374151;line-height:1.5;">${description}</div>
+       </div>`
+    : `<div style="background:#F8FAFC;border-radius:10px;padding:12px;margin-bottom:20px;">
+        <div style="font-size:13px;color:#94A3B8;font-style:italic;">Dijadwalkan oleh SPV</div>
+       </div>`;
+  showModal(`
+    <div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:2px;">${unitCode} &mdash; ${joType}</div>
+    <div style="font-size:12px;color:#94A3B8;margin-bottom:16px;">${joNum}</div>
+    ${descHtml}
+    <button onclick="acceptSingleJO('${joId}')" class="btn-success" style="width:100%;padding:14px;font-size:15px;font-weight:700;margin-bottom:8px;">Mulai Job Ini</button>
+    <button onclick="closeModal()" class="btn-secondary" style="width:100%;padding:12px;">Tutup</button>`);
 }
 
-async function acceptSelectedJOs(unitId) {
-  const rows = document.querySelectorAll('#jobrows-' + unitId + ' [data-selected="1"]');
-  const joIds = [...rows].map(r => r.dataset.joId);
-  if (joIds.length === 0) { showToast('Pilih pekerjaan terlebih dahulu.'); return; }
-  const btn = document.getElementById('mulai-btn-' + unitId);
-  if (btn) { btn.textContent = 'Memproses...'; btn.disabled = true; }
+async function acceptSingleJO(joId) {
   try {
-    for (const joId of joIds) {
-      const { error } = await sb.from('job_orders').update({ status: 'in_progress' }).eq('id', joId);
-      if (error) throw error;
-      const { data: jo } = await sb.from('job_orders').select('linked_sr_id').eq('id', joId).single();
-      if (jo?.linked_sr_id) await sb.from('service_requests').update({ status: 'in_progress' }).eq('id', jo.linked_sr_id);
-    }
-    showToast(`${joIds.length} pekerjaan dimulai!`, 'success');
-    switchMknJOSubTab('dikerjakan');
-  } catch (e) { showToast('Gagal: ' + e.message); if (btn) { btn.disabled = false; } }
+    const { error } = await sb.from('job_orders').update({ status: 'in_progress' }).eq('id', joId);
+    if (error) throw error;
+    const { data: jo } = await sb.from('job_orders').select('linked_sr_id').eq('id', joId).single();
+    if (jo?.linked_sr_id) await sb.from('service_requests').update({ status: 'in_progress' }).eq('id', jo.linked_sr_id);
+    closeModal();
+    showToast('Pekerjaan dimulai!', 'success');
+    await renderMKNJobList();
+  } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
 function openSelesaikanModal(joId, joNum, unitCode, joType) {
