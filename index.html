@@ -1372,8 +1372,8 @@ async function loadSPVRiwayatSchedule(unitId) {
     });
     const data = scheds.map(s => {
       const fromLog = logMap[s.type_name];
-      const effHm = (fromLog && (s.last_hm === null || fromLog.hm > s.last_hm)) ? fromLog.hm : s.last_hm;
-      const effDate = (fromLog && (s.last_hm === null || fromLog.hm > s.last_hm)) ? fromLog.date : s.last_date;
+      const effHm = fromLog ? fromLog.hm : s.last_hm;
+      const effDate = fromLog ? fromLog.date : s.last_date;
       const rem = mRemaining(s.interval_hm, effHm, hm);
       const st = mStatus(s.interval_hm, effHm, hm);
       return { ...s, last_hm: effHm, last_date: effDate, remaining: rem, status: st, hm_due: (effHm || 0) + s.interval_hm };
@@ -1659,7 +1659,10 @@ async function submitSPVServiceLog() {
   const notes = document.getElementById('spv-log-notes').value.trim();
   if (!unitId || !mType || !hm || !date) { showToast('Unit, Tipe, HM, dan Tanggal wajib diisi.'); return; }
   try {
-    const { data: unit } = await sb.from('units').select('code').eq('id', unitId).single();
+    const { data: unit } = await sb.from('units').select('code, current_hm').eq('id', unitId).single();
+    if (unit?.current_hm && hm > unit.current_hm + 24) {
+      showToast(`HM tidak valid. Maksimal ${unit.current_hm + 24} (HM saat ini + 24).`); return;
+    }
     const { error } = await sb.from('service_log').insert({
       unit_id: unitId, unit_code: unit ? unit.code : '',
       maintenance_type: mType, hm_at_service: hm, service_date: date,
@@ -1899,8 +1902,11 @@ async function submitServiceLog(joId, joType) {
   const notes = document.getElementById('mkn-modal-notes').value.trim();
   if (!hm || !date) { showToast('HM dan tanggal wajib diisi.'); return; }
   try {
-    const { data: jo } = await sb.from('job_orders').select('unit_id, type, linked_sr_id, units(code, name)').eq('id', joId).single();
+    const { data: jo } = await sb.from('job_orders').select('unit_id, type, linked_sr_id, units(code, name, current_hm)').eq('id', joId).single();
     const mType = joType || (jo ? jo.type : '');
+    if (jo?.units?.current_hm && hm > jo.units.current_hm + 24) {
+      showToast(`HM tidak valid. Maksimal ${jo.units.current_hm + 24} (HM saat ini + 24).`); return;
+    }
     const { error: e1 } = await sb.from('service_log').insert({
       unit_id: jo.unit_id, unit_code: jo.units ? jo.units.code : '', maintenance_type: mType,
       hm_at_service: hm, service_date: date, mkn_id: currentProfile.id,
@@ -2284,8 +2290,8 @@ async function loadAdminRiwayatSchedule(unitId) {
     el.innerHTML = `<table class="dt"><thead><tr><th>Tipe</th><th>Interval</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>Sisa HM</th><th>Status</th></tr></thead>
       <tbody>${scheds.map(s => {
         const fromLog = logMap[s.type_name];
-        const effHm = (fromLog && (s.last_hm === null || fromLog.hm > s.last_hm)) ? fromLog.hm : s.last_hm;
-        const effDate = (fromLog && (s.last_hm === null || fromLog.hm > s.last_hm)) ? fromLog.date : s.last_date;
+        const effHm = fromLog ? fromLog.hm : s.last_hm;
+        const effDate = fromLog ? fromLog.date : s.last_date;
         const rem = mRemaining(s.interval_hm, effHm, hm);
         const st = mStatus(s.interval_hm, effHm, hm);
         return `<tr class="${st === 'OVERDUE' ? 'row-overdue' : st === 'DUE SOON' ? 'row-duesoon' : ''}">
@@ -2380,9 +2386,23 @@ async function deleteServiceLog(id) {
 
 async function confirmDeleteServiceLog(id) {
   try {
+    const { data: rec } = await sb.from('service_log').select('unit_id, maintenance_type').eq('id', id).single();
     const { data, error } = await sb.from('service_log').delete().eq('id', id).select();
     if (error) throw error;
     if (!data || data.length === 0) throw new Error('Akses ditolak. Pastikan RLS policy DELETE sudah ditambah di Supabase untuk role admin.');
+    if (rec) {
+      const { data: remaining } = await sb.from('service_log')
+        .select('hm_at_service, service_date')
+        .eq('unit_id', rec.unit_id).eq('maintenance_type', rec.maintenance_type)
+        .order('hm_at_service', { ascending: false }).limit(1);
+      if (remaining && remaining.length > 0) {
+        await sb.from('maintenance_schedules').update({ last_hm: remaining[0].hm_at_service, last_date: remaining[0].service_date })
+          .eq('unit_id', rec.unit_id).eq('type_name', rec.maintenance_type);
+      } else {
+        await sb.from('maintenance_schedules').update({ last_hm: null, last_date: null })
+          .eq('unit_id', rec.unit_id).eq('type_name', rec.maintenance_type);
+      }
+    }
     closeModal();
     showToast('Record berhasil dihapus.', 'success');
     if (_riwayatUnitId) await loadAdminRiwayatLog(_riwayatUnitId);
