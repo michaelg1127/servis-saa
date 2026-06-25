@@ -243,11 +243,11 @@
   <div id="spv-screen-dashboard" class="mscreen">
     <div style="background:white;padding:18px 16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:14px;">
       <div style="font-size:20px;font-weight:800;color:#1E3A8A;">Dashboard SPV</div>
-      <div style="font-size:13px;color:#94A3B8;margin-top:2px;">Tap kartu untuk filter jadwal</div>
+      <div style="font-size:13px;color:#94A3B8;margin-top:2px;">Tap unit untuk lihat riwayat & jadwal</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:calc(100% - 32px);margin:0 16px 16px;box-sizing:border-box;" id="spv-stats"></div>
-    <div style="padding:0 16px 10px;font-size:14px;font-weight:700;color:#374151;">Status Unit</div>
-    <div id="spv-unit-list"></div>
+    <div style="padding:0 16px 10px 16px;font-size:13px;font-weight:600;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;">Unit &amp; Jadwal Servis</div>
+    <div id="spv-unit-list" style="padding:0 16px 80px;"></div>
   </div>
 
   <div id="spv-screen-permintaan" class="mscreen">
@@ -1150,28 +1150,48 @@ async function loadSPVUnitList() {
       });
       const statuses = schedsWithMeta.map(s => s.status);
       const worst = statuses.includes('OVERDUE') ? 'OVERDUE' : statuses.includes('DUE SOON') ? 'DUE SOON' : 'OK';
-      const alertItems = schedsWithMeta.filter(s => s.status !== 'OK').sort((a, b) => a.remaining - b.remaining).slice(0, 3);
-      return { ...u, worst, alertItems };
+      const alertItems = schedsWithMeta.filter(s => s.status !== 'OK').sort((a, b) => a.remaining - b.remaining);
+      const okCount = schedsWithMeta.filter(s => s.status === 'OK').length;
+      return { ...u, worst, alertItems, okCount };
     });
     enriched.sort((a, b) => (sortOrder[a.worst] - sortOrder[b.worst]) || a.code.localeCompare(b.code));
     container.innerHTML = enriched.map(u => {
-      const borderColor = u.worst === 'OVERDUE' ? '#EF4444' : u.worst === 'DUE SOON' ? '#F59E0B' : '#10B981';
-      const opName = u.profiles ? u.profiles.name : (u.operator_name || '&mdash;');
-      const topItemsHTML = u.alertItems.length > 0 ? `<div style="margin-top:8px;border-top:1px solid #F1F5F9;padding-top:7px;">${u.alertItems.map(s => {
-        const c = s.remaining < 0 ? '#DC2626' : '#D97706';
-        const t = s.remaining < 0 ? '(' + Math.abs(s.remaining) + ') HM' : s.remaining + ' HM';
-        return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:3px;"><span style="color:#374151;font-weight:600;">${s.type_name}</span><span style="color:${c};font-weight:700;">${t}</span></div>`;
-      }).join('')}</div>` : '';
-      return `<div class="m-card" style="border-left:4px solid ${borderColor};cursor:pointer;" onclick="openRiwayatForUnit('${u.id}')">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
-          <span style="font-size:17px;font-weight:800;color:#1E293B;">${u.code}</span>
-          ${badge(u.worst)}
+      const opName = u.profiles ? u.profiles.name : (u.operator_name || '—');
+      const headerBg = u.worst === 'OVERDUE' ? '#7F1D1D' : u.worst === 'DUE SOON' ? '#78350F' : '#064E3B';
+      const subColor  = u.worst === 'OVERDUE' ? '#FCA5A5' : u.worst === 'DUE SOON' ? '#FCD34D' : '#6EE7B7';
+      const rows = u.alertItems.map(s => {
+        const isOverdue = s.status === 'OVERDUE';
+        const rowBg     = isOverdue ? '#FEF2F2' : '#FFFBEB';
+        const rowBorder = isOverdue ? '#FECACA' : '#FDE68A';
+        const hmColor   = isOverdue ? '#DC2626' : '#D97706';
+        const hmLabel   = s.remaining < 0
+          ? `${Math.abs(Math.round(s.remaining))} HM terlambat`
+          : `${Math.round(s.remaining)} HM lagi`;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:5px;border-radius:9px;background:${rowBg};border:1.5px solid ${rowBorder};">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:700;color:#1E293B;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.type_name}</div>
+          </div>
+          <div style="font-size:12px;font-weight:700;color:${hmColor};white-space:nowrap;">${hmLabel}</div>
+          ${badge(s.status)}
+        </div>`;
+      }).join('');
+      const body = u.alertItems.length > 0
+        ? `<div style="padding:10px 12px 12px;">${rows}${u.okCount > 0 ? `<div style="font-size:11px;color:#94A3B8;text-align:center;margin-top:4px;">${u.okCount} jadwal lainnya OK</div>` : ''}</div>`
+        : `<div style="padding:14px 12px;text-align:center;font-size:13px;color:#6EE7B7;font-weight:600;">Semua jadwal OK ✓</div>`;
+      return `<div class="m-card" style="padding:0;overflow:hidden;margin-bottom:14px;cursor:pointer;" onclick="openRiwayatForUnit('${u.id}')">
+        <div style="background:${headerBg};padding:14px 16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="font-size:22px;font-weight:800;color:white;letter-spacing:1px;">${u.code}</div>
+              <div style="font-size:12px;color:${subColor};margin-top:3px;">${u.name} &nbsp;·&nbsp; ${opName}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:20px;font-weight:800;color:white;">${(u.current_hm || 0).toLocaleString()}</div>
+              <div style="font-size:11px;color:${subColor};margin-top:1px;">HM saat ini</div>
+            </div>
+          </div>
         </div>
-        <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:2px;">${u.name}</div>
-        <div style="font-size:13px;color:#64748B;">${u.model || ''}</div>
-        <div style="font-size:13px;color:#64748B;">Operator: ${opName}</div>
-        <div style="font-size:15px;font-weight:700;color:#1D4ED8;margin-top:5px;">HM: ${(u.current_hm || 0).toLocaleString()}</div>
-        ${topItemsHTML}
+        ${body}
       </div>`;
     }).join('');
   } catch (e) { showToast('Error unit list: ' + e.message); }
