@@ -265,11 +265,48 @@
   </div>
 
   <div id="spv-screen-jadwal" class="mscreen">
-    <div style="background:white;padding:16px 14px 10px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
-      <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Job Order Aktif</div>
-      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;" id="spv-jadwal-filters"></div>
+    <div style="background:white;padding:0 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="display:flex;border-bottom:2px solid #F1F5F9;">
+        <button id="spv-jadwal-tab-buat" onclick="switchJadwalSubTab('buat')" style="flex:1;padding:14px 8px;border:none;background:none;font-size:14px;font-weight:700;color:#94A3B8;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;">+ Jadwalkan</button>
+        <button id="spv-jadwal-tab-list" onclick="switchJadwalSubTab('list')" style="flex:1;padding:14px 8px;border:none;background:none;font-size:14px;font-weight:700;color:#1D4ED8;border-bottom:2px solid #1D4ED8;margin-bottom:-2px;cursor:pointer;">Terjadwal</button>
+      </div>
     </div>
-    <div id="spv-jadwal-list"></div>
+
+    <div id="spv-jadwal-buat" style="display:none;padding:0 16px 80px;">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Unit</label>
+        <select id="spv-jo-unit" class="finput"></select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Pekerjaan</label>
+        <input type="text" id="spv-jo-type" class="finput" placeholder="Ketik atau pilih tipe..." list="spv-jo-types-datalist">
+        <datalist id="spv-jo-types-datalist"></datalist>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Ditugaskan ke (MKN)</label>
+        <select id="spv-jo-mkn" class="finput"></select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Rencana</label>
+        <input type="date" id="spv-jo-date" class="finput">
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:8px;">Prioritas</label>
+        <div style="display:flex;gap:8px;">
+          <button onclick="setJoPriority('HIGH')" id="jo-pri-HIGH" class="vpill" style="flex:1;">HIGH</button>
+          <button onclick="setJoPriority('MED')" id="jo-pri-MED" class="vpill on" style="flex:1;">MED</button>
+          <button onclick="setJoPriority('LOW')" id="jo-pri-LOW" class="vpill" style="flex:1;">LOW</button>
+        </div>
+      </div>
+      <button onclick="submitCreateJO()" class="btn-primary">Buat Job Order</button>
+    </div>
+
+    <div id="spv-jadwal-list-wrap">
+      <div style="padding:0 14px 8px;">
+        <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;" id="spv-jadwal-filters"></div>
+      </div>
+      <div id="spv-jadwal-list"></div>
+    </div>
   </div>
 
   <div id="spv-screen-penugasan" class="mscreen">
@@ -656,6 +693,8 @@ let adminPipelineTab = 'pending_spv';
 let spvJadwalMode = 'unit';
 let adminJadwalMode = 'unit';
 let spvJadwalFilter = 'Semua';
+let spvJadwalSubTab = 'list';
+let spvJoPriority = 'MED';
 let spvJadwalUnitFilter = 'all';
 let spvSRUnitFilter = 'all';
 let spvSRSort = 'date';
@@ -1397,9 +1436,9 @@ function spvDashFilter(filter) {
 
 async function loadSPVJadwal() {
   const filterEl = document.getElementById('spv-jadwal-filters');
-  const filters = ['Semua', 'Terjadwal', 'Dikerjakan'];
+  const filters = ['Semua', 'Pending', 'Dikerjakan'];
   filterEl.innerHTML = filters.map(f => `<button class="vpill ${f === spvJadwalFilter ? 'on' : ''}" onclick="setSpvJadwalFilter('${f}')">${f}</button>`).join('');
-  await renderSPVJadwal();
+  await Promise.all([renderSPVJadwal(), initSPVJadwalForm()]);
 }
 
 function setSPVJadwalUnitFilter(val) {
@@ -1426,9 +1465,9 @@ async function renderSPVJadwal() {
   try {
     let query = sb.from('job_orders')
       .select('id, jo_number, type, status, priority, scheduled_date, units(code, operator_name), profiles!job_orders_assigned_mkn_id_fkey(name)')
-      .in('status', ['scheduled', 'in_progress'])
+      .in('status', ['pending', 'in_progress'])
       .order('scheduled_date', { ascending: true });
-    if (spvJadwalFilter === 'Terjadwal') query = query.eq('status', 'scheduled');
+    if (spvJadwalFilter === 'Pending') query = query.eq('status', 'pending');
     else if (spvJadwalFilter === 'Dikerjakan') query = query.eq('status', 'in_progress');
     const { data: jos, error } = await query;
     if (error) throw error;
@@ -1439,9 +1478,11 @@ async function renderSPVJadwal() {
     const priorityStyle = { HIGH: 'background:#FEE2E2;color:#DC2626;', MED: 'background:#FEF3C7;color:#D97706;', LOW: 'background:#DBEAFE;color:#2563EB;' };
     container.innerHTML = '<div style="padding:0 14px 80px;">' + jos.map(jo => {
       const pStyle = priorityStyle[jo.priority] || priorityStyle.MED;
-      const isActive = jo.status === 'in_progress';
-      const stStyle = isActive ? 'background:#DBEAFE;color:#1D4ED8;' : 'background:#D1FAE5;color:#059669;';
-      const stLabel = isActive ? 'Dikerjakan' : 'Terjadwal';
+      const stStyle = jo.status === 'in_progress' ? 'background:#DBEAFE;color:#1D4ED8;'
+        : jo.status === 'pending' ? 'background:#FEF3C7;color:#D97706;'
+        : 'background:#D1FAE5;color:#059669;';
+      const stLabel = jo.status === 'in_progress' ? 'Dikerjakan'
+        : jo.status === 'pending' ? 'Pending' : 'Terjadwal';
       return `<div class="m-card" style="margin:0 0 10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div style="font-size:15px;font-weight:800;color:#1E293B;">${jo.units?.code || '—'} &nbsp;|&nbsp; ${jo.units?.operator_name || '—'}</div>
@@ -1458,6 +1499,85 @@ async function renderSPVJadwal() {
   } catch (e) {
     container.innerHTML = '<div style="padding:20px;text-align:center;color:#EF4444;font-size:14px;">Error: ' + e.message + '</div>';
   }
+}
+
+function switchJadwalSubTab(tab) {
+  spvJadwalSubTab = tab;
+  document.getElementById('spv-jadwal-buat').style.display = tab === 'buat' ? 'block' : 'none';
+  document.getElementById('spv-jadwal-list-wrap').style.display = tab === 'list' ? 'block' : 'none';
+  const btnBuat = document.getElementById('spv-jadwal-tab-buat');
+  const btnList = document.getElementById('spv-jadwal-tab-list');
+  if (btnBuat) {
+    btnBuat.style.color = tab === 'buat' ? '#1D4ED8' : '#94A3B8';
+    btnBuat.style.borderBottomColor = tab === 'buat' ? '#1D4ED8' : 'transparent';
+  }
+  if (btnList) {
+    btnList.style.color = tab === 'list' ? '#1D4ED8' : '#94A3B8';
+    btnList.style.borderBottomColor = tab === 'list' ? '#1D4ED8' : 'transparent';
+  }
+}
+
+function setJoPriority(p) {
+  spvJoPriority = p;
+  ['HIGH','MED','LOW'].forEach(v => {
+    const el = document.getElementById('jo-pri-' + v);
+    if (el) el.classList.toggle('on', v === p);
+  });
+}
+
+async function initSPVJadwalForm() {
+  try {
+    const unitSel = document.getElementById('spv-jo-unit');
+    if (unitSel && unitSel.options.length <= 1) {
+      const { data: units } = await sb.from('units').select('id, code, name').order('code');
+      if (units) unitSel.innerHTML = '<option value="">-- Pilih Unit --</option>' + units.map(u => `<option value="${u.id}">${u.code} — ${u.name}</option>`).join('');
+    }
+    const mknSel = document.getElementById('spv-jo-mkn');
+    if (mknSel && mknSel.options.length <= 1) {
+      if (allMknProfiles.length === 0) {
+        const { data: mkns } = await sb.from('profiles').select('id, name').eq('role', 'mkn').order('name');
+        allMknProfiles = mkns || [];
+      }
+      mknSel.innerHTML = '<option value="">-- Tidak Ada --</option>' + allMknProfiles.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+    }
+    const dl = document.getElementById('spv-jo-types-datalist');
+    if (dl && !dl.children.length) {
+      const { data: types } = await sb.from('maintenance_types').select('type_name').order('type_name');
+      const names = types && types.length ? types.map(t => t.type_name) : COMMON_MAINTENANCE_TYPES;
+      dl.innerHTML = names.map(t => `<option value="${t}">`).join('');
+    }
+    const dateEl = document.getElementById('spv-jo-date');
+    if (dateEl && !dateEl.value) dateEl.value = todayISO();
+  } catch (e) {}
+}
+
+async function submitCreateJO() {
+  const unitId = document.getElementById('spv-jo-unit').value;
+  const type = document.getElementById('spv-jo-type').value.trim();
+  const mknId = document.getElementById('spv-jo-mkn').value;
+  const date = document.getElementById('spv-jo-date').value;
+  if (!unitId) { showToast('Pilih unit terlebih dahulu.'); return; }
+  if (!type) { showToast('Masukkan tipe pekerjaan.'); return; }
+  try {
+    const { error } = await sb.from('job_orders').insert({
+      unit_id: unitId,
+      type,
+      assigned_mkn_id: mknId || null,
+      scheduled_date: date || null,
+      priority: spvJoPriority,
+      status: 'pending',
+      created_by: currentProfile.id,
+    });
+    if (error) throw error;
+    showToast('Job Order berhasil dibuat!', 'success');
+    document.getElementById('spv-jo-unit').value = '';
+    document.getElementById('spv-jo-type').value = '';
+    document.getElementById('spv-jo-mkn').value = '';
+    document.getElementById('spv-jo-date').value = todayISO();
+    setJoPriority('MED');
+    switchJadwalSubTab('list');
+    await renderSPVJadwal();
+  } catch (e) { showToast('Gagal buat JO: ' + e.message); }
 }
 
 async function loadSPVPenugasan() {
