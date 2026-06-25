@@ -1745,18 +1745,14 @@ async function renderMKNJobList() {
       container.innerHTML = units.map(([uid, {unit, jobs}]) => {
         jobs.sort((a,b) => (prioOrder[a.priority]||1) - (prioOrder[b.priority]||1));
         const rows = jobs.map(jo => `
-          <div style="padding:12px;margin-bottom:8px;border-radius:10px;background:#F0FDF4;border:1.5px solid #BBF7D0;">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:14px;font-weight:700;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${jo.type}</div>
-                <div style="font-size:11px;color:#94A3B8;">${jo.jo_number}</div>
-              </div>
-              ${badge(jo.priority)}
+          <div onclick="openJODetail('${jo.id}','${jo.jo_number}','${unit?.code||''}','${(jo.type||'').replace(/'/g,"\\'")}','${(jo.linked_sr_id||'')}','in_progress')"
+            style="display:flex;align-items:center;gap:12px;padding:13px 12px;margin-bottom:6px;border-radius:10px;background:#F0FDF4;border:1.5px solid #BBF7D0;cursor:pointer;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:700;color:#1E293B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${jo.type}</div>
+              <div style="font-size:11px;color:#94A3B8;margin-top:2px;">${jo.jo_number}</div>
             </div>
-            <button onclick="openSelesaikanModal('${jo.id}','${jo.jo_number}','${unit?.code||''}','${(jo.type||'').replace(/'/g,"\\'")}')"
-              class="btn-success" style="width:100%;font-size:14px;padding:11px;border-radius:10px;font-weight:700;">
-              Selesaikan
-            </button>
+            ${badge(jo.priority)}
+            <svg width="16" height="16" fill="none" stroke="#6EE7B7" stroke-width="2.5" viewBox="0 0 24 24" style="flex-shrink:0;"><path d="M9 18l6-6-6-6"/></svg>
           </div>`).join('');
         return `
           <div class="m-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
@@ -1764,14 +1760,14 @@ async function renderMKNJobList() {
               <div style="font-size:22px;font-weight:800;color:white;letter-spacing:1px;">${unit?.code || '?'}</div>
               <div style="font-size:12px;color:#6EE7B7;margin-top:2px;">${unit?.name || ''} &nbsp;·&nbsp; ${jobs.length} sedang dikerjakan</div>
             </div>
-            <div style="padding:12px;">${rows}</div>
+            <div style="padding:10px 12px 12px;">${rows}</div>
           </div>`;
       }).join('');
     }
   } catch (e) { showToast('Error JO: ' + e.message); }
 }
 
-async function openJODetail(joId, joNum, unitCode, joType, linkedSrId) {
+async function openJODetail(joId, joNum, unitCode, joType, linkedSrId, joStatus) {
   let description = '';
   if (linkedSrId) {
     try {
@@ -1787,11 +1783,14 @@ async function openJODetail(joId, joNum, unitCode, joType, linkedSrId) {
     : `<div style="background:#F8FAFC;border-radius:10px;padding:12px;margin-bottom:20px;">
         <div style="font-size:13px;color:#94A3B8;font-style:italic;">Dijadwalkan oleh SPV</div>
        </div>`;
+  const actionBtn = joStatus === 'in_progress'
+    ? `<button onclick="closeModal();openSelesaikanModal('${joId}','${joNum}','${unitCode}','${joType.replace(/'/g,"\\'")}')" class="btn-success" style="width:100%;padding:14px;font-size:15px;font-weight:700;margin-bottom:8px;">Selesaikan</button>`
+    : `<button onclick="acceptSingleJO('${joId}')" class="btn-success" style="width:100%;padding:14px;font-size:15px;font-weight:700;margin-bottom:8px;">Mulai Job Ini</button>`;
   showModal(`
     <div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:2px;">${unitCode} &mdash; ${joType}</div>
     <div style="font-size:12px;color:#94A3B8;margin-bottom:16px;">${joNum}</div>
     ${descHtml}
-    <button onclick="acceptSingleJO('${joId}')" class="btn-success" style="width:100%;padding:14px;font-size:15px;font-weight:700;margin-bottom:8px;">Mulai Job Ini</button>
+    ${actionBtn}
     <button onclick="closeModal()" class="btn-secondary" style="width:100%;padding:12px;">Tutup</button>`);
 }
 
