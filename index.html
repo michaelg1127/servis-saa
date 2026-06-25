@@ -655,6 +655,7 @@ let spvRiwayatUnit = null;
 let adminJadwalFilter = 'Semua';
 let mknJOSubTab = 'menunggu';
 let adminRiwayatUnit = null;
+let additionalMaintTypes = [];
 let adminUserRoleFilter = 'all';
 let allProfiles = [];
 let allUnits = [];
@@ -1357,16 +1358,25 @@ async function loadSPVRiwayatSchedule(unitId) {
   if (!el) return;
   el.innerHTML = '<div style="padding:10px 0;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const [{ data: unit }, { data: scheds }] = await Promise.all([
+    const [{ data: unit }, { data: scheds }, { data: logs }] = await Promise.all([
       sb.from('units').select('code, current_hm').eq('id', unitId).single(),
-      sb.from('maintenance_schedules').select('type_name, interval_hm, last_hm, last_date').eq('unit_id', unitId).order('type_name')
+      sb.from('maintenance_schedules').select('type_name, interval_hm, last_hm, last_date').eq('unit_id', unitId).order('type_name'),
+      sb.from('service_log').select('maintenance_type, hm_at_service, service_date').eq('unit_id', unitId)
     ]);
     if (!scheds || scheds.length === 0) { el.innerHTML = ''; return; }
     const hm = unit ? unit.current_hm || 0 : 0;
+    const logMap = {};
+    (logs || []).forEach(l => {
+      if (!logMap[l.maintenance_type] || l.hm_at_service > logMap[l.maintenance_type].hm)
+        logMap[l.maintenance_type] = { hm: l.hm_at_service, date: l.service_date };
+    });
     const data = scheds.map(s => {
-      const rem = mRemaining(s.interval_hm, s.last_hm, hm);
-      const st = mStatus(s.interval_hm, s.last_hm, hm);
-      return { ...s, remaining: rem, status: st, hm_due: (s.last_hm || 0) + s.interval_hm };
+      const fromLog = logMap[s.type_name];
+      const effHm = (fromLog && (s.last_hm === null || fromLog.hm > s.last_hm)) ? fromLog.hm : s.last_hm;
+      const effDate = (fromLog && (s.last_hm === null || fromLog.hm > s.last_hm)) ? fromLog.date : s.last_date;
+      const rem = mRemaining(s.interval_hm, effHm, hm);
+      const st = mStatus(s.interval_hm, effHm, hm);
+      return { ...s, last_hm: effHm, last_date: effDate, remaining: rem, status: st, hm_due: (effHm || 0) + s.interval_hm };
     }).sort((a, b) => a.remaining - b.remaining);
     el.innerHTML = `<div style="background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-size:16px;font-weight:800;color:#1E3A8A;">${unit?.code || ''}</div>
@@ -1429,7 +1439,7 @@ async function renderSPVJadwal() {
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
     let query = sb.from('job_orders')
-      .select('id, jo_number, type, status, priority, scheduled_date, units(code, operator_name), profiles!job_orders_assigned_mkn_id_fkey(name)')
+      .select('id, jo_number, type, status, priority, scheduled_date, linked_sr_id, units(code, operator_name), profiles!job_orders_assigned_mkn_id_fkey(name)')
       .in('status', ['pending', 'in_progress'])
       .order('scheduled_date', { ascending: true });
     if (spvJadwalFilter === 'Pending') query = query.eq('status', 'pending');
@@ -1459,6 +1469,9 @@ async function renderSPVJadwal() {
           <span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;${pStyle}">${jo.priority}</span>
         </div>
         <div style="font-size:12px;color:#94A3B8;margin-top:4px;">${jo.jo_number} &nbsp;·&nbsp; ${formatDate(jo.scheduled_date)}</div>
+        <div style="margin-top:10px;">
+          <button onclick="confirmDeleteJO('${jo.id}','${jo.linked_sr_id||''}','${jo.status}')" style="background:none;border:1.5px solid #FCA5A5;color:#DC2626;border-radius:10px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">Hapus JO</button>
+        </div>
       </div>`;
     }).join('') + '</div>';
   } catch (e) {
@@ -1810,11 +1823,13 @@ async function acceptSingleJO(joId) {
 }
 
 function openSelesaikanModal(joId, joNum, unitCode, joType) {
+  additionalMaintTypes = [];
   const today = todayISO();
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
   const minDate = yesterday.toISOString().split('T')[0];
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
   const maxDate = tomorrow.toISOString().split('T')[0];
+  const typeOpts = COMMON_MAINTENANCE_TYPES.map(t => `<option value="${t}">`).join('');
   showModal(`
     <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:2px;">${unitCode} — ${joType}</div>
     <div style="font-size:12px;color:#94A3B8;margin-bottom:16px;">${joNum}</div>
@@ -1827,8 +1842,17 @@ function openSelesaikanModal(joId, joNum, unitCode, joType) {
       <input type="date" id="mkn-modal-date" class="finput" value="${today}" min="${minDate}" max="${maxDate}">
     </div>
     <div style="margin-bottom:14px;">
-      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts Digunakan</label>
-      <textarea id="mkn-modal-parts" class="finput" placeholder="Daftar parts..." rows="2"></textarea>
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Maintenance Tambahan <span style="font-size:11px;font-weight:400;color:#94A3B8;">(opsional — HM jadwal ikut diupdate)</span></label>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <input id="mkn-addl-input" class="finput" list="mkn-addl-datalist" placeholder="Cari tipe..." style="flex:1;margin-bottom:0;">
+        <datalist id="mkn-addl-datalist">${typeOpts}</datalist>
+        <button type="button" onclick="addExtraMaintType()" style="background:#1D4ED8;color:white;border:none;border-radius:10px;padding:0 14px;font-weight:700;cursor:pointer;font-size:14px;white-space:nowrap;">+ Tambah</button>
+      </div>
+      <div id="mkn-addl-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:4px;"></div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts / Bahan Lain</label>
+      <textarea id="mkn-modal-parts" class="finput" placeholder="Gasket, baut, seal, dll..." rows="2"></textarea>
     </div>
     <div style="margin-bottom:14px;">
       <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Biaya (IDR)</label>
@@ -1840,6 +1864,31 @@ function openSelesaikanModal(joId, joNum, unitCode, joType) {
     </div>
     <button onclick="submitServiceLog('${joId}','${joType}')" class="btn-success" style="width:100%;margin-bottom:8px;padding:13px;font-size:15px;font-weight:700;">Simpan &amp; Selesaikan</button>
     <button onclick="closeModal()" class="btn-secondary" style="width:100%;">Batal</button>`);
+}
+
+function addExtraMaintType() {
+  const input = document.getElementById('mkn-addl-input');
+  const val = (input?.value || '').trim();
+  if (!val) return;
+  if (additionalMaintTypes.includes(val)) { showToast('Sudah ditambahkan.', 'info'); return; }
+  additionalMaintTypes.push(val);
+  renderExtraMaintChips();
+  input.value = '';
+}
+
+function removeExtraMaintType(idx) {
+  additionalMaintTypes.splice(idx, 1);
+  renderExtraMaintChips();
+}
+
+function renderExtraMaintChips() {
+  const el = document.getElementById('mkn-addl-chips');
+  if (!el) return;
+  el.innerHTML = additionalMaintTypes.map((t, i) => `
+    <span style="background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE;border-radius:20px;padding:5px 10px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
+      ${t}
+      <button type="button" onclick="removeExtraMaintType(${i})" style="background:none;border:none;color:#94A3B8;cursor:pointer;padding:0;font-size:15px;line-height:1;">&times;</button>
+    </span>`).join('');
 }
 
 async function submitServiceLog(joId, joType) {
@@ -1865,6 +1914,16 @@ async function submitServiceLog(joId, joType) {
       await sb.from('service_requests').update({ status: 'done_confirm', completed_at: new Date().toISOString() }).eq('id', jo.linked_sr_id);
     }
     await sb.from('maintenance_schedules').update({ last_hm: hm, last_date: date }).eq('unit_id', jo.unit_id).eq('type_name', mType);
+    for (const addlType of additionalMaintTypes) {
+      await sb.from('service_log').insert({
+        unit_id: jo.unit_id, unit_code: jo.units ? jo.units.code : '', maintenance_type: addlType,
+        hm_at_service: hm, service_date: date, mkn_id: currentProfile.id,
+        mkn_name: currentProfile.name || '', parts_used: null, cost_idr: 0,
+        notes: `Dilakukan bersamaan dengan ${mType}`, job_order_id: joId, created_at: new Date().toISOString()
+      });
+      await sb.from('maintenance_schedules').update({ last_hm: hm, last_date: date }).eq('unit_id', jo.unit_id).eq('type_name', addlType);
+    }
+    additionalMaintTypes = [];
     closeModal(); showToast('Pekerjaan selesai & dicatat!', 'success');
     mknJOSubTab = 'dikerjakan';
     await renderMKNJobList();
@@ -2210,18 +2269,29 @@ async function loadAdminRiwayatSchedule(unitId) {
   const el = document.getElementById('adm-riwayat-schedule');
   if (!el) return;
   try {
-    const { data: unit } = await sb.from('units').select('current_hm').eq('id', unitId).single();
-    const { data: scheds } = await sb.from('maintenance_schedules').select('type_name, interval_hm, last_hm, last_date').eq('unit_id', unitId);
+    const [{ data: unit }, { data: scheds }, { data: logs }] = await Promise.all([
+      sb.from('units').select('current_hm').eq('id', unitId).single(),
+      sb.from('maintenance_schedules').select('type_name, interval_hm, last_hm, last_date').eq('unit_id', unitId),
+      sb.from('service_log').select('maintenance_type, hm_at_service, service_date').eq('unit_id', unitId)
+    ]);
     if (!scheds || scheds.length === 0) { el.innerHTML = '<div style="padding:16px;color:#94A3B8;font-size:13px;">Tidak ada jadwal.</div>'; return; }
     const hm = unit ? unit.current_hm || 0 : 0;
+    const logMap = {};
+    (logs || []).forEach(l => {
+      if (!logMap[l.maintenance_type] || l.hm_at_service > logMap[l.maintenance_type].hm)
+        logMap[l.maintenance_type] = { hm: l.hm_at_service, date: l.service_date };
+    });
     el.innerHTML = `<table class="dt"><thead><tr><th>Tipe</th><th>Interval</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>Sisa HM</th><th>Status</th></tr></thead>
       <tbody>${scheds.map(s => {
-        const rem = mRemaining(s.interval_hm, s.last_hm, hm);
-        const st = mStatus(s.interval_hm, s.last_hm, hm);
+        const fromLog = logMap[s.type_name];
+        const effHm = (fromLog && (s.last_hm === null || fromLog.hm > s.last_hm)) ? fromLog.hm : s.last_hm;
+        const effDate = (fromLog && (s.last_hm === null || fromLog.hm > s.last_hm)) ? fromLog.date : s.last_date;
+        const rem = mRemaining(s.interval_hm, effHm, hm);
+        const st = mStatus(s.interval_hm, effHm, hm);
         return `<tr class="${st === 'OVERDUE' ? 'row-overdue' : st === 'DUE SOON' ? 'row-duesoon' : ''}">
-          <td>${s.type_name}</td><td>${s.interval_hm}</td><td>${s.last_hm}</td>
-          <td>${formatDate(s.last_date)}</td>
-          <td style="font-weight:700;color:${rem < 0 ? '#DC2626' : '#374151'};">${rem < 0 ? '(' + Math.abs(rem) + ')' : rem}</td>
+          <td>${s.type_name}</td><td>${s.interval_hm}</td><td>${effHm ?? '—'}</td>
+          <td>${formatDate(effDate)}</td>
+          <td style="font-weight:700;color:${rem < 0 ? '#DC2626' : '#374151'};">${effHm == null ? '—' : rem < 0 ? '(' + Math.abs(rem) + ')' : rem}</td>
           <td>${badge(st)}</td>
         </tr>`;
       }).join('')}</tbody></table>`;
@@ -2310,12 +2380,42 @@ async function deleteServiceLog(id) {
 
 async function confirmDeleteServiceLog(id) {
   try {
-    const { error } = await sb.from('service_log').delete().eq('id', id);
+    const { data, error } = await sb.from('service_log').delete().eq('id', id).select();
     if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Akses ditolak. Pastikan RLS policy DELETE sudah ditambah di Supabase untuk role admin.');
     closeModal();
     showToast('Record berhasil dihapus.', 'success');
     if (_riwayatUnitId) await loadAdminRiwayatLog(_riwayatUnitId);
   } catch (e) { showToast('Gagal hapus: ' + e.message); }
+}
+
+function confirmDeleteJO(joId, linkedSrId, status) {
+  const warn = status === 'in_progress'
+    ? '<div style="background:#FEF3C7;border-radius:8px;padding:10px;font-size:13px;color:#92400E;margin-bottom:14px;">⚠️ JO ini sedang dikerjakan MKN. SR terkait akan dikembalikan ke Pending SPV.</div>'
+    : linkedSrId
+      ? '<div style="font-size:13px;color:#64748B;margin-bottom:14px;">SR terkait akan dikembalikan ke Pending SPV.</div>'
+      : '<div style="font-size:13px;color:#64748B;margin-bottom:14px;">Tindakan ini tidak dapat dibatalkan.</div>';
+  showModal(`
+    <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:10px;">Hapus Job Order?</div>
+    ${warn}
+    <div style="display:flex;gap:8px;">
+      <button onclick="executeDeleteJO('${joId}','${linkedSrId}')" class="btn-danger" style="flex:1;">Hapus</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+    </div>`);
+}
+
+async function executeDeleteJO(joId, linkedSrId) {
+  try {
+    const { data, error } = await sb.from('job_orders').delete().eq('id', joId).select();
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Akses ditolak. Periksa RLS policy untuk job_orders DELETE.');
+    if (linkedSrId) {
+      await sb.from('service_requests').update({ status: 'pending_spv', assigned_mkn_id: null }).eq('id', linkedSrId);
+    }
+    closeModal();
+    showToast('Job Order dihapus.', 'success');
+    await renderSPVJadwal();
+  } catch (e) { showToast('Gagal hapus JO: ' + e.message); }
 }
 
 // Admin Kelola Pengguna
