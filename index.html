@@ -1102,6 +1102,34 @@ async function fetchServiceLogMap() {
   return logMap;
 }
 
+async function syncMaintenanceSchedulesFromLog() {
+  const maxMap = {};
+  let page = 0;
+  while (true) {
+    const { data } = await sb.from('service_log')
+      .select('unit_id, maintenance_type, hm_at_service, service_date')
+      .range(page * 1000, page * 1000 + 999);
+    if (!data || data.length === 0) break;
+    data.forEach(l => {
+      const key = l.unit_id + '|' + l.maintenance_type;
+      if (!maxMap[key] || l.hm_at_service > maxMap[key].hm)
+        maxMap[key] = { unit_id: l.unit_id, type: l.maintenance_type, hm: l.hm_at_service, date: l.service_date };
+    });
+    if (data.length < 1000) break;
+    page++;
+  }
+  let updated = 0;
+  for (const val of Object.values(maxMap)) {
+    const { error } = await sb.from('maintenance_schedules')
+      .update({ last_hm: val.hm, last_date: val.date })
+      .eq('unit_id', val.unit_id)
+      .eq('type_name', val.type)
+      .or(`last_hm.is.null,last_hm.lt.${val.hm}`);
+    if (!error) updated++;
+  }
+  return updated;
+}
+
 async function loadSPVStats() {
   try {
     const [[{ data: units }, { data: scheds }, { data: srs }], logMap] = await Promise.all([
@@ -2836,6 +2864,7 @@ async function importCSV(type) {
         } catch { errorCount++; }
       }
     } else if (type === 'log') {
+      const importedRows = [];
       for (const row of data) {
         try {
           const { data: units } = await sb.from('units').select('id').eq('code', row.unit_code).single();
@@ -2843,17 +2872,33 @@ async function importCSV(type) {
           const mknName = (row.mekanik_name || row.mkn_name || '').trim();
           const hmVal = parseFloat((row.hm_at_service || '').replace(/,/g, '')) || 0;
           const costVal = parseInt((row.cost_idr || '0').toString().replace(/[^0-9]/g, '')) || 0;
+          const mType = (row.maintenance_type||'').trim();
+          const sDate = parseDMY(row.service_date);
           const { error } = await sb.from('service_log').insert({
             unit_id: unitId, unit_code: (row.unit_code||'').trim(),
-            maintenance_type: (row.maintenance_type||'').trim(),
-            hm_at_service: hmVal, service_date: parseDMY(row.service_date),
+            maintenance_type: mType,
+            hm_at_service: hmVal, service_date: sDate,
             mkn_name: mknName, parts_used: row.parts_used || '',
             cost_idr: costVal, notes: row.notes || '',
             created_at: new Date().toISOString()
           });
           if (error) throw error;
           successCount++;
+          if (unitId && mType && hmVal) importedRows.push({ unit_id: unitId, type: mType, hm: hmVal, date: sDate });
         } catch(e) { errorCount++; console.error('log row error:', e.message||e, row); }
+      }
+      // Sync maintenance_schedules: update where imported hm > stored last_hm
+      const maxMap = {};
+      importedRows.forEach(r => {
+        const key = r.unit_id + '|' + r.type;
+        if (!maxMap[key] || r.hm > maxMap[key].hm) maxMap[key] = r;
+      });
+      for (const val of Object.values(maxMap)) {
+        await sb.from('maintenance_schedules')
+          .update({ last_hm: val.hm, last_date: val.date })
+          .eq('unit_id', val.unit_id)
+          .eq('type_name', val.type)
+          .or(`last_hm.is.null,last_hm.lt.${val.hm}`);
       }
     }
     showToast(`Import selesai: ${successCount} berhasil, ${errorCount} error.`, successCount > 0 ? 'success' : 'error');
