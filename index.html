@@ -1090,7 +1090,7 @@ async function loadSPVStats() {
       sb.from('units').select('id, current_hm'),
       sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm'),
       sb.from('service_requests').select('id, status').eq('status', 'pending_spv'),
-      sb.from('service_log').select('unit_id, maintenance_type, hm_at_service'),
+      sb.from('service_log').select('unit_id, maintenance_type, hm_at_service').limit(10000),
     ]);
     const logMap = {};
     (logs || []).forEach(l => {
@@ -1128,7 +1128,7 @@ async function loadSPVUnitList() {
     const [{ data: units }, { data: scheds }, { data: logs }] = await Promise.all([
       sb.from('units').select('id, code, name, model, current_hm, operator_name, profiles(name)').order('code'),
       sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm'),
-      sb.from('service_log').select('unit_id, maintenance_type, hm_at_service'),
+      sb.from('service_log').select('unit_id, maintenance_type, hm_at_service').limit(10000),
     ]);
     const logMap = {};
     (logs || []).forEach(l => {
@@ -2047,7 +2047,7 @@ async function loadAdminDashboard() {
       sb.from('units').select('id, code, name, model, current_hm'),
       sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm'),
       sb.from('service_requests').select('id, status').eq('status', 'pending_spv'),
-      sb.from('service_log').select('unit_id, maintenance_type, hm_at_service'),
+      sb.from('service_log').select('unit_id, maintenance_type, hm_at_service').limit(10000),
     ]);
     const logMap = {};
     (logs || []).forEach(l => {
