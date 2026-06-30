@@ -1084,19 +1084,34 @@ async function loadSPVData() {
   await Promise.all([loadSPVStats(), loadSPVUnitList(), loadSPVPermintaan(), loadSPVJadwal(), loadSPVPenugasan()]);
 }
 
-async function loadSPVStats() {
-  try {
-    const [{ data: units }, { data: scheds }, { data: srs }, { data: logs }] = await Promise.all([
-      sb.from('units').select('id, current_hm'),
-      sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm'),
-      sb.from('service_requests').select('id, status').eq('status', 'pending_spv'),
-      sb.from('service_log').select('unit_id, maintenance_type, hm_at_service').limit(10000),
-    ]);
-    const logMap = {};
-    (logs || []).forEach(l => {
+async function fetchServiceLogMap() {
+  const logMap = {};
+  let page = 0;
+  while (true) {
+    const { data } = await sb.from('service_log')
+      .select('unit_id, maintenance_type, hm_at_service')
+      .range(page * 1000, page * 1000 + 999);
+    if (!data || data.length === 0) break;
+    data.forEach(l => {
       const key = l.unit_id + '|' + l.maintenance_type;
       if (!logMap[key] || l.hm_at_service > logMap[key]) logMap[key] = l.hm_at_service;
     });
+    if (data.length < 1000) break;
+    page++;
+  }
+  return logMap;
+}
+
+async function loadSPVStats() {
+  try {
+    const [[{ data: units }, { data: scheds }, { data: srs }], logMap] = await Promise.all([
+      Promise.all([
+        sb.from('units').select('id, current_hm'),
+        sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm'),
+        sb.from('service_requests').select('id, status').eq('status', 'pending_spv'),
+      ]),
+      fetchServiceLogMap(),
+    ]);
     let overdue = 0, dueSoon = 0;
     if (units && scheds) {
       scheds.forEach(s => {
@@ -1125,16 +1140,13 @@ async function loadSPVStats() {
 
 async function loadSPVUnitList() {
   try {
-    const [{ data: units }, { data: scheds }, { data: logs }] = await Promise.all([
-      sb.from('units').select('id, code, name, model, current_hm, operator_name, profiles(name)').order('code'),
-      sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm'),
-      sb.from('service_log').select('unit_id, maintenance_type, hm_at_service').limit(10000),
+    const [[{ data: units }, { data: scheds }], logMap] = await Promise.all([
+      Promise.all([
+        sb.from('units').select('id, code, name, model, current_hm, operator_name, profiles(name)').order('code'),
+        sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm'),
+      ]),
+      fetchServiceLogMap(),
     ]);
-    const logMap = {};
-    (logs || []).forEach(l => {
-      const key = l.unit_id + '|' + l.maintenance_type;
-      if (!logMap[key] || l.hm_at_service > logMap[key]) logMap[key] = l.hm_at_service;
-    });
     const container = document.getElementById('spv-unit-list');
     if (!units) { container.innerHTML = ''; return; }
     const sortOrder = { 'OVERDUE': 0, 'DUE SOON': 1, 'OK': 2 };
@@ -2043,17 +2055,14 @@ async function loadAdminUnits() {
 
 async function loadAdminDashboard() {
   try {
-    const [{ data: units }, { data: scheds }, { data: srs }, { data: logs }] = await Promise.all([
-      sb.from('units').select('id, code, name, model, current_hm'),
-      sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm'),
-      sb.from('service_requests').select('id, status').eq('status', 'pending_spv'),
-      sb.from('service_log').select('unit_id, maintenance_type, hm_at_service').limit(10000),
+    const [[{ data: units }, { data: scheds }, { data: srs }], logMap] = await Promise.all([
+      Promise.all([
+        sb.from('units').select('id, code, name, model, current_hm'),
+        sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm'),
+        sb.from('service_requests').select('id, status').eq('status', 'pending_spv'),
+      ]),
+      fetchServiceLogMap(),
     ]);
-    const logMap = {};
-    (logs || []).forEach(l => {
-      const key = l.unit_id + '|' + l.maintenance_type;
-      if (!logMap[key] || l.hm_at_service > logMap[key]) logMap[key] = l.hm_at_service;
-    });
     let overdue = 0, dueSoon = 0;
     const unitStatusMap = {};
     if (units) units.forEach(u => unitStatusMap[u.id] = { unit: u, statuses: [], overdue: [], dueSoon: [] });
