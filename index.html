@@ -663,6 +663,7 @@ let allMknProfiles = [];
 let allOperatorProfiles = [];
 let isMobile = window.innerWidth <= 1024;
 let _alertData = {};
+let _alertSRUrgency = 'Normal';
 
 // ============================================================
 // UTILITY FUNCTIONS
@@ -996,14 +997,20 @@ async function loadOpSchedule() {
 function openAlertDetailModal(key) {
   const d = _alertData[key];
   if (!d) return;
-  const overdueAmt = Math.abs(Math.round(d.remaining));
+  const hasData = d.lastHm != null && !isNaN(d.remaining);
   const isOverdue = d.status === 'OVERDUE';
-  const statusColor = isOverdue ? '#DC2626' : '#D97706';
-  const statusLabel = isOverdue ? `Terlambat ${overdueAmt} HM` : `Hampir jatuh tempo, sisa ${overdueAmt} HM`;
+  const isDueSoon = d.status === 'DUE SOON';
+  const amt = hasData ? Math.abs(Math.round(d.remaining)) : null;
+  const statusColor = isOverdue ? '#DC2626' : isDueSoon ? '#D97706' : '#16A34A';
+  const statusLabel = !hasData ? 'Belum ada riwayat servis'
+    : isOverdue ? `Terlambat ${amt} HM`
+    : isDueSoon ? `Hampir jatuh tempo, sisa ${amt} HM`
+    : `OK, sisa ${amt} HM`;
+  const safeKey = key.replace(/'/g, "\\'");
   const safeType = d.typeName.replace(/'/g, "\\'");
   let actionBtn = '';
   if (d.role === 'operator') {
-    actionBtn = `<button onclick="prefillSRFromAlert('${safeType}',${d.remaining})" class="btn-primary" style="width:100%;margin-top:4px;">Buat Request Servis</button>`;
+    actionBtn = `<button onclick="openSRFromAlertModal('${safeKey}')" class="btn-primary" style="width:100%;margin-top:4px;">Buat Request Servis</button>`;
   } else if (d.role === 'spv') {
     actionBtn = `<button onclick="prefillJOFromAlert('${d.unitId}','${safeType}')" class="btn-primary" style="width:100%;margin-top:4px;">Jadwalkan</button>`;
   }
@@ -1036,16 +1043,96 @@ function openAlertDetailModal(key) {
   `);
 }
 
-function prefillSRFromAlert(typeName, remaining) {
-  closeModal();
-  const isOverdue = remaining < 0;
-  const amt = Math.abs(Math.round(remaining));
-  const desc = isOverdue
-    ? `Jadwal ${typeName} terlambat ${amt} HM. Mohon segera dilakukan servis.`
-    : `Jadwal ${typeName} hampir jatuh tempo, sisa ${amt} HM.`;
-  const descEl = document.getElementById('op-req-desc');
-  if (descEl) descEl.value = desc;
-  switchOpScreen('request', document.getElementById('op-nav-request'));
+function typeNameToCategory(typeName) {
+  const n = (typeName || '').toLowerCase();
+  if (/mesin|engine|oli mesin|filter oli mesin|filter solar|filter udara|racor|solar|bahan bakar/.test(n)) return 'Mesin/Engine';
+  if (/hidrolik|filter hidrolik|oli hidrolik/.test(n)) return 'Hidrolik';
+  if (/transmisi|oli swing|final drive|oli final|swing/.test(n)) return 'Transmisi';
+  if (/listrik|elektrik|battery|aki/.test(n)) return 'Listrik';
+  if (/track|undercarriage|link|shoe|sprocket|roller|idler/.test(n)) return 'Track/Undercarriage';
+  if (/bodi|body|struktur|frame|bucket|boom|arm/.test(n)) return 'Bodi/Struktur';
+  return 'Lainnya';
+}
+
+function openSRFromAlertModal(key) {
+  const d = _alertData[key];
+  if (!d) return;
+  _alertSRUrgency = 'Normal';
+  const cat = typeNameToCategory(d.typeName);
+  const hasData = d.lastHm != null && !isNaN(d.remaining);
+  const isOverdue = d.status === 'OVERDUE';
+  const amt = hasData ? Math.abs(Math.round(d.remaining)) : null;
+  const desc = hasData
+    ? (isOverdue
+        ? `Jadwal ${d.typeName} terlambat ${amt} HM. Mohon segera dilakukan servis.`
+        : `Jadwal ${d.typeName} hampir jatuh tempo, sisa ${amt} HM.`)
+    : `Request servis untuk ${d.typeName}.`;
+  const cats = ['Mesin/Engine','Hidrolik','Transmisi','Listrik','Track/Undercarriage','Bodi/Struktur','Lainnya'];
+  const catOpts = cats.map(c => `<option value="${c}"${c === cat ? ' selected' : ''}>${c.replace('/', ' / ')}</option>`).join('');
+  const safeKey = key.replace(/'/g, "\\'");
+  showModal(`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <button onclick="openAlertDetailModal('${safeKey}')" style="background:none;border:none;padding:4px 8px;cursor:pointer;color:#64748B;font-size:20px;line-height:1;">&#8592;</button>
+      <div style="font-size:16px;font-weight:800;color:#1E293B;">Buat Request Servis</div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Kategori</label>
+      <select id="alert-sr-category" class="finput">${catOpts}</select>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Nama Barang</label>
+      <input id="alert-sr-nama-barang" class="finput" type="text" value="${d.typeName}">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Deskripsi</label>
+      <textarea id="alert-sr-desc" class="finput" style="min-height:70px;">${desc}</textarea>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Urgensi</label>
+      <div style="display:flex;gap:8px;">
+        <button onclick="setAlertSRUrgency('Normal')" id="aurg-Normal" class="vpill on" style="flex:1;">Normal</button>
+        <button onclick="setAlertSRUrgency('Urgent')" id="aurg-Urgent" class="vpill" style="flex:1;">Urgent</button>
+        <button onclick="setAlertSRUrgency('Darurat')" id="aurg-Darurat" class="vpill" style="flex:1;">Darurat</button>
+      </div>
+    </div>
+    <button onclick="submitSRFromAlert('${safeKey}')" class="btn-primary" style="width:100%;">Kirim Request</button>
+  `);
+}
+
+function setAlertSRUrgency(val) {
+  _alertSRUrgency = val;
+  ['Normal','Urgent','Darurat'].forEach(v => {
+    const el = document.getElementById('aurg-' + v);
+    if (el) el.classList.toggle('on', v === val);
+  });
+}
+
+async function submitSRFromAlert(key) {
+  const d = _alertData[key];
+  if (!d) return;
+  const category = document.getElementById('alert-sr-category').value;
+  const namaBrg = (document.getElementById('alert-sr-nama-barang').value || '').trim();
+  const desc = (document.getElementById('alert-sr-desc').value || '').trim();
+  if (!category) { showToast('Pilih kategori.'); return; }
+  if (!desc) { showToast('Deskripsi wajib diisi.'); return; }
+  try {
+    const { data: existing } = await sb.from('service_requests')
+      .select('id').eq('unit_id', d.unitId).eq('category', category)
+      .not('status', 'in', '("rejected","confirmed")').limit(1);
+    if (existing && existing.length > 0) {
+      showToast('Sudah ada request aktif untuk kategori ini.', 'info'); return;
+    }
+    const srNum = generateSRNumber();
+    const { error } = await sb.from('service_requests').insert({
+      sr_number: srNum, unit_id: d.unitId, category, description: desc,
+      nama_barang: namaBrg || null,
+      urgency: _alertSRUrgency.toLowerCase(), submitted_by: currentProfile.id,
+      status: 'pending_spv', created_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    closeModal();
+    showToast('Request berhasil dikirim!', 'success');
+  } catch(e) { showToast('Gagal: ' + e.message); }
 }
 
 async function prefillJOFromAlert(unitId, typeName) {
@@ -1361,7 +1448,7 @@ async function renderSPVSRList() {
   const container = document.getElementById('spv-sr-list');
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    let query = sb.from('service_requests').select('id, sr_number, unit_id, category, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name, operator_name), profiles!service_requests_submitted_by_fkey(name)').eq('status', spvPipelineTab);
+    let query = sb.from('service_requests').select('id, sr_number, unit_id, category, nama_barang, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name, operator_name), profiles!service_requests_submitted_by_fkey(name)').eq('status', spvPipelineTab);
     if (spvSRUnitFilter !== 'all') query = query.eq('unit_id', spvSRUnitFilter);
     query = query.order('created_at', { ascending: false });
     const { data: rawSrs } = await query;
@@ -1389,6 +1476,7 @@ async function renderSPVSRList() {
           ${badge(sr.urgency)}
         </div>
         <div style="font-size:16px;font-weight:700;color:#1E293B;">${sr.category}</div>
+        ${sr.nama_barang ? `<div style="font-size:12px;color:#64748B;margin-top:2px;font-weight:600;">${sr.nama_barang}</div>` : ''}
         <div style="font-size:12px;color:#94A3B8;margin-top:2px;">${sr.sr_number} &nbsp;·&nbsp; ${formatDate(sr.created_at)}</div>
         <div style="font-size:13px;color:#374151;margin-top:4px;">${sr.description}</div>
         ${actions}
@@ -1536,6 +1624,10 @@ async function loadSPVRiwayatSchedule(unitId) {
       const st = mStatus(s.interval_hm, effHm, hm);
       return { ...s, last_hm: effHm, last_date: effDate, remaining: rem, status: st, hm_due: (effHm || 0) + s.interval_hm };
     }).sort((a, b) => a.remaining - b.remaining);
+    data.forEach((d, i) => {
+      const k = 'rw-' + unitId + '-' + i;
+      _alertData[k] = { typeName: d.type_name, lastHm: d.last_hm, lastDate: d.last_date, intervalHm: d.interval_hm, currentHm: hm, remaining: d.remaining, status: d.status, unitId, unitCode: unit?.code || '', role: 'spv' };
+    });
     el.innerHTML = `<div style="background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-size:16px;font-weight:800;color:#1E3A8A;">${unit?.code || ''}</div>
       <div style="font-size:14px;font-weight:700;color:#1D4ED8;">HM Skrg: ${hm.toLocaleString()}</div>
@@ -1543,14 +1635,15 @@ async function loadSPVRiwayatSchedule(unitId) {
     <div style="font-size:14px;font-weight:700;color:#374151;margin-bottom:8px;">Jadwal Maintenance</div>
     <div style="background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.07);overflow:hidden;margin-bottom:12px;">
       ${data.map((d, i) => {
+        const k = 'rw-' + unitId + '-' + i;
         const hasData = d.last_hm != null;
         const sisaColor = d.remaining < 0 ? '#DC2626' : d.status === 'DUE SOON' ? '#D97706' : '#16A34A';
         const rowBg = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
         const sisaText = hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-';
-        return `<div style="background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}">
+        return `<div onclick="openAlertDetailModal('${k}')" style="background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.06);">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
             <div style="font-size:13px;font-weight:600;color:#1E293B;">${d.type_name}</div>
-            ${badge(d.status)}
+            <div style="display:flex;align-items:center;gap:6px;">${badge(d.status)}<svg width="14" height="14" fill="none" stroke="#CBD5E1" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></div>
           </div>
           <div style="font-size:15px;font-weight:800;color:${sisaColor};">${hasData ? 'Sisa: ' + sisaText + ' HM' : '— belum ada data'}</div>
         </div>`;
@@ -2240,7 +2333,7 @@ async function renderAdminSRTable() {
   if (!wrap) return;
   wrap.innerHTML = '<div style="padding:30px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const { data: srs } = await sb.from('service_requests').select('id, sr_number, unit_id, category, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name), profiles!service_requests_submitted_by_fkey(name)').eq('status', adminPipelineTab).order('created_at', { ascending: false });
+    const { data: srs } = await sb.from('service_requests').select('id, sr_number, unit_id, category, nama_barang, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name), profiles!service_requests_submitted_by_fkey(name)').eq('status', adminPipelineTab).order('created_at', { ascending: false });
     if (!srs || srs.length === 0) { wrap.innerHTML = '<div style="padding:30px;text-align:center;color:#94A3B8;">Tidak ada data.</div>'; return; }
     const colMap = {
       pending_spv: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Tanggal','Aksi'],

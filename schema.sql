@@ -143,7 +143,8 @@ CREATE TABLE public.service_requests (
   rejection_reason TEXT,
   spv_approved_at  TIMESTAMPTZ,
   completed_at     TIMESTAMPTZ,
-  confirmed_at     TIMESTAMPTZ
+  confirmed_at     TIMESTAMPTZ,
+  nama_barang      TEXT
 );
 ALTER TABLE public.service_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "All auth can read service requests"
