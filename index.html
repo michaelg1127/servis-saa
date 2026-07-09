@@ -1347,8 +1347,7 @@ async function approveSR(srId) {
     });
     if (joErr) throw joErr;
     closeModal(); showToast('Request disetujui & Job Order dibuat!', 'success');
-    await renderSPVSRList();
-    await loadSPVStats();
+    await Promise.all([renderSPVSRList(), loadSPVStats(), renderSPVJadwal()]);
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
@@ -1689,6 +1688,7 @@ function switchSpvScreen(name, el) {
   if (screen) screen.classList.add('on');
   if (el) el.classList.add('on');
   if (name === 'dashboard') { loadSPVStats(); loadSPVUnitList(); }
+  if (name === 'jadwal') renderSPVJadwal();
   if (name === 'riwayat') initSPVRiwayat();
   if (name === 'catat') initSPVCatat();
 }
@@ -2045,6 +2045,7 @@ function switchMknScreen(name, el) {
   const screen = document.getElementById('mkn-screen-' + name);
   if (screen) screen.classList.add('on');
   if (el) el.classList.add('on');
+  if (name === 'jo') renderMKNJobList();
 }
 
 // ============================================================
@@ -2165,10 +2166,10 @@ async function renderAdminSRTable() {
     const colMap = {
       pending_spv: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Tanggal','Aksi'],
       approved_spv: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Tanggal'],
-      scheduled: ['SR#','Unit','Kategori','Urgensi','Jadwal','MKN'],
-      in_progress: ['SR#','Unit','Kategori','Urgensi','MKN'],
-      done_confirm: ['SR#','Unit','Kategori','Urgensi','MKN','Aksi'],
-      confirmed: ['SR#','Unit','Kategori','Urgensi','MKN','Tgl Selesai'],
+      scheduled: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Jadwal','MKN'],
+      in_progress: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN'],
+      done_confirm: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Aksi'],
+      confirmed: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Tgl Selesai'],
     };
     const cols = colMap[adminPipelineTab] || ['SR#','Unit','Kategori','Urgensi','Status'];
     wrap.innerHTML = `<table class="dt">
@@ -2189,10 +2190,10 @@ async function renderAdminSRTable() {
           <td>${sr.category}</td>`;
         if (adminPipelineTab === 'pending_spv') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.created_at)}</td>${actions}</tr>`;
         if (adminPipelineTab === 'approved_spv') return `<tr>${rowBase}<td>${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.created_at)}</td></tr>`;
-        if (adminPipelineTab === 'scheduled') return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${formatDate(sr.scheduled_date)}</td><td>${mknName}</td></tr>`;
-        if (adminPipelineTab === 'in_progress') return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${mknName}</td></tr>`;
-        if (adminPipelineTab === 'done_confirm') return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${mknName}</td>${actions}</tr>`;
-        if (adminPipelineTab === 'confirmed') return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.confirmed_at)}</td></tr>`;
+        if (adminPipelineTab === 'scheduled') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.scheduled_date)}</td><td>${mknName}</td></tr>`;
+        if (adminPipelineTab === 'in_progress') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td></tr>`;
+        if (adminPipelineTab === 'done_confirm') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td>${actions}</tr>`;
+        if (adminPipelineTab === 'confirmed') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.confirmed_at)}</td></tr>`;
         return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${badge(sr.status)}</td></tr>`;
       }).join('')}</tbody>
     </table>`;
