@@ -662,6 +662,7 @@ let allUnits = [];
 let allMknProfiles = [];
 let allOperatorProfiles = [];
 let isMobile = window.innerWidth <= 1024;
+let _alertData = {};
 
 // ============================================================
 // UTILITY FUNCTIONS
@@ -969,8 +970,15 @@ async function loadOpSchedule() {
     }
     const hm = currentUnit.current_hm || 0;
     const sorted = scheds.map(s => ({ ...s, remaining: mRemaining(s.interval_hm, s.last_hm, hm), status: mStatus(s.interval_hm, s.last_hm, hm) })).sort((a,b) => a.remaining - b.remaining);
-    container.innerHTML = sorted.map(s => `
-      <div class="m-card">
+    sorted.forEach(s => {
+      const k = 'op-' + s.id;
+      _alertData[k] = { typeName: s.type_name, lastHm: s.last_hm || 0, lastDate: s.last_date || null, intervalHm: s.interval_hm, currentHm: hm, remaining: s.remaining, status: s.status, unitId: currentUnit.id, unitCode: currentUnit.code, role: 'operator' };
+    });
+    container.innerHTML = sorted.map(s => {
+      const k = 'op-' + s.id;
+      const isAlert = s.status !== 'OK';
+      return `
+      <div class="m-card" ${isAlert ? `onclick="openAlertDetailModal('${k}')" style="cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.08);"` : ''}>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <div style="font-size:14px;font-weight:700;color:#1E293B;">${s.type_name}</div>
           ${badge(s.status)}
@@ -979,8 +987,76 @@ async function loadOpSchedule() {
         <div style="font-size:13px;font-weight:600;margin-top:6px;color:${s.remaining < 0 ? '#DC2626' : s.status === 'DUE SOON' ? '#D97706' : '#16A34A'};">
           ${s.remaining < 0 ? `Terlambat ${Math.abs(s.remaining)} HM` : `Sisa ${s.remaining} HM`}
         </div>
-      </div>`).join('');
+        ${isAlert ? `<div style="font-size:11px;color:#94A3B8;margin-top:6px;text-align:right;">Tap untuk request servis →</div>` : ''}
+      </div>`;
+    }).join('');
   } catch (e) { showToast('Error jadwal: ' + e.message); }
+}
+
+function openAlertDetailModal(key) {
+  const d = _alertData[key];
+  if (!d) return;
+  const overdueAmt = Math.abs(Math.round(d.remaining));
+  const isOverdue = d.status === 'OVERDUE';
+  const statusColor = isOverdue ? '#DC2626' : '#D97706';
+  const statusLabel = isOverdue ? `Terlambat ${overdueAmt} HM` : `Hampir jatuh tempo, sisa ${overdueAmt} HM`;
+  const safeType = d.typeName.replace(/'/g, "\\'");
+  let actionBtn = '';
+  if (d.role === 'operator') {
+    actionBtn = `<button onclick="prefillSRFromAlert('${safeType}',${d.remaining})" class="btn-primary" style="width:100%;margin-top:4px;">Buat Request Servis</button>`;
+  } else if (d.role === 'spv') {
+    actionBtn = `<button onclick="prefillJOFromAlert('${d.unitId}','${safeType}')" class="btn-primary" style="width:100%;margin-top:4px;">Jadwalkan</button>`;
+  }
+  showModal(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${d.role === 'spv' ? '4px' : '14px'};">
+      <div style="font-size:17px;font-weight:800;color:#1E293B;">${d.typeName}</div>
+      ${badge(d.status)}
+    </div>
+    ${d.role === 'spv' ? `<div style="font-size:13px;color:#64748B;margin-bottom:14px;">Unit: <span style="font-weight:700;color:#1E293B;">${d.unitCode}</span></div>` : ''}
+    <div style="display:grid;gap:10px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid #F1F5F9;">
+        <span style="color:#64748B;">HM Terakhir</span>
+        <span style="font-weight:700;color:#1E293B;">${(d.lastHm||0).toLocaleString()} HM${d.lastDate ? ' &nbsp;·&nbsp; ' + formatDate(d.lastDate) : ''}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid #F1F5F9;">
+        <span style="color:#64748B;">Interval</span>
+        <span style="font-weight:700;color:#1E293B;">Setiap ${d.intervalHm} HM</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid #F1F5F9;">
+        <span style="color:#64748B;">HM Saat Ini</span>
+        <span style="font-weight:700;color:#1E293B;">${(d.currentHm||0).toLocaleString()} HM</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:14px;padding:10px 0;">
+        <span style="color:#64748B;font-weight:600;">Status</span>
+        <span style="font-weight:800;color:${statusColor};">${statusLabel}</span>
+      </div>
+    </div>
+    ${actionBtn}
+    <button onclick="closeModal()" class="btn-secondary" style="width:100%;margin-top:8px;">Tutup</button>
+  `);
+}
+
+function prefillSRFromAlert(typeName, remaining) {
+  closeModal();
+  const isOverdue = remaining < 0;
+  const amt = Math.abs(Math.round(remaining));
+  const desc = isOverdue
+    ? `Jadwal ${typeName} terlambat ${amt} HM. Mohon segera dilakukan servis.`
+    : `Jadwal ${typeName} hampir jatuh tempo, sisa ${amt} HM.`;
+  const descEl = document.getElementById('op-req-desc');
+  if (descEl) descEl.value = desc;
+  switchOpScreen('request', document.getElementById('op-nav-request'));
+}
+
+async function prefillJOFromAlert(unitId, typeName) {
+  closeModal();
+  switchSpvScreen('jadwal', document.querySelectorAll('#view-spv .nav-tab')[2]);
+  switchJadwalSubTab('buat');
+  await initSPVJadwalForm();
+  const unitSel = document.getElementById('spv-jo-unit');
+  if (unitSel) unitSel.value = unitId;
+  const typeEl = document.getElementById('spv-jo-type');
+  if (typeEl) typeEl.value = typeName;
 }
 
 function setUrgency(u) {
@@ -1199,7 +1275,7 @@ async function loadSPVUnitList() {
       const opName = u.profiles ? u.profiles.name : (u.operator_name || '—');
       const headerBg = u.worst === 'OVERDUE' ? '#7F1D1D' : u.worst === 'DUE SOON' ? '#78350F' : '#064E3B';
       const subColor  = u.worst === 'OVERDUE' ? '#FCA5A5' : u.worst === 'DUE SOON' ? '#FCD34D' : '#6EE7B7';
-      const rows = u.alertItems.map(s => {
+      const rows = u.alertItems.map((s, idx) => {
         const isOverdue = s.status === 'OVERDUE';
         const rowBg     = isOverdue ? '#FEF2F2' : '#FFFBEB';
         const rowBorder = isOverdue ? '#FECACA' : '#FDE68A';
@@ -1207,12 +1283,15 @@ async function loadSPVUnitList() {
         const hmLabel   = s.remaining < 0
           ? `${Math.abs(Math.round(s.remaining))} HM terlambat`
           : `${Math.round(s.remaining)} HM lagi`;
-        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:5px;border-radius:9px;background:${rowBg};border:1.5px solid ${rowBorder};">
+        const k = 'spv-' + u.id + '-' + idx;
+        _alertData[k] = { typeName: s.type_name, lastHm: s.last_hm || 0, lastDate: s.last_date || null, intervalHm: s.interval_hm, currentHm: u.current_hm || 0, remaining: s.remaining, status: s.status, unitId: u.id, unitCode: u.code, role: 'spv' };
+        return `<div onclick="openAlertDetailModal('${k}');event.stopPropagation();" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:5px;border-radius:9px;background:${rowBg};border:1.5px solid ${rowBorder};cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.08);">
           <div style="flex:1;min-width:0;">
             <div style="font-size:13px;font-weight:700;color:#1E293B;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.type_name}</div>
           </div>
           <div style="font-size:12px;font-weight:700;color:${hmColor};white-space:nowrap;">${hmLabel}</div>
           ${badge(s.status)}
+          <svg width="14" height="14" fill="none" stroke="#CBD5E1" stroke-width="2.5" viewBox="0 0 24 24" style="flex-shrink:0;"><path d="M9 18l6-6-6-6"/></svg>
         </div>`;
       }).join('');
       const body = u.alertItems.length > 0
