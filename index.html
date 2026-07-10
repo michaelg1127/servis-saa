@@ -1492,7 +1492,9 @@ async function openApproveSRModal(srId, srNum) {
     showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:14px;">Setujui Request</div>
       <div style="font-size:13px;color:#64748B;margin-bottom:12px;">SR: ${srNum}</div>
       <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Assign ke MKN</label>
-      <select id="modal-mkn-select" class="finput" style="margin-bottom:16px;"><option value="">-- Pilih MKN --</option>${opts}</select>
+      <select id="modal-mkn-select" class="finput" style="margin-bottom:12px;"><option value="">-- Pilih MKN --</option>${opts}</select>
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Jadwal</label>
+      <input type="date" id="modal-approve-date" class="finput" value="${todayISO()}" style="margin-bottom:16px;">
       <div style="display:flex;gap:8px;">
         <button onclick="approveSR('${srId}')" class="btn-success" style="flex:1;">Setujui</button>
         <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
@@ -1503,14 +1505,16 @@ async function openApproveSRModal(srId, srNum) {
 async function approveSR(srId) {
   const mknId = document.getElementById('modal-mkn-select').value;
   if (!mknId) { showToast('Pilih MKN terlebih dahulu.'); return; }
+  const schedDate = document.getElementById('modal-approve-date')?.value || null;
   try {
     const { data: sr, error: fetchErr } = await sb.from('service_requests').select('unit_id, category').eq('id', srId).single();
     if (fetchErr) throw fetchErr;
-    const { error: srErr } = await sb.from('service_requests').update({ status: 'scheduled', assigned_mkn_id: mknId, spv_approved_at: new Date().toISOString() }).eq('id', srId);
+    const { error: srErr } = await sb.from('service_requests').update({ status: 'scheduled', assigned_mkn_id: mknId, scheduled_date: schedDate || null, spv_approved_at: new Date().toISOString() }).eq('id', srId);
     if (srErr) throw srErr;
     const { error: joErr } = await sb.from('job_orders').insert({
       unit_id: sr.unit_id, type: sr.category, assigned_mkn_id: mknId,
-      priority: 'MED', status: 'pending', created_by: currentProfile.id, linked_sr_id: srId,
+      scheduled_date: schedDate || null, priority: 'MED', status: 'pending',
+      created_by: currentProfile.id, linked_sr_id: srId,
     });
     if (joErr) throw joErr;
     closeModal(); showToast('Request disetujui & Job Order dibuat!', 'success');
@@ -1709,7 +1713,7 @@ async function renderSPVJadwal() {
         : 'background:#D1FAE5;color:#059669;';
       const stLabel = jo.status === 'in_progress' ? 'Dikerjakan'
         : jo.status === 'pending' ? 'Pending' : 'Terjadwal';
-      return `<div class="m-card" style="margin:0 0 10px;">
+      return `<div class="m-card" style="margin:0 0 10px;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.06);" onclick="openJOEditModal('${jo.id}','${jo.jo_number}','${jo.scheduled_date||''}','${jo.priority}','${jo.assigned_mkn_id||''}','${jo.linked_sr_id||''}')">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div style="font-size:15px;font-weight:800;color:#1E293B;">${jo.units?.code || '—'} &nbsp;|&nbsp; ${jo.units?.operator_name || '—'}</div>
           <span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;${stStyle}">${stLabel}</span>
@@ -1719,15 +1723,70 @@ async function renderSPVJadwal() {
           <div style="font-size:13px;color:#64748B;">Mekanik: <span style="font-weight:600;color:#1E293B;">${jo.profiles?.name || 'Belum ditugaskan'}</span></div>
           <span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;${pStyle}">${jo.priority}</span>
         </div>
-        <div style="font-size:12px;color:#94A3B8;margin-top:4px;">${jo.jo_number} &nbsp;·&nbsp; ${formatDate(jo.scheduled_date)}</div>
-        <div style="margin-top:10px;">
-          <button onclick="confirmDeleteJO('${jo.id}','${jo.linked_sr_id||''}','${jo.status}')" style="background:none;border:1.5px solid #FCA5A5;color:#DC2626;border-radius:10px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">Hapus JO</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+          <div style="font-size:12px;color:#94A3B8;">${jo.jo_number} &nbsp;·&nbsp; ${jo.scheduled_date ? formatDate(jo.scheduled_date) : '<span style="color:#F59E0B;font-weight:600;">Belum dijadwalkan</span>'}</div>
+          <span style="font-size:12px;color:#94A3B8;">&#8250;</span>
         </div>
       </div>`;
     }).join('') + '</div>';
   } catch (e) {
     container.innerHTML = '<div style="padding:20px;text-align:center;color:#EF4444;font-size:14px;">Error: ' + e.message + '</div>';
   }
+}
+
+async function openJOEditModal(joId, joNum, schedDate, priority, assignedMknId, linkedSrId) {
+  if (allMknProfiles.length === 0) {
+    try {
+      const { data: mkns } = await sb.from('profiles').select('id, name').eq('role', 'mkn').order('name');
+      allMknProfiles = mkns || [];
+    } catch (e) {}
+  }
+  const mknOpts = allMknProfiles.map(m => `<option value="${m.id}" ${m.id === assignedMknId ? 'selected' : ''}>${m.name}</option>`).join('');
+  const priColors = { HIGH: '#DC2626', MED: '#D97706', LOW: '#2563EB' };
+  const priPills = ['HIGH','MED','LOW'].map(p => `<button id="jo-edit-pri-${p}" type="button" onclick="setJOEditPriority('${p}')" class="vpill ${priority===p?'on':''}" style="${priority===p?`background:${priColors[p]};color:#fff;border-color:${priColors[p]};`:'border:1.5px solid #E2E8F0;'} padding:8px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;">${p}</button>`).join('');
+  window._joEditPriority = priority;
+  showModal(`
+    <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:4px;">Edit Job Order</div>
+    <div style="font-size:12px;color:#94A3B8;margin-bottom:16px;">${joNum}</div>
+    <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Jadwal</label>
+    <input type="date" id="jo-edit-date" class="finput" value="${schedDate||''}" style="margin-bottom:14px;">
+    <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Prioritas</label>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">${priPills}</div>
+    <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Mekanik</label>
+    <select id="jo-edit-mkn" class="finput" style="margin-bottom:18px;"><option value="">-- Tidak Ada --</option>${mknOpts}</select>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button onclick="saveJOEdit('${joId}')" class="btn-primary" style="flex:1;">Simpan</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+    </div>
+    <button onclick="confirmDeleteJO('${joId}','${linkedSrId}','pending');closeModal();" style="width:100%;background:none;border:1.5px solid #FCA5A5;color:#DC2626;border-radius:10px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;">Hapus JO</button>`);
+}
+
+function setJOEditPriority(p) {
+  window._joEditPriority = p;
+  const priColors = { HIGH: '#DC2626', MED: '#D97706', LOW: '#2563EB' };
+  ['HIGH','MED','LOW'].forEach(v => {
+    const el = document.getElementById('jo-edit-pri-' + v);
+    if (!el) return;
+    if (v === p) { el.classList.add('on'); el.style.background = priColors[v]; el.style.color = '#fff'; el.style.borderColor = priColors[v]; }
+    else { el.classList.remove('on'); el.style.background = ''; el.style.color = ''; el.style.borderColor = '#E2E8F0'; }
+  });
+}
+
+async function saveJOEdit(joId) {
+  const date = document.getElementById('jo-edit-date')?.value || null;
+  const mknId = document.getElementById('jo-edit-mkn')?.value || null;
+  const priority = window._joEditPriority || 'MED';
+  try {
+    const { error } = await sb.from('job_orders').update({
+      scheduled_date: date || null,
+      assigned_mkn_id: mknId || null,
+      priority,
+      updated_at: new Date().toISOString(),
+    }).eq('id', joId);
+    if (error) throw error;
+    closeModal(); showToast('Job Order diperbarui!', 'success');
+    await renderSPVJadwal();
+  } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
 function switchJadwalSubTab(tab) {
@@ -2376,7 +2435,9 @@ async function adminApproveSR(srId, srNum) {
   const opts = allMknProfiles.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
   showModal(`<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Setujui: ${srNum}</div>
     <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Assign MKN</label>
-    <select id="adm-modal-mkn" class="finput" style="margin-bottom:16px;"><option value="">-- Pilih MKN --</option>${opts}</select>
+    <select id="adm-modal-mkn" class="finput" style="margin-bottom:12px;"><option value="">-- Pilih MKN --</option>${opts}</select>
+    <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Tanggal Jadwal</label>
+    <input type="date" id="adm-modal-date" class="finput" value="${todayISO()}" style="margin-bottom:16px;">
     <div style="display:flex;gap:8px;">
       <button onclick="doAdminApproveSR('${srId}')" class="btn-success" style="flex:1;">Setujui</button>
       <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
@@ -2386,14 +2447,16 @@ async function adminApproveSR(srId, srNum) {
 async function doAdminApproveSR(srId) {
   const mknId = document.getElementById('adm-modal-mkn').value;
   if (!mknId) { showToast('Pilih MKN.'); return; }
+  const schedDate = document.getElementById('adm-modal-date')?.value || null;
   try {
     const { data: sr, error: fetchErr } = await sb.from('service_requests').select('unit_id, category').eq('id', srId).single();
     if (fetchErr) throw fetchErr;
-    const { error: srErr } = await sb.from('service_requests').update({ status: 'scheduled', assigned_mkn_id: mknId, spv_approved_at: new Date().toISOString() }).eq('id', srId);
+    const { error: srErr } = await sb.from('service_requests').update({ status: 'scheduled', assigned_mkn_id: mknId, scheduled_date: schedDate || null, spv_approved_at: new Date().toISOString() }).eq('id', srId);
     if (srErr) throw srErr;
     const { error: joErr } = await sb.from('job_orders').insert({
       unit_id: sr.unit_id, type: sr.category, assigned_mkn_id: mknId,
-      priority: 'MED', status: 'pending', created_by: currentProfile.id, linked_sr_id: srId,
+      scheduled_date: schedDate || null, priority: 'MED', status: 'pending',
+      created_by: currentProfile.id, linked_sr_id: srId,
     });
     if (joErr) throw joErr;
     closeModal(); showToast('Disetujui & Job Order dibuat!', 'success');
