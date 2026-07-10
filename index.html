@@ -1422,8 +1422,8 @@ async function openRiwayatForUnit(unitId) {
   }
 }
 
-const pipelineStages = ['pending_spv','approved_spv','scheduled','in_progress','done_confirm','confirmed'];
-const pipelineLabels = { pending_spv:'Pending SPV', approved_spv:'Disetujui', scheduled:'Terjadwal', in_progress:'Dikerjakan', done_confirm:'Konfirmasi', confirmed:'Selesai' };
+const pipelineStages = ['pending_spv','scheduled','in_progress','done_confirm','confirmed'];
+const pipelineLabels = { pending_spv:'Pending SPV', scheduled:'Terjadwal', in_progress:'Dikerjakan', done_confirm:'Konfirmasi', confirmed:'Selesai' };
 
 async function loadSPVPermintaan() {
   const tabsEl = document.getElementById('spv-pipeline-tabs');
@@ -2387,9 +2387,16 @@ async function doAdminApproveSR(srId) {
   const mknId = document.getElementById('adm-modal-mkn').value;
   if (!mknId) { showToast('Pilih MKN.'); return; }
   try {
-    const { error } = await sb.from('service_requests').update({ status: 'approved_spv', assigned_mkn_id: mknId, spv_approved_at: new Date().toISOString() }).eq('id', srId);
-    if (error) throw error;
-    closeModal(); showToast('Disetujui!', 'success');
+    const { data: sr, error: fetchErr } = await sb.from('service_requests').select('unit_id, category').eq('id', srId).single();
+    if (fetchErr) throw fetchErr;
+    const { error: srErr } = await sb.from('service_requests').update({ status: 'scheduled', assigned_mkn_id: mknId, spv_approved_at: new Date().toISOString() }).eq('id', srId);
+    if (srErr) throw srErr;
+    const { error: joErr } = await sb.from('job_orders').insert({
+      unit_id: sr.unit_id, type: sr.category, assigned_mkn_id: mknId,
+      priority: 'MED', status: 'pending', created_by: currentProfile.id, linked_sr_id: srId,
+    });
+    if (joErr) throw joErr;
+    closeModal(); showToast('Disetujui & Job Order dibuat!', 'success');
     await renderAdminSRTable(); await loadAdminDashboard();
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
