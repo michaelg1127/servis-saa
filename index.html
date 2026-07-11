@@ -218,6 +218,14 @@
     <div id="op-myreq-list"></div>
   </div>
 
+  <div id="op-screen-riwayat" class="mscreen">
+    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:16px;font-weight:700;color:#1E293B;">Riwayat Servis</div>
+      <button onclick="openOpCatatModal()" class="btn-primary" style="padding:8px 14px;font-size:13px;width:auto;">+ Catat</button>
+    </div>
+    <div id="op-riwayat-list"></div>
+  </div>
+
   <nav class="bottom-nav">
     <div class="nav-tab on" onclick="switchOpScreen('beranda',this)" id="op-nav-beranda">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
@@ -229,7 +237,11 @@
     </div>
     <div class="nav-tab" onclick="switchOpScreen('myreq',this)" id="op-nav-myreq">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-      Permintaan Saya
+      Permintaan
+    </div>
+    <div class="nav-tab" onclick="switchOpScreen('riwayat',this)" id="op-nav-riwayat">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+      Riwayat
     </div>
     <div class="nav-tab" onclick="doLogout()" style="color:#EF4444;">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -977,18 +989,19 @@ async function loadOpSchedule() {
     });
     container.innerHTML = sorted.map(s => {
       const k = 'op-' + s.id;
-      const isAlert = s.status !== 'OK';
       return `
-      <div class="m-card" ${isAlert ? `onclick="openAlertDetailModal('${k}')" style="cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.08);"` : ''}>
+      <div class="m-card" onclick="openAlertDetailModal('${k}')" style="cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.08);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <div style="font-size:14px;font-weight:700;color:#1E293B;">${s.type_name}</div>
           ${badge(s.status)}
         </div>
-        <div style="font-size:13px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.last_hm} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
-        <div style="font-size:13px;font-weight:600;margin-top:6px;color:${s.remaining < 0 ? '#DC2626' : s.status === 'DUE SOON' ? '#D97706' : '#16A34A'};">
-          ${s.remaining < 0 ? `Terlambat ${Math.abs(s.remaining)} HM` : `Sisa ${s.remaining} HM`}
+        <div style="font-size:13px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.last_hm || '—'} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+          <div style="font-size:13px;font-weight:600;color:${s.remaining < 0 ? '#DC2626' : s.status === 'DUE SOON' ? '#D97706' : '#16A34A'};">
+            ${s.remaining < 0 ? `Terlambat ${Math.abs(s.remaining)} HM` : `Sisa ${s.remaining} HM`}
+          </div>
+          <span style="font-size:12px;color:#94A3B8;">&#8250;</span>
         </div>
-        ${isAlert ? `<div style="font-size:11px;color:#94A3B8;margin-top:6px;text-align:right;">Tap untuk request servis →</div>` : ''}
       </div>`;
     }).join('');
   } catch (e) { showToast('Error jadwal: ' + e.message); }
@@ -1010,7 +1023,9 @@ function openAlertDetailModal(key) {
   const safeType = d.typeName.replace(/'/g, "\\'");
   let actionBtn = '';
   if (d.role === 'operator') {
-    actionBtn = `<button onclick="openSRFromAlertModal('${safeKey}')" class="btn-primary" style="width:100%;margin-top:4px;">Buat Request Servis</button>`;
+    actionBtn = `
+      <button onclick="closeModal();openOpCatatModal('${safeType}')" class="btn-success" style="width:100%;margin-top:4px;margin-bottom:8px;">Catat Servis Sendiri</button>
+      <button onclick="openSRFromAlertModal('${safeKey}')" class="btn-primary" style="width:100%;">Buat Request ke MKN</button>`;
   } else if (d.role === 'spv') {
     actionBtn = `<button onclick="prefillJOFromAlert('${d.unitId}','${safeType}')" class="btn-primary" style="width:100%;margin-top:4px;">Jadwalkan</button>`;
   }
@@ -1182,6 +1197,107 @@ async function submitServiceRequest() {
   } catch (e) { showToast('Gagal kirim request: ' + e.message); }
 }
 
+async function loadOpRiwayat() {
+  if (!currentUnit) return;
+  const container = document.getElementById('op-riwayat-list');
+  if (!container) return;
+  container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data: logs } = await sb.from('service_log')
+      .select('id, maintenance_type, service_date, hm_at_service, mkn_name, parts_used, cost_idr, notes')
+      .eq('unit_id', currentUnit.id)
+      .order('service_date', { ascending: false })
+      .limit(60);
+    if (!logs || logs.length === 0) {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Belum ada riwayat servis.<br><span style="font-size:12px;">Gunakan tombol + Catat untuk menambah.</span></div>';
+      return;
+    }
+    container.innerHTML = '<div style="padding:0 14px 80px;">' + logs.map(l => `
+      <div class="m-card" style="margin:0 0 10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div style="font-size:14px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
+          <div style="font-size:12px;color:#64748B;font-weight:600;">${formatDate(l.service_date)}</div>
+        </div>
+        <div style="font-size:13px;color:#64748B;">HM: <span style="font-weight:700;color:#1E293B;">${l.hm_at_service != null ? Number(l.hm_at_service).toLocaleString() : '—'}</span> &nbsp;·&nbsp; Oleh: <span style="font-weight:600;color:#374151;">${l.mkn_name || '—'}</span></div>
+        ${l.parts_used ? `<div style="font-size:12px;color:#64748B;margin-top:4px;">Parts: ${l.parts_used}</div>` : ''}
+        ${l.cost_idr ? `<div style="font-size:12px;color:#64748B;margin-top:2px;">Biaya: Rp ${Number(l.cost_idr).toLocaleString()}</div>` : ''}
+        ${l.notes ? `<div style="font-size:12px;color:#94A3B8;margin-top:4px;font-style:italic;">${l.notes}</div>` : ''}
+      </div>`).join('') + '</div>';
+  } catch (e) { showToast('Error riwayat: ' + e.message); }
+}
+
+async function openOpCatatModal(typeName) {
+  if (!currentUnit) return;
+  let typeOpts = '';
+  try {
+    const { data: types } = await sb.from('maintenance_types').select('type_name').order('type_name');
+    typeOpts = (types || []).map(t => `<option value="${t.type_name}">`).join('');
+  } catch(e) {
+    typeOpts = COMMON_MAINTENANCE_TYPES.map(t => `<option value="${t}">`).join('');
+  }
+  const today = todayISO();
+  showModal(`
+    <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:4px;">Catat Servis</div>
+    <div style="font-size:12px;color:#64748B;margin-bottom:16px;">Unit: ${currentUnit.code} &nbsp;·&nbsp; HM saat ini: ${(currentUnit.current_hm||0).toLocaleString()}</div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Maintenance <span style="color:#EF4444;">*</span></label>
+      <input id="op-catat-type" class="finput" list="op-catat-typelist" placeholder="Pilih atau ketik..." value="${typeName||''}">
+      <datalist id="op-catat-typelist">${typeOpts}</datalist>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis <span style="color:#EF4444;">*</span></label>
+      <input type="number" id="op-catat-hm" class="finput" placeholder="Contoh: ${currentUnit.current_hm||''}" value="${currentUnit.current_hm||''}">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis <span style="color:#EF4444;">*</span></label>
+      <input type="date" id="op-catat-date" class="finput" value="${today}">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts / Bahan</label>
+      <textarea id="op-catat-parts" class="finput" placeholder="Oli, filter, dll..." rows="2" style="margin-bottom:0;"></textarea>
+    </div>
+    <div style="margin-bottom:18px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label>
+      <textarea id="op-catat-notes" class="finput" placeholder="Opsional..." rows="2" style="margin-bottom:0;"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="submitOpServiceLog()" class="btn-primary" style="flex:1;">Simpan</button>
+      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+    </div>`);
+}
+
+async function submitOpServiceLog() {
+  if (!currentUnit) return;
+  const typeName = document.getElementById('op-catat-type')?.value.trim();
+  const hm = parseInt(document.getElementById('op-catat-hm')?.value);
+  const date = document.getElementById('op-catat-date')?.value;
+  const parts = document.getElementById('op-catat-parts')?.value.trim();
+  const notes = document.getElementById('op-catat-notes')?.value.trim();
+  if (!typeName) { showToast('Pilih tipe maintenance.'); return; }
+  if (!hm || isNaN(hm)) { showToast('HM wajib diisi.'); return; }
+  if (!date) { showToast('Tanggal wajib diisi.'); return; }
+  try {
+    const { error } = await sb.from('service_log').insert({
+      unit_id: currentUnit.id,
+      unit_code: currentUnit.code,
+      maintenance_type: typeName,
+      hm_at_service: hm,
+      service_date: date,
+      mkn_id: currentProfile.id,
+      mkn_name: currentProfile.name || '',
+      parts_used: parts || null,
+      cost_idr: 0,
+      notes: notes || null,
+      created_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+    closeModal();
+    showToast('Servis berhasil dicatat!', 'success');
+    await Promise.all([loadOpSchedule(), loadOpRiwayat()]);
+    switchOpScreen('riwayat', document.getElementById('op-nav-riwayat'));
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
 async function loadOpMyReq() {
   const container = document.getElementById('op-myreq-list');
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
@@ -1216,8 +1332,8 @@ function toggleSRDetail(id) {
 }
 
 function srProgressBar(status) {
-  const steps = ['pending_spv','approved_spv','scheduled','in_progress','done_confirm','confirmed'];
-  const labels = ['Pending','Disetujui','Dijadwal','Dikerjakan','Konfirmasi','Selesai'];
+  const steps = ['pending_spv','scheduled','in_progress','done_confirm','confirmed'];
+  const labels = ['Pending','Dijadwal','Dikerjakan','Konfirmasi','Selesai'];
   const idx = steps.indexOf(status);
   let html = '<div style="display:flex;align-items:center;margin-top:4px;">';
   steps.forEach((s, i) => {
@@ -1238,6 +1354,8 @@ function switchOpScreen(name, el) {
   const screen = document.getElementById('op-screen-' + name);
   if (screen) screen.classList.add('on');
   if (el) el.classList.add('on');
+  if (name === 'riwayat') loadOpRiwayat();
+  if (name === 'myreq') loadOpMyReq();
 }
 
 // ============================================================
