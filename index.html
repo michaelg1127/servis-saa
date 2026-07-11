@@ -1203,26 +1203,75 @@ async function loadOpRiwayat() {
   if (!container) return;
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const { data: logs } = await sb.from('service_log')
-      .select('id, maintenance_type, service_date, hm_at_service, mkn_name, parts_used, cost_idr, notes')
-      .eq('unit_id', currentUnit.id)
-      .order('service_date', { ascending: false })
-      .limit(60);
-    if (!logs || logs.length === 0) {
-      container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Belum ada riwayat servis.<br><span style="font-size:12px;">Gunakan tombol + Catat untuk menambah.</span></div>';
-      return;
-    }
-    container.innerHTML = '<div style="padding:0 14px 80px;">' + logs.map(l => `
-      <div class="m-card" style="margin:0 0 10px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <div style="font-size:14px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
-          <div style="font-size:12px;color:#64748B;font-weight:600;">${formatDate(l.service_date)}</div>
+    const [{ data: scheds }, { data: logs }] = await Promise.all([
+      sb.from('maintenance_schedules').select('id, type_name, interval_hm, last_hm, last_date').eq('unit_id', currentUnit.id).order('type_name'),
+      sb.from('service_log').select('id, maintenance_type, service_date, hm_at_service, mkn_name, parts_used, cost_idr, notes').eq('unit_id', currentUnit.id).order('service_date', { ascending: false }).limit(60)
+    ]);
+    const hm = currentUnit.current_hm || 0;
+
+    // Build schedule section (same logic as SPV riwayat)
+    let schedHtml = '';
+    if (scheds && scheds.length > 0) {
+      const logMap = {};
+      (logs || []).forEach(l => {
+        if (!logMap[l.maintenance_type] || l.hm_at_service > logMap[l.maintenance_type].hm)
+          logMap[l.maintenance_type] = { hm: l.hm_at_service, date: l.service_date };
+      });
+      const schedData = scheds.map(s => {
+        const fromLog = logMap[s.type_name];
+        const effHm = fromLog ? fromLog.hm : s.last_hm;
+        const effDate = fromLog ? fromLog.date : s.last_date;
+        const rem = mRemaining(s.interval_hm, effHm, hm);
+        const st = mStatus(s.interval_hm, effHm, hm);
+        const k = 'op-' + s.id;
+        _alertData[k] = { typeName: s.type_name, lastHm: effHm, lastDate: effDate, intervalHm: s.interval_hm, currentHm: hm, remaining: rem, status: st, unitId: currentUnit.id, unitCode: currentUnit.code, role: 'operator' };
+        return { ...s, last_hm: effHm, last_date: effDate, remaining: rem, status: st, k };
+      }).sort((a, b) => a.remaining - b.remaining);
+
+      schedHtml = `
+        <div style="background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:16px;font-weight:800;color:#1E3A8A;">${currentUnit.code}</div>
+          <div style="font-size:14px;font-weight:700;color:#1D4ED8;">HM Skrg: ${hm.toLocaleString()}</div>
         </div>
-        <div style="font-size:13px;color:#64748B;">HM: <span style="font-weight:700;color:#1E293B;">${l.hm_at_service != null ? Number(l.hm_at_service).toLocaleString() : '—'}</span> &nbsp;·&nbsp; Oleh: <span style="font-weight:600;color:#374151;">${l.mkn_name || '—'}</span></div>
-        ${l.parts_used ? `<div style="font-size:12px;color:#64748B;margin-top:4px;">Parts: ${l.parts_used}</div>` : ''}
-        ${l.cost_idr ? `<div style="font-size:12px;color:#64748B;margin-top:2px;">Biaya: Rp ${Number(l.cost_idr).toLocaleString()}</div>` : ''}
-        ${l.notes ? `<div style="font-size:12px;color:#94A3B8;margin-top:4px;font-style:italic;">${l.notes}</div>` : ''}
-      </div>`).join('') + '</div>';
+        <div style="font-size:14px;font-weight:700;color:#374151;margin-bottom:8px;">Jadwal Maintenance</div>
+        <div style="background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.07);overflow:hidden;margin-bottom:16px;">
+          ${schedData.map((d, i) => {
+            const hasData = d.last_hm != null;
+            const sisaColor = d.remaining < 0 ? '#DC2626' : d.status === 'DUE SOON' ? '#D97706' : '#16A34A';
+            const rowBg = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
+            const sisaText = hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-';
+            return `<div onclick="openAlertDetailModal('${d.k}')" style="background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.06);">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+                <div style="font-size:13px;font-weight:600;color:#1E293B;">${d.type_name}</div>
+                <div style="display:flex;align-items:center;gap:6px;">${badge(d.status)}<svg width="14" height="14" fill="none" stroke="#CBD5E1" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></div>
+              </div>
+              <div style="font-size:15px;font-weight:800;color:${sisaColor};">${hasData ? 'Sisa: ' + sisaText + ' HM' : '— belum ada data'}</div>
+            </div>`;
+          }).join('')}
+        </div>`;
+    }
+
+    // Build log history section
+    let logHtml = '';
+    if (!logs || logs.length === 0) {
+      logHtml = '<div style="padding:16px 0;text-align:center;color:#94A3B8;font-size:14px;">Belum ada riwayat servis.<br><span style="font-size:12px;">Gunakan tombol + Catat untuk menambah.</span></div>';
+    } else {
+      logHtml = `<div style="font-size:14px;font-weight:700;color:#374151;margin-bottom:8px;">Log Servis</div>` +
+        logs.map(l => `
+        <div class="m-card" style="margin:0 0 10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <div style="font-size:14px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
+            <div style="font-size:12px;color:#64748B;font-weight:600;">${formatDate(l.service_date)}</div>
+          </div>
+          <div style="font-size:13px;color:#64748B;margin-bottom:4px;">HM: <span style="font-weight:700;color:#1E293B;">${l.hm_at_service != null ? Number(l.hm_at_service).toLocaleString() : '—'}</span></div>
+          <div style="font-size:12px;color:#64748B;padding:6px 10px;background:#F8FAFC;border-radius:8px;display:inline-block;">Dicatat oleh: <span style="font-weight:700;color:#374151;">${l.mkn_name || '—'}</span></div>
+          ${l.parts_used ? `<div style="font-size:12px;color:#64748B;margin-top:6px;">Parts: ${l.parts_used}</div>` : ''}
+          ${l.cost_idr ? `<div style="font-size:12px;color:#64748B;margin-top:2px;">Biaya: Rp ${Number(l.cost_idr).toLocaleString()}</div>` : ''}
+          ${l.notes ? `<div style="font-size:12px;color:#94A3B8;margin-top:4px;font-style:italic;">${l.notes}</div>` : ''}
+        </div>`).join('');
+    }
+
+    container.innerHTML = '<div style="padding:0 14px 80px;">' + schedHtml + logHtml + '</div>';
   } catch (e) { showToast('Error riwayat: ' + e.message); }
 }
 
