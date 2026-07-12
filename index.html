@@ -1618,7 +1618,8 @@ async function renderSPVSRList() {
     let query = sb.from('service_requests').select('id, sr_number, unit_id, category, nama_barang, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name, operator_name), profiles!service_requests_submitted_by_fkey(name)').eq('status', spvPipelineTab);
     if (spvSRUnitFilter !== 'all') query = query.eq('unit_id', spvSRUnitFilter);
     query = query.order('created_at', { ascending: false });
-    const { data: rawSrs } = await query;
+    const { data: rawSrs, error: srErr } = await query;
+    if (srErr) throw srErr;
     if (!rawSrs || rawSrs.length === 0) {
       container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada request.</div>'; return;
     }
@@ -2559,7 +2560,8 @@ async function renderAdminSRTable() {
   if (!wrap) return;
   wrap.innerHTML = '<div style="padding:30px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const { data: srs } = await sb.from('service_requests').select('id, sr_number, unit_id, category, nama_barang, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name), profiles!service_requests_submitted_by_fkey(name)').eq('status', adminPipelineTab).order('created_at', { ascending: false });
+    const { data: srs, error: srsErr } = await sb.from('service_requests').select('id, sr_number, unit_id, category, nama_barang, description, urgency, status, submitted_by, assigned_mkn_id, created_at, scheduled_date, mkn_notes, units(code, name), profiles!service_requests_submitted_by_fkey(name)').eq('status', adminPipelineTab).order('created_at', { ascending: false });
+    if (srsErr) throw srsErr;
     if (!srs || srs.length === 0) { wrap.innerHTML = '<div style="padding:30px;text-align:center;color:#94A3B8;">Tidak ada data.</div>'; return; }
     const colMap = {
       pending_spv: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Tanggal','Aksi'],
