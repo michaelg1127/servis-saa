@@ -963,10 +963,11 @@ async function submitHMUpdate() {
   try {
     const { error: e1 } = await sb.from('hm_updates').insert({ unit_id: currentUnit.id, hm_value: val, recorded_by: currentProfile.id, recorded_at: new Date().toISOString() });
     if (e1) throw e1;
-    const { error: e2 } = await sb.from('units').update({ current_hm: val }).eq('id', currentUnit.id);
-    if (e2) throw e2;
-    currentUnit.current_hm = val;
-    document.getElementById('op-unit-hm').textContent = val;
+    // Re-read current_hm from DB — the SECURITY DEFINER trigger updated it
+    const { data: refreshed } = await sb.from('units').select('current_hm').eq('id', currentUnit.id).single();
+    const newHm = refreshed?.current_hm ?? val;
+    currentUnit.current_hm = newHm;
+    document.getElementById('op-unit-hm').textContent = newHm;
     document.getElementById('op-hm-input').value = '';
     const status = document.getElementById('op-hm-today-status');
     if (status) status.textContent = 'Sudah update hari ini';
