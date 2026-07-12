@@ -681,6 +681,7 @@ let _alertSRUrgency = 'Normal';
 // UTILITY FUNCTIONS
 // ============================================================
 function mStatus(interval_hm, last_hm, current_hm) {
+  if (last_hm == null) return 'NO DATA';
   const remaining = (last_hm + interval_hm) - current_hm;
   if (remaining < 0) return 'OVERDUE';
   if (remaining < interval_hm * 0.15) return 'DUE SOON';
@@ -688,6 +689,7 @@ function mStatus(interval_hm, last_hm, current_hm) {
 }
 
 function mRemaining(interval_hm, last_hm, current_hm) {
+  if (last_hm == null) return null;
   return Math.round((last_hm + interval_hm) - current_hm);
 }
 
@@ -715,6 +717,7 @@ function badge(status) {
     'HIGH': 'background:#FEE2E2;color:#DC2626;',
     'MED': 'background:#FEF3C7;color:#D97706;',
     'LOW': 'background:#DBEAFE;color:#2563EB;',
+    'NO DATA': 'background:#F1F5F9;color:#94A3B8;',
   };
   const style = map[status] || 'background:#F1F5F9;color:#475569;';
   return `<span style="display:inline-block;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;${style}">${statusLabel(status)}</span>`;
@@ -726,7 +729,7 @@ function statusLabel(s) {
     'scheduled': 'Terjadwal', 'in_progress': 'Dikerjakan',
     'done_confirm': 'Konfirmasi', 'confirmed': 'Selesai', 'rejected': 'Ditolak',
     'pending': 'Pending', 'done': 'Selesai', 'approved': 'Disetujui',
-    'OVERDUE': 'LEWAT', 'DUE SOON': 'HAMPIR',
+    'OVERDUE': 'LEWAT', 'DUE SOON': 'HAMPIR', 'NO DATA': 'BELUM DATA',
     'normal': 'Normal', 'urgent': 'Urgent', 'darurat': 'Darurat',
   };
   return labels[s] || s;
@@ -977,29 +980,35 @@ async function loadOpSchedule() {
   const container = document.getElementById('op-schedule-list');
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const { data: scheds } = await sb.from('maintenance_schedules').select('id, type_name, interval_hm, last_hm, last_date').eq('unit_id', currentUnit.id);
+    const [{ data: scheds }, logMap] = await Promise.all([
+      sb.from('maintenance_schedules').select('id, type_name, interval_hm, last_hm, last_date').eq('unit_id', currentUnit.id),
+      fetchServiceLogMap(),
+    ]);
     if (!scheds || scheds.length === 0) {
       container.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada jadwal maintenance.</div>'; return;
     }
     const hm = currentUnit.current_hm || 0;
-    const sorted = scheds.map(s => ({ ...s, remaining: mRemaining(s.interval_hm, s.last_hm, hm), status: mStatus(s.interval_hm, s.last_hm, hm) })).sort((a,b) => a.remaining - b.remaining);
+    const sorted = scheds.map(s => {
+      const effHm = logMap[currentUnit.id + '|' + s.type_name] ?? s.last_hm;
+      return { ...s, effHm, remaining: mRemaining(s.interval_hm, effHm, hm), status: mStatus(s.interval_hm, effHm, hm) };
+    }).sort((a,b) => (a.remaining ?? 999999) - (b.remaining ?? 999999));
     sorted.forEach(s => {
       const k = 'op-' + s.id;
-      _alertData[k] = { typeName: s.type_name, lastHm: s.last_hm || 0, lastDate: s.last_date || null, intervalHm: s.interval_hm, currentHm: hm, remaining: s.remaining, status: s.status, unitId: currentUnit.id, unitCode: currentUnit.code, role: 'operator' };
+      _alertData[k] = { typeName: s.type_name, lastHm: s.effHm ?? null, lastDate: s.last_date || null, intervalHm: s.interval_hm, currentHm: hm, remaining: s.remaining, status: s.status, unitId: currentUnit.id, unitCode: currentUnit.code, role: 'operator' };
     });
     container.innerHTML = sorted.map(s => {
       const k = 'op-' + s.id;
+      const sisaText = s.remaining == null ? '— belum ada data' : s.remaining < 0 ? `Terlambat ${Math.abs(s.remaining)} HM` : `Sisa ${s.remaining} HM`;
+      const sisaColor = s.remaining == null ? '#94A3B8' : s.remaining < 0 ? '#DC2626' : s.status === 'DUE SOON' ? '#D97706' : '#16A34A';
       return `
       <div class="m-card" onclick="openAlertDetailModal('${k}')" style="cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.08);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <div style="font-size:14px;font-weight:700;color:#1E293B;">${s.type_name}</div>
           ${badge(s.status)}
         </div>
-        <div style="font-size:13px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.last_hm || '—'} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
+        <div style="font-size:13px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.effHm ?? '—'} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
-          <div style="font-size:13px;font-weight:600;color:${s.remaining < 0 ? '#DC2626' : s.status === 'DUE SOON' ? '#D97706' : '#16A34A'};">
-            ${s.remaining < 0 ? `Terlambat ${Math.abs(s.remaining)} HM` : `Sisa ${s.remaining} HM`}
-          </div>
+          <div style="font-size:13px;font-weight:600;color:${sisaColor};">${sisaText}</div>
           <span style="font-size:12px;color:#94A3B8;">&#8250;</span>
         </div>
       </div>`;
@@ -1226,7 +1235,7 @@ async function loadOpRiwayat() {
         const k = 'op-' + s.id;
         _alertData[k] = { typeName: s.type_name, lastHm: effHm, lastDate: effDate, intervalHm: s.interval_hm, currentHm: hm, remaining: rem, status: st, unitId: currentUnit.id, unitCode: currentUnit.code, role: 'operator' };
         return { ...s, last_hm: effHm, last_date: effDate, remaining: rem, status: st, k };
-      }).sort((a, b) => a.remaining - b.remaining);
+      }).sort((a, b) => (a.remaining ?? 999999) - (b.remaining ?? 999999));
 
       schedHtml = `
         <div style="background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
@@ -1237,7 +1246,7 @@ async function loadOpRiwayat() {
         <div style="background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.07);overflow:hidden;margin-bottom:16px;">
           ${schedData.map((d, i) => {
             const hasData = d.last_hm != null;
-            const sisaColor = d.remaining < 0 ? '#DC2626' : d.status === 'DUE SOON' ? '#D97706' : '#16A34A';
+            const sisaColor = !hasData ? '#94A3B8' : d.remaining < 0 ? '#DC2626' : d.status === 'DUE SOON' ? '#D97706' : '#16A34A';
             const rowBg = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
             const sisaText = hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-';
             return `<div onclick="openAlertDetailModal('${d.k}')" style="background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.06);">
@@ -1359,7 +1368,10 @@ async function loadOpMyReq() {
       <div class="m-card" style="cursor:pointer;" onclick="toggleSRDetail('sr-detail-${sr.id}')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <div style="font-size:14px;font-weight:800;color:#1D4ED8;">${sr.sr_number}</div>
-          ${badge(sr.urgency)}
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${badge(sr.urgency)}
+            ${sr.status === 'pending_spv' ? `<button onclick="event.stopPropagation();confirmCancelSR('${sr.id}','${sr.sr_number}')" style="background:#FEE2E2;border:none;border-radius:8px;padding:4px 8px;cursor:pointer;display:flex;align-items:center;gap:4px;" title="Batalkan Request"><svg width="14" height="14" fill="none" stroke="#DC2626" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg><span style="font-size:11px;font-weight:700;color:#DC2626;">Batal</span></button>` : ''}
+          </div>
         </div>
         <div style="font-size:15px;font-weight:600;color:#1E293B;">${sr.category}</div>
         <div style="font-size:13px;color:#64748B;">${sr.units ? sr.units.code + ' &mdash; ' + sr.units.name : ''} &nbsp;|&nbsp; ${formatDate(sr.created_at)}</div>
@@ -1378,6 +1390,30 @@ async function loadOpMyReq() {
 function toggleSRDetail(id) {
   const el = document.getElementById(id);
   if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function confirmCancelSR(srId, srNumber) {
+  showModal(`
+    <div style="padding:20px;">
+      <div style="font-size:16px;font-weight:800;color:#1E293B;margin-bottom:8px;">Batalkan Request?</div>
+      <div style="font-size:13px;color:#64748B;margin-bottom:20px;">${srNumber} akan dibatalkan dan tidak bisa dikembalikan.</div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeModal()" style="flex:1;padding:12px;border:1.5px solid #E2E8F0;border-radius:10px;background:white;font-size:14px;font-weight:600;cursor:pointer;">Kembali</button>
+        <button onclick="executeCancelSR('${srId}')" style="flex:1;padding:12px;border:none;border-radius:10px;background:#DC2626;color:white;font-size:14px;font-weight:700;cursor:pointer;">Ya, Batalkan</button>
+      </div>
+    </div>`);
+}
+
+async function executeCancelSR(srId) {
+  try {
+    const { error } = await sb.from('service_requests')
+      .update({ status: 'rejected', rejection_reason: 'Dibatalkan oleh operator' })
+      .eq('id', srId).eq('submitted_by', currentProfile.id).eq('status', 'pending_spv');
+    if (error) throw error;
+    closeModal();
+    showToast('Request berhasil dibatalkan.', 'success');
+    await loadOpMyReq();
+  } catch (e) { showToast('Gagal membatalkan: ' + e.message); }
 }
 
 function srProgressBar(status) {
@@ -1507,7 +1543,7 @@ async function loadSPVUnitList() {
     ]);
     const container = document.getElementById('spv-unit-list');
     if (!units) { container.innerHTML = ''; return; }
-    const sortOrder = { 'OVERDUE': 0, 'DUE SOON': 1, 'OK': 2 };
+    const sortOrder = { 'OVERDUE': 0, 'DUE SOON': 1, 'OK': 2, 'NO DATA': 3 };
     const enriched = units.map(u => {
       const unitScheds = scheds ? scheds.filter(s => s.unit_id === u.id) : [];
       const schedsWithMeta = unitScheds.map(s => {
@@ -1520,8 +1556,8 @@ async function loadSPVUnitList() {
       });
       const statuses = schedsWithMeta.map(s => s.status);
       const worst = statuses.includes('OVERDUE') ? 'OVERDUE' : statuses.includes('DUE SOON') ? 'DUE SOON' : 'OK';
-      const alertItems = schedsWithMeta.filter(s => s.status !== 'OK').sort((a, b) => a.remaining - b.remaining);
-      const okCount = schedsWithMeta.filter(s => s.status === 'OK').length;
+      const alertItems = schedsWithMeta.filter(s => s.status !== 'OK' && s.status !== 'NO DATA').sort((a, b) => (a.remaining ?? 999999) - (b.remaining ?? 999999));
+      const okCount = schedsWithMeta.filter(s => s.status === 'OK' || s.status === 'NO DATA').length;
       return { ...u, worst, alertItems, okCount };
     });
     enriched.sort((a, b) => (sortOrder[a.worst] - sortOrder[b.worst]) || a.code.localeCompare(b.code));
@@ -2695,15 +2731,19 @@ async function renderAdminJadwal() {
   if (!wrap) return;
   wrap.innerHTML = '<div style="padding:30px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const { data: scheds } = await sb.from('maintenance_schedules').select('id, unit_id, type_name, interval_hm, last_hm, last_date, units(id, code, name, current_hm)').order('unit_id');
+    const [{ data: scheds }, logMap] = await Promise.all([
+      sb.from('maintenance_schedules').select('id, unit_id, type_name, interval_hm, last_hm, last_date, units(id, code, name, current_hm)').order('unit_id'),
+      fetchServiceLogMap(),
+    ]);
     if (!scheds) { wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada data.</div>'; return; }
     const filterMap = { 'Semua': null, 'Overdue': 'OVERDUE', 'Due Soon': 'DUE SOON', 'OK': 'OK' };
     const filterVal = filterMap[adminJadwalFilter];
     let data = scheds.map(s => {
       const hm = s.units ? s.units.current_hm || 0 : 0;
-      const rem = mRemaining(s.interval_hm, s.last_hm, hm);
-      const st = mStatus(s.interval_hm, s.last_hm, hm);
-      return { ...s, hm, remaining: rem, status: st, hm_due: s.last_hm + s.interval_hm };
+      const effHm = logMap[s.unit_id + '|' + s.type_name] ?? s.last_hm;
+      const rem = mRemaining(s.interval_hm, effHm, hm);
+      const st = mStatus(s.interval_hm, effHm, hm);
+      return { ...s, effHm, hm, remaining: rem, status: st, hm_due: effHm != null ? effHm + s.interval_hm : null };
     });
     if (filterVal) data = data.filter(d => d.status === filterVal);
     if (data.length === 0) { wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada data.</div>'; return; }
@@ -2715,11 +2755,11 @@ async function renderAdminJadwal() {
         <td style="font-weight:600;">${d.units ? d.units.code : '&mdash;'}</td>
         <td>${d.type_name}</td>
         <td>${d.interval_hm}</td>
-        <td>${d.last_hm}</td>
+        <td>${d.effHm ?? '&mdash;'}</td>
         <td>${formatDate(d.last_date)}</td>
-        <td>${d.hm_due}</td>
+        <td>${d.hm_due ?? '&mdash;'}</td>
         <td>${d.hm}</td>
-        <td style="font-weight:700;color:${d.remaining < 0 ? '#DC2626' : '#374151'};">${d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining}</td>
+        <td style="font-weight:700;color:${d.remaining == null ? '#94A3B8' : d.remaining < 0 ? '#DC2626' : '#374151'};">${d.remaining == null ? '&mdash;' : d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining}</td>
         <td>${badge(d.status)}</td>
       </tr>`).join('')}</tbody>
     </table>`;
@@ -3415,8 +3455,8 @@ async function exportSchedule() {
       const st = mStatus(s.interval_hm, s.last_hm, hm);
       csv += toCSVRow([
         s.units ? s.units.code : '', s.units ? s.units.name : '',
-        s.type_name, s.interval_hm, s.last_hm, s.last_date, hm,
-        s.last_hm + s.interval_hm, rem, st
+        s.type_name, s.interval_hm, s.last_hm ?? '', s.last_date, hm,
+        s.last_hm != null ? s.last_hm + s.interval_hm : '', rem ?? '', st
       ]) + '\n';
     });
     const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
