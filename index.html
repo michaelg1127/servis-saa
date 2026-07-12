@@ -1862,7 +1862,7 @@ async function renderSPVJadwal() {
   container.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
     let query = sb.from('job_orders')
-      .select('id, jo_number, type, status, priority, scheduled_date, linked_sr_id, units(code, operator_name), profiles!job_orders_assigned_mkn_id_fkey(name)')
+      .select('id, jo_number, type, status, priority, scheduled_date, assigned_mkn_id, linked_sr_id, units(code, operator_name), profiles!job_orders_assigned_mkn_id_fkey(name), service_requests!job_orders_linked_sr_id_fkey(description, nama_barang)')
       .in('status', ['pending', 'in_progress'])
       .order('scheduled_date', { ascending: true });
     if (spvJadwalFilter === 'Pending') query = query.eq('status', 'pending');
@@ -1881,12 +1881,17 @@ async function renderSPVJadwal() {
         : 'background:#D1FAE5;color:#059669;';
       const stLabel = jo.status === 'in_progress' ? 'Dikerjakan'
         : jo.status === 'pending' ? 'Pending' : 'Terjadwal';
+      const sr = jo.service_requests;
+      const namaBarang = sr?.nama_barang;
+      const desc = sr?.description;
       return `<div class="m-card" style="margin:0 0 10px;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.06);" onclick="openJOEditModal('${jo.id}','${jo.jo_number}','${jo.scheduled_date||''}','${jo.priority}','${jo.assigned_mkn_id||''}','${jo.linked_sr_id||''}')">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div style="font-size:15px;font-weight:800;color:#1E293B;">${jo.units?.code || '—'} &nbsp;|&nbsp; ${jo.units?.operator_name || '—'}</div>
           <span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;${stStyle}">${stLabel}</span>
         </div>
-        <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:6px;">${jo.type}</div>
+        <div style="font-size:14px;font-weight:700;color:#1E293B;margin-bottom:${namaBarang || desc ? '3px' : '6px'};">${jo.type}</div>
+        ${namaBarang ? `<div style="font-size:13px;font-weight:600;color:#1D4ED8;margin-bottom:3px;">${namaBarang}</div>` : ''}
+        ${desc ? `<div style="font-size:12px;color:#64748B;margin-bottom:8px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${desc}</div>` : ''}
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div style="font-size:13px;color:#64748B;">Mekanik: <span style="font-weight:600;color:#1E293B;">${jo.profiles?.name || 'Belum ditugaskan'}</span></div>
           <span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;${pStyle}">${jo.priority}</span>
