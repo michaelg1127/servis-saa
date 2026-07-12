@@ -614,7 +614,7 @@
           </div>
           <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">HM Saat Ini</label>
-            <input type="number" id="uf-hm" class="finput" style="font-size:14px;padding:10px 12px;" placeholder="0">
+            <input type="number" id="uf-hm" class="finput" style="font-size:14px;padding:10px 12px;" placeholder="0" step="1" inputmode="numeric">
           </div>
           <div style="margin-bottom:16px;">
             <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Operator</label>
@@ -766,6 +766,13 @@ function formatDate(d) {
 function formatCurrency(n) {
   if (!n) return '&mdash;';
   return 'Rp ' + Number(n).toLocaleString('id-ID');
+}
+
+function fmtHM(val) {
+  if (val == null) return '—';
+  const n = Number(val);
+  if (isNaN(n)) return '—';
+  return n.toLocaleString('id-ID', { maximumFractionDigits: 2 });
 }
 
 function todayISO() {
@@ -930,7 +937,7 @@ async function loadOperatorData() {
       document.getElementById('op-unit-code').textContent = currentUnit.code;
       document.getElementById('op-unit-name').textContent = currentUnit.name;
       document.getElementById('op-unit-model').textContent = currentUnit.model;
-      document.getElementById('op-unit-hm').textContent = currentUnit.current_hm || 0;
+      document.getElementById('op-unit-hm').textContent = fmtHM(currentUnit.current_hm);
       document.getElementById('op-req-unit-label').innerHTML = `Unit: ${currentUnit.code} &mdash; ${currentUnit.name}`;
       document.getElementById('op-hm-banner').style.display = 'block';
       await checkHMUpdateToday();
@@ -958,8 +965,8 @@ async function submitHMUpdate() {
   const val = parseInt(document.getElementById('op-hm-input').value);
   if (!val || val <= 0) { showToast('Masukkan nilai HM yang valid.'); return; }
   const prev = currentUnit.current_hm || 0;
-  if (val <= prev) { showToast(`HM harus lebih dari HM sekarang (${prev}).`); return; }
-  if (val > prev + 100) { showToast(`Maksimal 100 HM di atas HM sekarang. Batas: ${prev + 100}.`); return; }
+  if (val <= prev) { showToast(`HM harus lebih dari HM sekarang (${fmtHM(prev)}).`); return; }
+  if (val > prev + 100) { showToast(`Maksimal 100 HM di atas HM sekarang. Batas: ${fmtHM(prev + 100)}.`); return; }
   try {
     const { error: e1 } = await sb.from('hm_updates').insert({ unit_id: currentUnit.id, hm_value: val, recorded_by: currentProfile.id, recorded_at: new Date().toISOString() });
     if (e1) throw e1;
@@ -967,7 +974,7 @@ async function submitHMUpdate() {
     const { data: refreshed } = await sb.from('units').select('current_hm').eq('id', currentUnit.id).single();
     const newHm = refreshed?.current_hm ?? val;
     currentUnit.current_hm = newHm;
-    document.getElementById('op-unit-hm').textContent = newHm;
+    document.getElementById('op-unit-hm').textContent = fmtHM(newHm);
     document.getElementById('op-hm-input').value = '';
     const status = document.getElementById('op-hm-today-status');
     if (status) status.textContent = 'Sudah update hari ini';
@@ -999,7 +1006,7 @@ async function loadOpSchedule() {
     });
     container.innerHTML = sorted.map(s => {
       const k = 'op-' + s.id;
-      const sisaText = s.remaining == null ? '— belum ada data' : s.remaining < 0 ? `Terlambat ${Math.abs(s.remaining)} HM` : `Sisa ${s.remaining} HM`;
+      const sisaText = s.remaining == null ? '— belum ada data' : s.remaining < 0 ? `Terlambat ${fmtHM(Math.abs(s.remaining))} HM` : `Sisa ${fmtHM(s.remaining)} HM`;
       const sisaColor = s.remaining == null ? '#94A3B8' : s.remaining < 0 ? '#DC2626' : s.status === 'DUE SOON' ? '#D97706' : '#16A34A';
       return `
       <div class="m-card" onclick="openAlertDetailModal('${k}')" style="cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.08);">
@@ -1007,7 +1014,7 @@ async function loadOpSchedule() {
           <div style="font-size:14px;font-weight:700;color:#1E293B;">${s.type_name}</div>
           ${badge(s.status)}
         </div>
-        <div style="font-size:13px;color:#64748B;">Interval: ${s.interval_hm} HM &nbsp;|&nbsp; Terakhir: ${s.effHm ?? '—'} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
+        <div style="font-size:13px;color:#64748B;">Interval: ${fmtHM(s.interval_hm)} HM &nbsp;|&nbsp; Terakhir: ${fmtHM(s.effHm)} HM &nbsp;|&nbsp; ${formatDate(s.last_date)}</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
           <div style="font-size:13px;font-weight:600;color:${sisaColor};">${sisaText}</div>
           <span style="font-size:12px;color:#94A3B8;">&#8250;</span>
@@ -1048,15 +1055,15 @@ function openAlertDetailModal(key) {
     <div style="display:grid;gap:10px;margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid #F1F5F9;">
         <span style="color:#64748B;">HM Terakhir</span>
-        <span style="font-weight:700;color:#1E293B;">${(d.lastHm||0).toLocaleString()} HM${d.lastDate ? ' &nbsp;·&nbsp; ' + formatDate(d.lastDate) : ''}</span>
+        <span style="font-weight:700;color:#1E293B;">${fmtHM(d.lastHm)} HM${d.lastDate ? ' &nbsp;·&nbsp; ' + formatDate(d.lastDate) : ''}</span>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid #F1F5F9;">
         <span style="color:#64748B;">Interval</span>
-        <span style="font-weight:700;color:#1E293B;">Setiap ${d.intervalHm} HM</span>
+        <span style="font-weight:700;color:#1E293B;">Setiap ${fmtHM(d.intervalHm)} HM</span>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid #F1F5F9;">
         <span style="color:#64748B;">HM Saat Ini</span>
-        <span style="font-weight:700;color:#1E293B;">${(d.currentHm||0).toLocaleString()} HM</span>
+        <span style="font-weight:700;color:#1E293B;">${fmtHM(d.currentHm)} HM</span>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:14px;padding:10px 0;">
         <span style="color:#64748B;font-weight:600;">Status</span>
@@ -1241,7 +1248,7 @@ async function loadOpRiwayat() {
       schedHtml = `
         <div style="background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
           <div style="font-size:16px;font-weight:800;color:#1E3A8A;">${currentUnit.code}</div>
-          <div style="font-size:14px;font-weight:700;color:#1D4ED8;">HM Skrg: ${hm.toLocaleString()}</div>
+          <div style="font-size:14px;font-weight:700;color:#1D4ED8;">HM Skrg: ${fmtHM(hm)}</div>
         </div>
         <div style="font-size:14px;font-weight:700;color:#374151;margin-bottom:8px;">Jadwal Maintenance</div>
         <div style="background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.07);overflow:hidden;margin-bottom:16px;">
@@ -1249,7 +1256,7 @@ async function loadOpRiwayat() {
             const hasData = d.last_hm != null;
             const sisaColor = !hasData ? '#94A3B8' : d.remaining < 0 ? '#DC2626' : d.status === 'DUE SOON' ? '#D97706' : '#16A34A';
             const rowBg = d.status === 'OVERDUE' ? '#FFF1F2' : d.status === 'DUE SOON' ? '#FFFBEB' : 'white';
-            const sisaText = hasData ? (d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining) : '-';
+            const sisaText = hasData ? (d.remaining < 0 ? '(' + fmtHM(Math.abs(d.remaining)) + ')' : fmtHM(d.remaining)) : '-';
             return `<div onclick="openAlertDetailModal('${d.k}')" style="background:${rowBg};padding:10px 14px;${i > 0 ? 'border-top:1px solid #F1F5F9;' : ''}cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.06);">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
                 <div style="font-size:13px;font-weight:600;color:#1E293B;">${d.type_name}</div>
@@ -1273,7 +1280,7 @@ async function loadOpRiwayat() {
             <div style="font-size:14px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
             <div style="font-size:12px;color:#64748B;font-weight:600;">${formatDate(l.service_date)}</div>
           </div>
-          <div style="font-size:13px;color:#64748B;margin-bottom:4px;">HM: <span style="font-weight:700;color:#1E293B;">${l.hm_at_service != null ? Number(l.hm_at_service).toLocaleString() : '—'}</span></div>
+          <div style="font-size:13px;color:#64748B;margin-bottom:4px;">HM: <span style="font-weight:700;color:#1E293B;">${fmtHM(l.hm_at_service)}</span></div>
           <div style="font-size:12px;color:#64748B;padding:6px 10px;background:#F8FAFC;border-radius:8px;display:inline-block;">Dicatat oleh: <span style="font-weight:700;color:#374151;">${l.mkn_name || '—'}</span></div>
           ${l.parts_used ? `<div style="font-size:12px;color:#64748B;margin-top:6px;">Parts: ${l.parts_used}</div>` : ''}
           ${l.cost_idr ? `<div style="font-size:12px;color:#64748B;margin-top:2px;">Biaya: Rp ${Number(l.cost_idr).toLocaleString()}</div>` : ''}
@@ -1297,7 +1304,7 @@ async function openOpCatatModal(typeName) {
   const today = todayISO();
   showModal(`
     <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:4px;">Catat Servis</div>
-    <div style="font-size:12px;color:#64748B;margin-bottom:16px;">Unit: ${currentUnit.code} &nbsp;·&nbsp; HM saat ini: ${(currentUnit.current_hm||0).toLocaleString()}</div>
+    <div style="font-size:12px;color:#64748B;margin-bottom:16px;">Unit: ${currentUnit.code} &nbsp;·&nbsp; HM saat ini: ${fmtHM(currentUnit.current_hm)}</div>
     <div style="margin-bottom:14px;">
       <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Maintenance <span style="color:#EF4444;">*</span></label>
       <input id="op-catat-type" class="finput" list="op-catat-typelist" placeholder="Pilih atau ketik..." value="${typeName||''}">
@@ -1305,7 +1312,7 @@ async function openOpCatatModal(typeName) {
     </div>
     <div style="margin-bottom:14px;">
       <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis <span style="color:#EF4444;">*</span></label>
-      <input type="number" id="op-catat-hm" class="finput" placeholder="Contoh: ${currentUnit.current_hm||''}" value="${currentUnit.current_hm||''}">
+      <input type="number" id="op-catat-hm" class="finput" step="1" inputmode="numeric" placeholder="Contoh: ${Math.round(currentUnit.current_hm)||''}" value="${Math.round(currentUnit.current_hm)||''}">
     </div>
     <div style="margin-bottom:14px;">
       <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis <span style="color:#EF4444;">*</span></label>
@@ -1572,8 +1579,8 @@ async function loadSPVUnitList() {
         const rowBorder = isOverdue ? '#FECACA' : '#FDE68A';
         const hmColor   = isOverdue ? '#DC2626' : '#D97706';
         const hmLabel   = s.remaining < 0
-          ? `${Math.abs(Math.round(s.remaining))} HM terlambat`
-          : `${Math.round(s.remaining)} HM lagi`;
+          ? `${fmtHM(Math.abs(Math.round(s.remaining)))} HM terlambat`
+          : `${fmtHM(Math.round(s.remaining))} HM lagi`;
         const k = 'spv-' + u.id + '-' + idx;
         _alertData[k] = { typeName: s.type_name, lastHm: s.last_hm || 0, lastDate: s.last_date || null, intervalHm: s.interval_hm, currentHm: u.current_hm || 0, remaining: s.remaining, status: s.status, unitId: u.id, unitCode: u.code, role: 'spv' };
         return `<div onclick="openAlertDetailModal('${k}');event.stopPropagation();" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:5px;border-radius:9px;background:${rowBg};border:1.5px solid ${rowBorder};cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.08);">
@@ -1596,7 +1603,7 @@ async function loadSPVUnitList() {
               <div style="font-size:12px;color:${subColor};margin-top:3px;">${u.name} &nbsp;·&nbsp; ${opName}</div>
             </div>
             <div style="text-align:right;">
-              <div style="font-size:20px;font-weight:800;color:white;">${(u.current_hm || 0).toLocaleString()}</div>
+              <div style="font-size:20px;font-weight:800;color:white;">${fmtHM(u.current_hm)}</div>
               <div style="font-size:11px;color:${subColor};margin-top:1px;">HM saat ini</div>
             </div>
           </div>
@@ -1800,7 +1807,7 @@ async function loadSPVRiwayatLog(unitId, el) {
           <div style="font-size:15px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
           <div style="font-size:13px;color:#94A3B8;">${formatDate(l.service_date)}</div>
         </div>
-        <div style="font-size:13px;color:#64748B;">HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '&mdash;'}</div>
+        <div style="font-size:13px;color:#64748B;">HM: ${fmtHM(l.hm_at_service)} &nbsp;|&nbsp; MKN: ${l.mkn_name || '&mdash;'}</div>
         ${l.parts_used ? `<div style="font-size:13px;color:#374151;margin-top:4px;">Parts: ${l.parts_used}</div>` : ''}
         ${l.cost_idr ? `<div style="font-size:13px;font-weight:600;color:#1D4ED8;margin-top:2px;">${formatCurrency(l.cost_idr)}</div>` : ''}
         ${l.notes ? `<div style="font-size:13px;color:#64748B;margin-top:2px;font-style:italic;">${l.notes}</div>` : ''}
@@ -1839,7 +1846,7 @@ async function loadSPVRiwayatSchedule(unitId) {
     });
     el.innerHTML = `<div style="background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-size:16px;font-weight:800;color:#1E3A8A;">${unit?.code || ''}</div>
-      <div style="font-size:14px;font-weight:700;color:#1D4ED8;">HM Skrg: ${hm.toLocaleString()}</div>
+      <div style="font-size:14px;font-weight:700;color:#1D4ED8;">HM Skrg: ${fmtHM(hm)}</div>
     </div>
     <div style="font-size:14px;font-weight:700;color:#374151;margin-bottom:8px;">Jadwal Maintenance</div>
     <div style="background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.07);overflow:hidden;margin-bottom:12px;">
@@ -2183,7 +2190,7 @@ async function submitSPVServiceLog() {
   try {
     const { data: unit } = await sb.from('units').select('code, current_hm').eq('id', unitId).single();
     if (unit?.current_hm && hm > unit.current_hm + 24) {
-      showToast(`HM tidak valid. Maksimal ${unit.current_hm + 24} (HM saat ini + 24).`); return;
+      showToast(`HM tidak valid. Maksimal ${fmtHM(unit.current_hm + 24)} (HM saat ini + 24).`); return;
     }
     const { error } = await sb.from('service_log').insert({
       unit_id: unitId, unit_code: unit ? unit.code : '',
@@ -2431,7 +2438,7 @@ async function submitServiceLog(joId, joType) {
     const { data: jo } = await sb.from('job_orders').select('unit_id, type, linked_sr_id, units(code, name, current_hm)').eq('id', joId).single();
     const mType = joType || (jo ? jo.type : '');
     if (jo?.units?.current_hm && hm > jo.units.current_hm + 24) {
-      showToast(`HM tidak valid. Maksimal ${jo.units.current_hm + 24} (HM saat ini + 24).`); return;
+      showToast(`HM tidak valid. Maksimal ${fmtHM(jo.units.current_hm + 24)} (HM saat ini + 24).`); return;
     }
     const { error: e1 } = await sb.from('service_log').insert({
       unit_id: jo.unit_id, unit_code: jo.units ? jo.units.code : '', maintenance_type: mType,
@@ -2577,7 +2584,7 @@ async function loadAdminDashboard() {
             </div>
             <div style="text-align:right;">
               ${badge(worst)}
-              <div style="font-size:12px;font-weight:700;color:#1D4ED8;margin-top:4px;">HM: ${u.current_hm || 0}</div>
+              <div style="font-size:12px;font-weight:700;color:#1D4ED8;margin-top:4px;">HM: ${fmtHM(u.current_hm)}</div>
             </div>
           </div>
           ${overdueList.length > 0 ? `<div style="font-size:11px;color:#DC2626;margin-top:4px;">Overdue: ${overdueList.join(', ')}</div>` : ''}
@@ -2755,12 +2762,12 @@ async function renderAdminJadwal() {
       <tbody>${data.map(d => `<tr class="${d.status === 'OVERDUE' ? 'row-overdue' : d.status === 'DUE SOON' ? 'row-duesoon' : ''}">
         <td style="font-weight:600;">${d.units ? d.units.code : '&mdash;'}</td>
         <td>${d.type_name}</td>
-        <td>${d.interval_hm}</td>
-        <td>${d.effHm ?? '&mdash;'}</td>
+        <td>${fmtHM(d.interval_hm)}</td>
+        <td>${fmtHM(d.effHm)}</td>
         <td>${formatDate(d.last_date)}</td>
-        <td>${d.hm_due ?? '&mdash;'}</td>
-        <td>${d.hm}</td>
-        <td style="font-weight:700;color:${d.remaining == null ? '#94A3B8' : d.remaining < 0 ? '#DC2626' : '#374151'};">${d.remaining == null ? '&mdash;' : d.remaining < 0 ? '(' + Math.abs(d.remaining) + ')' : d.remaining}</td>
+        <td>${d.hm_due != null ? fmtHM(d.hm_due) : '&mdash;'}</td>
+        <td>${fmtHM(d.hm)}</td>
+        <td style="font-weight:700;color:${d.remaining == null ? '#94A3B8' : d.remaining < 0 ? '#DC2626' : '#374151'};">${d.remaining == null ? '&mdash;' : d.remaining < 0 ? '(' + fmtHM(Math.abs(d.remaining)) + ')' : fmtHM(d.remaining)}</td>
         <td>${badge(d.status)}</td>
       </tr>`).join('')}</tbody>
     </table>`;
@@ -2844,9 +2851,9 @@ async function loadAdminRiwayatSchedule(unitId) {
         const rem = mRemaining(s.interval_hm, effHm, hm);
         const st = mStatus(s.interval_hm, effHm, hm);
         return `<tr class="${st === 'OVERDUE' ? 'row-overdue' : st === 'DUE SOON' ? 'row-duesoon' : ''}">
-          <td>${s.type_name}</td><td>${s.interval_hm}</td><td>${effHm ?? '—'}</td>
+          <td>${s.type_name}</td><td>${fmtHM(s.interval_hm)}</td><td>${fmtHM(effHm)}</td>
           <td>${formatDate(effDate)}</td>
-          <td style="font-weight:700;color:${rem < 0 ? '#DC2626' : '#374151'};">${effHm == null ? '—' : rem < 0 ? '(' + Math.abs(rem) + ')' : rem}</td>
+          <td style="font-weight:700;color:${rem == null ? '#94A3B8' : rem < 0 ? '#DC2626' : '#374151'};">${rem == null ? '—' : rem < 0 ? '(' + fmtHM(Math.abs(rem)) + ')' : fmtHM(rem)}</td>
           <td>${badge(st)}</td>
         </tr>`;
       }).join('')}</tbody></table>`;
@@ -2867,7 +2874,7 @@ async function loadAdminRiwayatLog(unitId) {
           <div style="font-size:14px;font-weight:700;color:#1E293B;">${l.maintenance_type}</div>
           <div style="font-size:12px;color:#94A3B8;">${formatDate(l.service_date)}</div>
         </div>
-        <div style="font-size:12px;color:#64748B;">HM: ${l.hm_at_service} &nbsp;|&nbsp; MKN: ${l.mkn_name || '&mdash;'}</div>
+        <div style="font-size:12px;color:#64748B;">HM: ${fmtHM(l.hm_at_service)} &nbsp;|&nbsp; MKN: ${l.mkn_name || '&mdash;'}</div>
         ${l.parts_used ? `<div style="font-size:12px;color:#374151;margin-top:4px;">Parts: ${l.parts_used}</div>` : ''}
         ${l.cost_idr ? `<div style="font-size:12px;font-weight:600;color:#1D4ED8;margin-top:2px;">${formatCurrency(l.cost_idr)}</div>` : ''}
         ${l.notes ? `<div style="font-size:12px;color:#64748B;margin-top:2px;font-style:italic;">${l.notes}</div>` : ''}
@@ -3142,7 +3149,7 @@ function renderAdminUnitTable() {
         <td style="font-weight:700;">${u.code}</td>
         <td>${u.name}</td>
         <td>${u.model || '&mdash;'}</td>
-        <td style="font-weight:600;">${u.current_hm || 0}</td>
+        <td style="font-weight:600;">${fmtHM(u.current_hm)}</td>
         <td>${opName}</td>
         <td>
           <div style="display:flex;gap:6px;">
@@ -3161,7 +3168,7 @@ function editUnit(id) {
   document.getElementById('uf-code').value = u.code;
   document.getElementById('uf-name').value = u.name;
   document.getElementById('uf-model').value = u.model || '';
-  document.getElementById('uf-hm').value = u.current_hm || 0;
+  document.getElementById('uf-hm').value = Math.round(u.current_hm || 0);
   document.getElementById('uf-operator').value = u.assigned_operator_id || '';
   document.getElementById('uf-edit-id').value = id;
   document.getElementById('unit-form-title').textContent = 'Edit Unit';
