@@ -1670,7 +1670,8 @@ async function renderSPVSRList() {
     let srs = [...rawSrs];
     if (spvSRSort === 'unit') srs.sort((a, b) => (a.units?.code || '').localeCompare(b.units?.code || ''));
     else if (spvSRSort === 'type') srs.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
-    container.innerHTML = srs.map(sr => {
+
+    function buildSRCard(sr, hideUnitHeader) {
       let actions = '';
       if (spvPipelineTab === 'pending_spv') {
         actions = `<div style="display:flex;gap:8px;margin-top:10px;">
@@ -1682,18 +1683,44 @@ async function renderSPVSRList() {
           <button class="btn-success" style="width:100%;font-size:14px;padding:10px 14px;" onclick="confirmSR('${sr.id}')">Konfirmasi Selesai</button>
         </div>`;
       }
-      return `<div class="m-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      const unitHeader = hideUnitHeader ? '' : `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
           <div style="font-size:14px;font-weight:800;color:#1E293B;">${sr.units ? sr.units.code : '—'} &nbsp;|&nbsp; ${sr.units?.operator_name || sr.profiles?.name || '—'}</div>
           ${badge(sr.urgency)}
-        </div>
+        </div>`;
+      const urgenceBadge = hideUnitHeader ? `<div style="display:flex;justify-content:flex-end;margin-bottom:4px;">${badge(sr.urgency)}</div>` : '';
+      return `<div class="m-card">
+        ${urgenceBadge}${unitHeader}
         <div style="font-size:16px;font-weight:700;color:#1E293B;">${sr.category}</div>
         ${sr.nama_barang ? `<div style="font-size:12px;color:#64748B;margin-top:2px;font-weight:600;">${sr.nama_barang}</div>` : ''}
         <div style="font-size:12px;color:#94A3B8;margin-top:2px;">${sr.sr_number} &nbsp;·&nbsp; ${formatDate(sr.created_at)}</div>
         <div style="font-size:13px;color:#374151;margin-top:4px;">${sr.description}</div>
         ${actions}
       </div>`;
-    }).join('');
+    }
+
+    if (spvSRSort === 'unit') {
+      const groups = [];
+      let lastCode = null;
+      srs.forEach(sr => {
+        const code = sr.units?.code || '—';
+        if (code !== lastCode) {
+          groups.push({ code, operator: sr.units?.operator_name || sr.profiles?.name || '—', items: [] });
+          lastCode = code;
+        }
+        groups[groups.length - 1].items.push(sr);
+      });
+      container.innerHTML = groups.map(g => `
+        <div style="margin:0 16px 4px;padding:8px 4px 4px;display:flex;align-items:center;gap:8px;">
+          <div style="font-size:13px;font-weight:800;color:#1D4ED8;letter-spacing:0.3px;">${g.code}</div>
+          <div style="font-size:12px;color:#94A3B8;font-weight:500;">${g.operator}</div>
+          <div style="flex:1;height:1px;background:#E2E8F0;"></div>
+          <div style="font-size:11px;color:#94A3B8;">${g.items.length} SR</div>
+        </div>
+        ${g.items.map(sr => buildSRCard(sr, true)).join('')}
+      `).join('');
+    } else {
+      container.innerHTML = srs.map(sr => buildSRCard(sr, false)).join('');
+    }
   } catch (e) { showToast('Error SR list: ' + e.message); }
 }
 
@@ -2136,6 +2163,7 @@ function switchSpvScreen(name, el) {
   if (screen) screen.classList.add('on');
   if (el) el.classList.add('on');
   if (name === 'dashboard') { loadSPVStats(); loadSPVUnitList(); }
+  if (name === 'permintaan') loadSPVPermintaan();
   if (name === 'jadwal') renderSPVJadwal();
   if (name === 'riwayat') initSPVRiwayat();
   if (name === 'catat') initSPVCatat();
