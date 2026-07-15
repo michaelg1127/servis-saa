@@ -1782,23 +1782,23 @@ async function approveSR(srId) {
 }
 
 function openRejectSRModal(srId, srNum) {
-  showModal(`<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:14px;">Tolak Request</div>
-    <div style="font-size:13px;color:#64748B;margin-bottom:12px;">SR: ${srNum}</div>
-    <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Alasan Penolakan</label>
-    <textarea id="modal-reject-reason" class="finput" placeholder="Masukkan alasan..." style="margin-bottom:16px;"></textarea>
-    <div style="display:flex;gap:8px;">
-      <button onclick="rejectSR('${srId}')" class="btn-danger" style="flex:1;">Tolak</button>
-      <button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>
+  showModal(`
+    <div style="text-align:center;padding:8px 0 20px;">
+      <div style="font-size:40px;margin-bottom:12px;">🗑️</div>
+      <div style="font-size:16px;font-weight:800;color:#1E293B;margin-bottom:8px;">APAKAH ANDA YAKIN INGIN MENGHAPUS?</div>
+      <div style="font-size:13px;color:#94A3B8;margin-bottom:24px;">${srNum}</div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="deleteSR('${srId}')" class="btn-danger" style="flex:1;font-size:15px;">Ya</button>
+        <button onclick="closeModal()" class="btn-secondary" style="flex:1;font-size:15px;">Tidak</button>
+      </div>
     </div>`);
 }
 
-async function rejectSR(srId) {
-  const reason = document.getElementById('modal-reject-reason').value.trim();
-  if (!reason) { showToast('Alasan wajib diisi.'); return; }
+async function deleteSR(srId) {
   try {
-    const { error } = await sb.from('service_requests').update({ status: 'rejected', rejection_reason: reason }).eq('id', srId);
+    const { error } = await sb.from('service_requests').delete().eq('id', srId);
     if (error) throw error;
-    closeModal(); showToast('Request ditolak.', 'info');
+    closeModal(); showToast('Request dihapus.', 'info');
     await renderSPVSRList(); await loadSPVStats();
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
