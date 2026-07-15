@@ -314,8 +314,11 @@
     </div>
 
     <div id="spv-jadwal-list-wrap">
-      <div style="padding:0 14px 8px;">
+      <div style="padding:0 14px 4px;">
         <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;" id="spv-jadwal-filters"></div>
+      </div>
+      <div style="padding:0 14px 8px;">
+        <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;" id="spv-jadwal-sort-pills"></div>
       </div>
       <div id="spv-jadwal-list"></div>
     </div>
@@ -507,7 +510,13 @@
 
     <!-- Admin Permintaan Servis -->
     <div id="admin-screen-permintaan" class="dscreen">
-      <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:16px;">Permintaan Servis</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:22px;font-weight:800;color:#1E293B;">Permintaan Servis</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="setAdminSRSort('date',this)" class="vpill on" id="adm-sr-sort-date">Terbaru</button>
+          <button onclick="setAdminSRSort('unit',this)" class="vpill" id="adm-sr-sort-unit">Per Unit</button>
+        </div>
+      </div>
       <div style="display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;" id="adm-pipeline-tabs"></div>
       <div id="adm-sr-table-wrap" class="table-wrap"></div>
     </div>
@@ -530,7 +539,13 @@
 
     <!-- Admin Jadwal MKN -->
     <div id="admin-screen-jadwalmkn" class="dscreen">
-      <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:16px;">Jadwal MKN</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:22px;font-weight:800;color:#1E293B;">Jadwal MKN</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="setAdminJadwalMKNSort('mkn',this)" class="vpill on" id="adm-jmkn-sort-mkn">Per MKN</button>
+          <button onclick="setAdminJadwalMKNSort('unit',this)" class="vpill" id="adm-jmkn-sort-unit">Per Unit</button>
+        </div>
+      </div>
       <div class="table-wrap" id="adm-jadwalmkn-wrap"></div>
     </div>
 
@@ -661,11 +676,14 @@ let spvJadwalFilter = 'Semua';
 let spvJadwalSubTab = 'list';
 let spvJoPriority = 'MED';
 let spvJadwalUnitFilter = 'all';
+let spvJadwalSort = 'date';
 let spvSRUnitFilter = 'all';
 let spvSRSort = 'date';
 let spvSRCache = {};
 let spvRiwayatUnit = null;
 let adminJadwalFilter = 'Semua';
+let adminSRSort = 'date';
+let adminJadwalMKNSort = 'mkn';
 let mknJOSubTab = 'menunggu';
 let adminRiwayatUnit = null;
 let additionalMaintTypes = [];
@@ -1941,7 +1959,16 @@ async function loadSPVJadwal() {
   const filterEl = document.getElementById('spv-jadwal-filters');
   const filters = ['Semua', 'Pending', 'Dikerjakan'];
   filterEl.innerHTML = filters.map(f => `<button class="vpill ${f === spvJadwalFilter ? 'on' : ''}" onclick="setSpvJadwalFilter('${f}')">${f}</button>`).join('');
+  const sortEl = document.getElementById('spv-jadwal-sort-pills');
+  if (sortEl) sortEl.innerHTML = [['date','Terbaru'],['unit','Per Unit']].map(([s,l]) => `<button class="vpill ${s === spvJadwalSort ? 'on' : ''}" onclick="setSpvJadwalSort('${s}',this)">${l}</button>`).join('');
   await Promise.all([renderSPVJadwal(), initSPVJadwalForm()]);
+}
+
+function setSpvJadwalSort(sort, el) {
+  spvJadwalSort = sort;
+  document.querySelectorAll('#spv-jadwal-sort-pills .vpill').forEach(b => b.classList.remove('on'));
+  if (el) el.classList.add('on');
+  renderSPVJadwal();
 }
 
 function setSPVJadwalUnitFilter(val) {
@@ -1979,21 +2006,23 @@ async function renderSPVJadwal() {
       return;
     }
     const priorityStyle = { HIGH: 'background:#FEE2E2;color:#DC2626;', MED: 'background:#FEF3C7;color:#D97706;', LOW: 'background:#DBEAFE;color:#2563EB;' };
-    container.innerHTML = '<div style="padding:0 14px 80px;">' + jos.map(jo => {
+
+    function buildJOCard(jo, hideUnitLine) {
       const pStyle = priorityStyle[jo.priority] || priorityStyle.MED;
       const stStyle = jo.status === 'in_progress' ? 'background:#DBEAFE;color:#1D4ED8;'
         : jo.status === 'pending' ? 'background:#FEF3C7;color:#D97706;'
         : 'background:#D1FAE5;color:#059669;';
-      const stLabel = jo.status === 'in_progress' ? 'Dikerjakan'
-        : jo.status === 'pending' ? 'Pending' : 'Terjadwal';
+      const stLabel = jo.status === 'in_progress' ? 'Dikerjakan' : jo.status === 'pending' ? 'Pending' : 'Terjadwal';
       const sr = jo.service_requests;
       const namaBarang = sr?.nama_barang;
       const desc = sr?.description;
-      return `<div class="m-card" style="margin:0 0 10px;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.06);" onclick="openJOEditModal('${jo.id}','${jo.jo_number}','${jo.scheduled_date||''}','${jo.priority}','${jo.assigned_mkn_id||''}','${jo.linked_sr_id||''}')">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      const unitLine = hideUnitLine ? '' : `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div style="font-size:15px;font-weight:800;color:#1E293B;">${jo.units?.code || '—'} &nbsp;|&nbsp; ${jo.units?.operator_name || '—'}</div>
           <span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;${stStyle}">${stLabel}</span>
-        </div>
+        </div>`;
+      const statusBadge = hideUnitLine ? `<div style="display:flex;justify-content:flex-end;margin-bottom:6px;"><span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;${stStyle}">${stLabel}</span></div>` : '';
+      return `<div class="m-card" style="margin:0 0 10px;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.06);" onclick="openJOEditModal('${jo.id}','${jo.jo_number}','${jo.scheduled_date||''}','${jo.priority}','${jo.assigned_mkn_id||''}','${jo.linked_sr_id||''}')">
+        ${statusBadge}${unitLine}
         <div style="font-size:14px;font-weight:700;color:#1E293B;margin-bottom:${namaBarang || desc ? '3px' : '6px'};">${jo.type}</div>
         ${namaBarang ? `<div style="font-size:13px;font-weight:600;color:#1D4ED8;margin-bottom:3px;">${namaBarang}</div>` : ''}
         ${desc ? `<div style="font-size:12px;color:#64748B;margin-bottom:8px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${desc}</div>` : ''}
@@ -2006,7 +2035,29 @@ async function renderSPVJadwal() {
           <span style="font-size:12px;color:#94A3B8;">&#8250;</span>
         </div>
       </div>`;
-    }).join('') + '</div>';
+    }
+
+    if (spvJadwalSort === 'unit') {
+      jos.sort((a, b) => (a.units?.code || '').localeCompare(b.units?.code || ''));
+      const groups = [];
+      let lastCode = null;
+      jos.forEach(jo => {
+        const code = jo.units?.code || '—';
+        if (code !== lastCode) { groups.push({ code, operator: jo.units?.operator_name || '—', items: [] }); lastCode = code; }
+        groups[groups.length - 1].items.push(jo);
+      });
+      container.innerHTML = '<div style="padding:0 14px 80px;">' + groups.map(g => `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 4px 4px;">
+          <div style="font-size:13px;font-weight:800;color:#1D4ED8;">${g.code}</div>
+          <div style="font-size:12px;color:#94A3B8;font-weight:500;">${g.operator}</div>
+          <div style="flex:1;height:1px;background:#E2E8F0;"></div>
+          <div style="font-size:11px;color:#94A3B8;">${g.items.length} JO</div>
+        </div>
+        ${g.items.map(jo => buildJOCard(jo, true)).join('')}
+      `).join('') + '</div>';
+    } else {
+      container.innerHTML = '<div style="padding:0 14px 80px;">' + jos.map(jo => buildJOCard(jo, false)).join('') + '</div>';
+    }
   } catch (e) {
     container.innerHTML = '<div style="padding:20px;text-align:center;color:#EF4444;font-size:14px;">Error: ' + e.message + '</div>';
   }
@@ -2669,6 +2720,13 @@ async function setAdminPipelineTab(tab) {
   await renderAdminSRTable();
 }
 
+function setAdminSRSort(sort, el) {
+  adminSRSort = sort;
+  document.getElementById('adm-sr-sort-date')?.classList.toggle('on', sort === 'date');
+  document.getElementById('adm-sr-sort-unit')?.classList.toggle('on', sort === 'unit');
+  renderAdminSRTable();
+}
+
 async function renderAdminSRTable() {
   const wrap = document.getElementById('adm-sr-table-wrap');
   if (!wrap) return;
@@ -2686,30 +2744,47 @@ async function renderAdminSRTable() {
       confirmed: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Tgl Selesai'],
     };
     const cols = colMap[adminPipelineTab] || ['SR#','Unit','Kategori','Urgensi','Status'];
+    const colCount = cols.length;
+
+    function buildSRRow(sr) {
+      const mknName = allMknProfiles.find(m => m.id === sr.assigned_mkn_id)?.name || '&mdash;';
+      let actions = '';
+      if (adminPipelineTab === 'pending_spv') {
+        actions = `<td><div style="display:flex;gap:6px;">
+          <button class="btn-success" style="padding:6px 10px;font-size:12px;" onclick="adminApproveSR('${sr.id}','${sr.sr_number}')">Setujui</button>
+          <button class="btn-danger" style="padding:6px 10px;font-size:12px;" onclick="adminRejectSR('${sr.id}','${sr.sr_number}')">Tolak</button>
+        </div></td>`;
+      } else if (adminPipelineTab === 'done_confirm') {
+        actions = `<td><button class="btn-success" style="padding:6px 10px;font-size:12px;" onclick="adminConfirmSR('${sr.id}')">Konfirmasi</button></td>`;
+      }
+      const rowBase = `<td style="font-weight:700;color:#1D4ED8;">${sr.sr_number}</td>
+        <td>${sr.units ? sr.units.code : '&mdash;'}</td>
+        <td>${sr.category}</td>`;
+      if (adminPipelineTab === 'pending_spv') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.created_at)}</td>${actions}</tr>`;
+      if (adminPipelineTab === 'approved_spv') return `<tr>${rowBase}<td>${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.created_at)}</td></tr>`;
+      if (adminPipelineTab === 'scheduled') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.scheduled_date)}</td><td>${mknName}</td></tr>`;
+      if (adminPipelineTab === 'in_progress') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td></tr>`;
+      if (adminPipelineTab === 'done_confirm') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td>${actions}</tr>`;
+      if (adminPipelineTab === 'confirmed') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.confirmed_at)}</td></tr>`;
+      return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${badge(sr.status)}</td></tr>`;
+    }
+
+    let rowsHtml = '';
+    if (adminSRSort === 'unit') {
+      const sorted = [...srs].sort((a, b) => (a.units?.code || '').localeCompare(b.units?.code || ''));
+      let lastCode = null;
+      sorted.forEach(sr => {
+        const code = sr.units?.code || '—';
+        if (code !== lastCode) { rowsHtml += `<tr class="grp"><td colspan="${colCount}" style="color:#1D4ED8;">${code}</td></tr>`; lastCode = code; }
+        rowsHtml += buildSRRow(sr);
+      });
+    } else {
+      rowsHtml = srs.map(sr => buildSRRow(sr)).join('');
+    }
+
     wrap.innerHTML = `<table class="dt">
       <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
-      <tbody>${srs.map(sr => {
-        const mknName = allMknProfiles.find(m => m.id === sr.assigned_mkn_id)?.name || '&mdash;';
-        let actions = '';
-        if (adminPipelineTab === 'pending_spv') {
-          actions = `<td><div style="display:flex;gap:6px;">
-            <button class="btn-success" style="padding:6px 10px;font-size:12px;" onclick="adminApproveSR('${sr.id}','${sr.sr_number}')">Setujui</button>
-            <button class="btn-danger" style="padding:6px 10px;font-size:12px;" onclick="adminRejectSR('${sr.id}','${sr.sr_number}')">Tolak</button>
-          </div></td>`;
-        } else if (adminPipelineTab === 'done_confirm') {
-          actions = `<td><button class="btn-success" style="padding:6px 10px;font-size:12px;" onclick="adminConfirmSR('${sr.id}')">Konfirmasi</button></td>`;
-        }
-        const rowBase = `<td style="font-weight:700;color:#1D4ED8;">${sr.sr_number}</td>
-          <td>${sr.units ? sr.units.code : '&mdash;'}</td>
-          <td>${sr.category}</td>`;
-        if (adminPipelineTab === 'pending_spv') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.created_at)}</td>${actions}</tr>`;
-        if (adminPipelineTab === 'approved_spv') return `<tr>${rowBase}<td>${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.created_at)}</td></tr>`;
-        if (adminPipelineTab === 'scheduled') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.scheduled_date)}</td><td>${mknName}</td></tr>`;
-        if (adminPipelineTab === 'in_progress') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td></tr>`;
-        if (adminPipelineTab === 'done_confirm') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td>${actions}</tr>`;
-        if (adminPipelineTab === 'confirmed') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.confirmed_at)}</td></tr>`;
-        return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${badge(sr.status)}</td></tr>`;
-      }).join('')}</tbody>
+      <tbody>${rowsHtml}</tbody>
     </table>`;
   } catch (e) { showToast('Error SR: ' + e.message); }
 }
@@ -2836,35 +2911,73 @@ async function renderAdminJadwal() {
   } catch (e) { showToast('Error jadwal: ' + e.message); }
 }
 
+function setAdminJadwalMKNSort(sort, el) {
+  adminJadwalMKNSort = sort;
+  document.getElementById('adm-jmkn-sort-mkn')?.classList.toggle('on', sort === 'mkn');
+  document.getElementById('adm-jmkn-sort-unit')?.classList.toggle('on', sort === 'unit');
+  loadAdminJadwalMKN();
+}
+
 async function loadAdminJadwalMKN() {
   const wrap = document.getElementById('adm-jadwalmkn-wrap');
   if (!wrap) return;
   wrap.innerHTML = '<div style="padding:30px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const { data: jos } = await sb.from('job_orders').select('id, jo_number, unit_id, type, status, priority, scheduled_date, assigned_mkn_id, units(code, name)').order('assigned_mkn_id').order('scheduled_date');
+    const { data: jos } = await sb.from('job_orders').select('id, jo_number, unit_id, type, status, priority, scheduled_date, assigned_mkn_id, units(code, name)').order('scheduled_date');
     if (!jos || jos.length === 0) { wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada job order.</div>'; return; }
-    // Group by MKN
-    const groups = {};
-    jos.forEach(jo => {
-      const mknName = allMknProfiles.find(m => m.id === jo.assigned_mkn_id)?.name || 'Unassigned';
-      if (!groups[mknName]) groups[mknName] = [];
-      groups[mknName].push(jo);
-    });
-    let html = `<table class="dt"><thead><tr><th>MKN</th><th>JO#</th><th>Unit</th><th>Tipe</th><th>Jadwal</th><th>Prioritas</th><th>Status</th></tr></thead><tbody>`;
-    Object.entries(groups).forEach(([mkn, joList]) => {
-      html += `<tr class="grp"><td colspan="7">${mkn}</td></tr>`;
-      joList.forEach(jo => {
-        html += `<tr>
-          <td></td>
-          <td style="font-weight:700;color:#1D4ED8;">${jo.jo_number}</td>
-          <td>${jo.units ? jo.units.code : '&mdash;'}</td>
-          <td>${jo.type}</td>
-          <td>${formatDate(jo.scheduled_date)}</td>
-          <td>${badge(jo.priority)}</td>
-          <td>${badge(jo.status)}</td>
-        </tr>`;
+    let html = '';
+    if (adminJadwalMKNSort === 'unit') {
+      const sorted = [...jos].sort((a, b) => (a.units?.code || '').localeCompare(b.units?.code || ''));
+      const groups = {};
+      sorted.forEach(jo => {
+        const unitCode = jo.units?.code || 'Unassigned';
+        if (!groups[unitCode]) groups[unitCode] = [];
+        groups[unitCode].push(jo);
       });
-    });
+      html = `<table class="dt"><thead><tr><th>Unit</th><th>JO#</th><th>Tipe</th><th>Jadwal</th><th>Prioritas</th><th>Status</th><th>MKN</th></tr></thead><tbody>`;
+      Object.entries(groups).forEach(([unit, joList]) => {
+        html += `<tr class="grp"><td colspan="7" style="color:#1D4ED8;">${unit}</td></tr>`;
+        joList.forEach(jo => {
+          const mknName = allMknProfiles.find(m => m.id === jo.assigned_mkn_id)?.name || '&mdash;';
+          html += `<tr>
+            <td></td>
+            <td style="font-weight:700;color:#1D4ED8;">${jo.jo_number}</td>
+            <td>${jo.type}</td>
+            <td>${formatDate(jo.scheduled_date)}</td>
+            <td>${badge(jo.priority)}</td>
+            <td>${badge(jo.status)}</td>
+            <td>${mknName}</td>
+          </tr>`;
+        });
+      });
+    } else {
+      const sortedByMKN = [...jos].sort((a, b) => {
+        const na = allMknProfiles.find(m => m.id === a.assigned_mkn_id)?.name || 'ZZZ';
+        const nb = allMknProfiles.find(m => m.id === b.assigned_mkn_id)?.name || 'ZZZ';
+        return na.localeCompare(nb);
+      });
+      const groups = {};
+      sortedByMKN.forEach(jo => {
+        const mknName = allMknProfiles.find(m => m.id === jo.assigned_mkn_id)?.name || 'Unassigned';
+        if (!groups[mknName]) groups[mknName] = [];
+        groups[mknName].push(jo);
+      });
+      html = `<table class="dt"><thead><tr><th>MKN</th><th>JO#</th><th>Unit</th><th>Tipe</th><th>Jadwal</th><th>Prioritas</th><th>Status</th></tr></thead><tbody>`;
+      Object.entries(groups).forEach(([mkn, joList]) => {
+        html += `<tr class="grp"><td colspan="7">${mkn}</td></tr>`;
+        joList.forEach(jo => {
+          html += `<tr>
+            <td></td>
+            <td style="font-weight:700;color:#1D4ED8;">${jo.jo_number}</td>
+            <td>${jo.units ? jo.units.code : '&mdash;'}</td>
+            <td>${jo.type}</td>
+            <td>${formatDate(jo.scheduled_date)}</td>
+            <td>${badge(jo.priority)}</td>
+            <td>${badge(jo.status)}</td>
+          </tr>`;
+        });
+      });
+    }
     html += '</tbody></table>';
     wrap.innerHTML = html;
   } catch (e) { showToast('Error jadwal MKN: ' + e.message); }
