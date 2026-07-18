@@ -258,6 +258,7 @@
       <div style="font-size:13px;color:#94A3B8;margin-top:2px;">Tap unit untuk lihat riwayat & jadwal</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:calc(100% - 32px);margin:0 16px 16px;box-sizing:border-box;" id="spv-stats"></div>
+    <div id="spv-hm-missing-section" style="margin:0 16px 12px;"></div>
     <div style="padding:0 16px 10px 16px;font-size:13px;font-weight:600;color:#94A3B8;letter-spacing:0.5px;text-transform:uppercase;">Unit &amp; Jadwal Servis</div>
     <div id="spv-unit-list" style="padding:0 16px 80px;"></div>
   </div>
@@ -493,6 +494,7 @@
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;" id="admin-stats"></div>
       <div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:14px;">Status Semua Unit</div>
       <div id="admin-unit-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
+      <div id="adm-hm-missing" style="margin-top:24px;"></div>
     </div>
 
     <!-- Admin Jadwal Maintenance -->
@@ -552,7 +554,7 @@
     <!-- Admin Import Data -->
     <div id="admin-screen-import" class="dscreen">
       <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:20px;">Import Data</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;">
         <!-- Units CSV -->
         <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
           <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Import Units</div>
@@ -577,6 +579,13 @@
           <div id="imp-log-preview" style="margin-top:12px;"></div>
           <button onclick="importCSV('log')" id="imp-log-btn" class="btn-primary" style="width:100%;margin-top:10px;display:none;">Import</button>
         </div>
+      </div>
+      <!-- Sync maintenance schedules -->
+      <div style="background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:16px;padding:20px;max-width:480px;">
+        <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Sinkronisasi Jadwal Maintenance</div>
+        <div style="font-size:12px;color:#64748B;margin-bottom:14px;">Perbarui <code>last_hm</code> di jadwal maintenance berdasarkan data service log yang sudah ada. Jalankan setelah import service log besar atau jika status jadwal terlihat tidak akurat.</div>
+        <button onclick="adminRunSyncSchedules(this)" id="adm-sync-sched-btn" class="btn-primary" style="background:#D97706;">Sync Jadwal dari Service Log</button>
+        <div id="adm-sync-sched-result" style="margin-top:10px;font-size:13px;color:#64748B;"></div>
       </div>
     </div>
 
@@ -718,7 +727,6 @@ function badge(status) {
     'DUE SOON': 'background:#FEF3C7;color:#D97706;',
     'OK': 'background:#DCFCE7;color:#16A34A;',
     'pending_spv': 'background:#FEF3C7;color:#D97706;',
-    'approved_spv': 'background:#DBEAFE;color:#2563EB;',
     'scheduled': 'background:#EDE9FE;color:#7C3AED;',
     'in_progress': 'background:#FEF3C7;color:#D97706;',
     'done_confirm': 'background:#DCFCE7;color:#16A34A;',
@@ -744,7 +752,7 @@ function badge(status) {
 
 function statusLabel(s) {
   const labels = {
-    'pending_spv': 'Pending SPV', 'approved_spv': 'Disetujui SPV',
+    'pending_spv': 'Pending SPV',
     'scheduled': 'Terjadwal', 'in_progress': 'Dikerjakan',
     'done_confirm': 'Konfirmasi', 'confirmed': 'Selesai', 'rejected': 'Ditolak',
     'pending': 'Pending', 'done': 'Selesai', 'approved': 'Disetujui',
@@ -1523,6 +1531,81 @@ async function syncMaintenanceSchedulesFromLog() {
   return updated;
 }
 
+async function adminRunSyncSchedules(btn) {
+  btn.disabled = true; btn.textContent = 'Memproses...';
+  const resultEl = document.getElementById('adm-sync-sched-result');
+  resultEl.textContent = '';
+  try {
+    const n = await syncMaintenanceSchedulesFromLog();
+    resultEl.style.color = '#16A34A';
+    resultEl.textContent = `Selesai: ${n} jadwal diperbarui.`;
+  } catch (e) {
+    resultEl.style.color = '#DC2626';
+    resultEl.textContent = 'Error: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Sync Jadwal dari Service Log';
+}
+
+async function loadHMMissing() {
+  const today = todayISO();
+  const [{ data: units }, { data: hmToday }] = await Promise.all([
+    sb.from('units').select('id, code, operator_name').order('code'),
+    sb.from('hm_updates').select('unit_id').gte('recorded_at', today + 'T00:00:00').lte('recorded_at', today + 'T23:59:59'),
+  ]);
+  if (!units) return [];
+  const submittedIds = new Set((hmToday || []).map(h => h.unit_id));
+  return units.filter(u => !submittedIds.has(u.id));
+}
+
+async function renderHMMissingForSPV() {
+  const el = document.getElementById('spv-hm-missing-section');
+  if (!el) return;
+  try {
+    const missing = await loadHMMissing();
+    if (missing.length === 0) {
+      el.innerHTML = `<div style="background:#DCFCE7;border:1.5px solid #86EFAC;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+        <svg width="18" height="18" fill="none" stroke="#16A34A" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div style="font-size:13px;font-weight:700;color:#16A34A;">Semua unit sudah update HM hari ini</div>
+      </div>`;
+      return;
+    }
+    const pills = missing.map(u => `<span style="display:inline-block;padding:4px 10px;background:#FEE2E2;color:#DC2626;border-radius:20px;font-size:12px;font-weight:700;margin:3px 2px;">${u.code}</span>`).join('');
+    el.innerHTML = `<div style="background:#FFF1F2;border:1.5px solid #FECACA;border-radius:14px;padding:12px 16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <svg width="18" height="18" fill="none" stroke="#DC2626" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div style="font-size:13px;font-weight:700;color:#DC2626;">${missing.length} unit belum update HM hari ini</div>
+      </div>
+      <div style="line-height:1.8;">${pills}</div>
+    </div>`;
+  } catch (e) { el.innerHTML = ''; }
+}
+
+async function renderHMMissingForAdmin() {
+  const el = document.getElementById('adm-hm-missing');
+  if (!el) return;
+  try {
+    const missing = await loadHMMissing();
+    if (missing.length === 0) {
+      el.innerHTML = `<div style="background:#DCFCE7;border:1.5px solid #86EFAC;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:10px;max-width:680px;">
+        <svg width="18" height="18" fill="none" stroke="#16A34A" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div style="font-size:13px;font-weight:700;color:#16A34A;">Semua unit sudah update HM hari ini</div>
+      </div>`;
+      return;
+    }
+    const rows = missing.map(u => `<tr>
+      <td style="font-weight:700;color:#DC2626;">${u.code}</td>
+      <td style="color:#64748B;">${u.operator_name || '&mdash;'}</td>
+    </tr>`).join('');
+    el.innerHTML = `<div style="font-size:15px;font-weight:700;color:#DC2626;margin-bottom:12px;">Unit Belum Update HM Hari Ini (${missing.length})</div>
+      <div class="table-wrap" style="max-width:400px;">
+        <table class="dt">
+          <thead><tr><th>Unit</th><th>Operator</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch (e) { el.innerHTML = ''; }
+}
+
 async function loadSPVStats() {
   try {
     const [[{ data: units }, { data: scheds }, { data: srs }], logMap] = await Promise.all([
@@ -1556,6 +1639,7 @@ async function loadSPVStats() {
         <div style="font-size:30px;font-weight:900;color:${s.color};line-height:1;">${s.value}</div>
         <div style="font-size:13px;color:#64748B;font-weight:600;margin-top:6px;">${s.label}</div>
       </div>`).join('');
+    renderHMMissingForSPV();
   } catch (e) { showToast('Error stats: ' + e.message); }
 }
 
@@ -1654,6 +1738,7 @@ async function openRiwayatForUnit(unitId) {
 
 const pipelineStages = ['pending_spv','scheduled','in_progress','done_confirm','confirmed'];
 const pipelineLabels = { pending_spv:'Pending SPV', scheduled:'Terjadwal', in_progress:'Dikerjakan', done_confirm:'Konfirmasi', confirmed:'Selesai' };
+// Note: approved_spv stage removed — flow now goes pending_spv → scheduled directly
 
 async function loadSPVPermintaan() {
   const tabsEl = document.getElementById('spv-pipeline-tabs');
@@ -2682,6 +2767,7 @@ async function loadAdminDashboard() {
         <div style="font-size:36px;font-weight:800;color:${s.color};">${s.value}</div>
         <div style="font-size:13px;color:#64748B;font-weight:600;">${s.label}</div>
       </div>`).join('');
+    renderHMMissingForAdmin();
     const gridEl = document.getElementById('admin-unit-grid');
     if (gridEl && units) {
       gridEl.innerHTML = units.map(u => {
@@ -2737,7 +2823,6 @@ async function renderAdminSRTable() {
     if (!srs || srs.length === 0) { wrap.innerHTML = '<div style="padding:30px;text-align:center;color:#94A3B8;">Tidak ada data.</div>'; return; }
     const colMap = {
       pending_spv: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Tanggal','Aksi'],
-      approved_spv: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Tanggal'],
       scheduled: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Jadwal','MKN'],
       in_progress: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN'],
       done_confirm: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Aksi'],
@@ -2761,7 +2846,6 @@ async function renderAdminSRTable() {
         <td>${sr.units ? sr.units.code : '&mdash;'}</td>
         <td>${sr.category}</td>`;
       if (adminPipelineTab === 'pending_spv') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.created_at)}</td>${actions}</tr>`;
-      if (adminPipelineTab === 'approved_spv') return `<tr>${rowBase}<td>${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.created_at)}</td></tr>`;
       if (adminPipelineTab === 'scheduled') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.scheduled_date)}</td><td>${mknName}</td></tr>`;
       if (adminPipelineTab === 'in_progress') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td></tr>`;
       if (adminPipelineTab === 'done_confirm') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td>${actions}</tr>`;
