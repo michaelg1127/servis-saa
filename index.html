@@ -343,45 +343,72 @@
   </div>
 
   <div id="spv-screen-catat" class="mscreen">
-    <div style="background:white;padding:16px 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
-      <div style="font-size:16px;font-weight:700;color:#1E293B;">Catat Servis</div>
-      <div style="font-size:13px;color:#94A3B8;margin-top:2px;">Input log servis langsung per unit</div>
+    <div style="background:white;padding:0 14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:10px;">
+      <div style="display:flex;border-bottom:2px solid #F1F5F9;">
+        <button id="spv-catat-tab-servis" onclick="switchCatatSubTab('servis')" style="flex:1;padding:14px 8px;border:none;background:none;font-size:14px;font-weight:700;color:#1D4ED8;border-bottom:2px solid #1D4ED8;margin-bottom:-2px;cursor:pointer;">Log Servis</button>
+        <button id="spv-catat-tab-hm" onclick="switchCatatSubTab('hm')" style="flex:1;padding:14px 8px;border:none;background:none;font-size:14px;font-weight:700;color:#94A3B8;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;">Update HM</button>
+      </div>
     </div>
-    <div class="m-card">
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Unit</label>
-        <select id="spv-log-unit" class="finput" onchange="loadSPVCatatTypes(this.value)"></select>
+
+    <!-- Sub-tab: Log Servis -->
+    <div id="spv-catat-servis" style="display:block;">
+      <div class="m-card">
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Unit</label>
+          <select id="spv-log-unit" class="finput" onchange="loadSPVCatatTypes(this.value)"></select>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Maintenance</label>
+          <input type="text" id="spv-log-type" class="finput" list="spv-types-datalist" placeholder="Ketik atau pilih dari daftar...">
+          <datalist id="spv-types-datalist"></datalist>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis</label>
+          <input type="number" id="spv-log-hm" class="finput" placeholder="Masukkan HM" step="1">
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis</label>
+          <input type="date" id="spv-log-date" class="finput">
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Mekanik</label>
+          <input type="text" id="spv-log-mekanik" class="finput" placeholder="Nama mekanik (opsional)">
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts Digunakan</label>
+          <textarea id="spv-log-parts" class="finput" placeholder="Daftar parts..."></textarea>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Biaya (IDR)</label>
+          <input type="number" id="spv-log-cost" class="finput" placeholder="0">
+        </div>
+        <div style="margin-bottom:18px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label>
+          <textarea id="spv-log-notes" class="finput" placeholder="Catatan tambahan..."></textarea>
+        </div>
+        <button onclick="submitSPVServiceLog()" class="btn-primary" style="width:100%;">Simpan Log Servis</button>
       </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Maintenance</label>
-        <input type="text" id="spv-log-type" class="finput" list="spv-types-datalist" placeholder="Ketik atau pilih dari daftar...">
-        <datalist id="spv-types-datalist"></datalist>
+    </div>
+
+    <!-- Sub-tab: Update HM -->
+    <div id="spv-catat-hm" style="display:none;">
+      <div class="m-card">
+        <div style="margin-bottom:6px;font-size:13px;color:#64748B;">Update HM harian untuk unit mana saja. Maks +200 HM dari HM saat ini.</div>
+        <div style="margin-bottom:14px;margin-top:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Unit</label>
+          <select id="spv-hm-unit" class="finput" onchange="loadSPVHMUnitInfo(this.value)"></select>
+        </div>
+        <div id="spv-hm-unit-info" style="background:#EFF6FF;border-radius:12px;padding:12px 14px;margin-bottom:14px;display:none;">
+          <div style="font-size:12px;color:#64748B;font-weight:600;">HM Saat Ini</div>
+          <div id="spv-hm-current-val" style="font-size:22px;font-weight:800;color:#1D4ED8;"></div>
+          <div id="spv-hm-today-note" style="font-size:12px;color:#16A34A;font-weight:600;margin-top:2px;"></div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM Baru</label>
+          <input type="number" id="spv-hm-input" class="finput" placeholder="Masukkan HM baru" step="1">
+        </div>
+        <button onclick="submitSPVHMUpdate()" class="btn-primary" style="width:100%;">Update HM</button>
       </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis</label>
-        <input type="number" id="spv-log-hm" class="finput" placeholder="Masukkan HM" step="1">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis</label>
-        <input type="date" id="spv-log-date" class="finput">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Mekanik</label>
-        <input type="text" id="spv-log-mekanik" class="finput" placeholder="Nama mekanik (opsional)">
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts Digunakan</label>
-        <textarea id="spv-log-parts" class="finput" placeholder="Daftar parts..."></textarea>
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Biaya (IDR)</label>
-        <input type="number" id="spv-log-cost" class="finput" placeholder="0">
-      </div>
-      <div style="margin-bottom:18px;">
-        <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label>
-        <textarea id="spv-log-notes" class="finput" placeholder="Catatan tambahan..."></textarea>
-      </div>
-      <button onclick="submitSPVServiceLog()" class="btn-primary" style="width:100%;">Simpan Log Servis</button>
     </div>
   </div>
 
@@ -993,7 +1020,7 @@ async function submitHMUpdate() {
   if (!val || val <= 0) { showToast('Masukkan nilai HM yang valid.'); return; }
   const prev = currentUnit.current_hm || 0;
   if (val <= prev) { showToast(`HM harus lebih dari HM sekarang (${fmtHM(prev)}).`); return; }
-  if (val > prev + 100) { showToast(`Maksimal 100 HM di atas HM sekarang. Batas: ${fmtHM(prev + 100)}.`); return; }
+  if (val > prev + 200) { showToast(`Maksimal 200 HM di atas HM sekarang. Batas: ${fmtHM(prev + 200)}.`); return; }
   try {
     const { error: e1 } = await sb.from('hm_updates').insert({ unit_id: currentUnit.id, hm_value: val, recorded_by: currentProfile.id, recorded_at: new Date().toISOString() });
     if (e1) throw e1;
@@ -2337,6 +2364,74 @@ function switchSpvScreen(name, el) {
   if (name === 'jadwal') renderSPVJadwal();
   if (name === 'riwayat') initSPVRiwayat();
   if (name === 'catat') initSPVCatat();
+}
+
+function switchCatatSubTab(tab) {
+  const isServis = tab === 'servis';
+  document.getElementById('spv-catat-servis').style.display = isServis ? 'block' : 'none';
+  document.getElementById('spv-catat-hm').style.display = isServis ? 'none' : 'block';
+  const tServis = document.getElementById('spv-catat-tab-servis');
+  const tHm = document.getElementById('spv-catat-tab-hm');
+  tServis.style.color = isServis ? '#1D4ED8' : '#94A3B8';
+  tServis.style.borderBottomColor = isServis ? '#1D4ED8' : 'transparent';
+  tHm.style.color = isServis ? '#94A3B8' : '#1D4ED8';
+  tHm.style.borderBottomColor = isServis ? 'transparent' : '#1D4ED8';
+  if (!isServis) initSPVHMTab();
+}
+
+async function initSPVHMTab() {
+  const sel = document.getElementById('spv-hm-unit');
+  if (!sel) return;
+  if (sel.options.length <= 1) {
+    try {
+      const { data: units } = await sb.from('units').select('id, code, name, current_hm').order('code');
+      if (units) sel.innerHTML = '<option value="">-- Pilih Unit --</option>' + units.map(u => `<option value="${u.id}" data-hm="${u.current_hm || 0}">${u.code} — ${u.name}</option>`).join('');
+    } catch (e) {}
+  }
+  document.getElementById('spv-hm-unit-info').style.display = 'none';
+  document.getElementById('spv-hm-input').value = '';
+}
+
+async function loadSPVHMUnitInfo(unitId) {
+  const infoEl = document.getElementById('spv-hm-unit-info');
+  const valEl = document.getElementById('spv-hm-current-val');
+  const noteEl = document.getElementById('spv-hm-today-note');
+  document.getElementById('spv-hm-input').value = '';
+  if (!unitId) { infoEl.style.display = 'none'; return; }
+  try {
+    const today = todayISO();
+    const [{ data: unit }, { data: hmToday }] = await Promise.all([
+      sb.from('units').select('current_hm').eq('id', unitId).single(),
+      sb.from('hm_updates').select('id').eq('unit_id', unitId).gte('recorded_at', today + 'T00:00:00').lte('recorded_at', today + 'T23:59:59'),
+    ]);
+    valEl.textContent = fmtHM(unit?.current_hm || 0) + ' HM';
+    noteEl.textContent = (hmToday && hmToday.length > 0) ? 'Sudah update hari ini' : '';
+    infoEl.style.display = 'block';
+  } catch (e) { infoEl.style.display = 'none'; }
+}
+
+async function submitSPVHMUpdate() {
+  const sel = document.getElementById('spv-hm-unit');
+  const unitId = sel.value;
+  const val = parseInt(document.getElementById('spv-hm-input').value);
+  if (!unitId) { showToast('Pilih unit terlebih dahulu.'); return; }
+  if (!val || val <= 0) { showToast('Masukkan nilai HM yang valid.'); return; }
+  try {
+    const { data: unit } = await sb.from('units').select('current_hm, code').eq('id', unitId).single();
+    const prev = unit?.current_hm || 0;
+    if (val <= prev) { showToast(`HM harus lebih dari HM sekarang (${fmtHM(prev)}).`); return; }
+    if (val > prev + 200) { showToast(`Maksimal 200 HM di atas HM sekarang. Batas: ${fmtHM(prev + 200)}.`); return; }
+    const { error } = await sb.from('hm_updates').insert({ unit_id: unitId, hm_value: val, recorded_by: currentProfile.id, recorded_at: new Date().toISOString() });
+    if (error) throw error;
+    await sb.from('units').update({ current_hm: val }).eq('id', unitId).lt('current_hm', val);
+    showToast(`HM ${unit.code} berhasil diupdate ke ${fmtHM(val)}.`, 'success');
+    document.getElementById('spv-hm-input').value = '';
+    document.getElementById('spv-hm-current-val').textContent = fmtHM(val) + ' HM';
+    document.getElementById('spv-hm-today-note').textContent = 'Sudah update hari ini';
+    // refresh the unit dropdown data-hm
+    const opt = sel.querySelector(`option[value="${unitId}"]`);
+    if (opt) opt.dataset.hm = val;
+  } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
 async function initSPVCatat() {
