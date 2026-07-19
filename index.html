@@ -89,7 +89,28 @@
   .prog-label.done { color: #10B981; }
   .prog-label.active { color: #1D4ED8; font-weight: 700; }
   textarea.finput { resize: vertical; min-height: 90px; }
-  .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 224px; background: white; border-right: 1px solid #E2E8F0; padding: 20px 12px; overflow-y: auto; z-index: 50; }
+  .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 224px; background: white; border-right: 1px solid #E2E8F0; padding: 20px 12px; overflow-y: auto; z-index: 50; transition: transform 0.25s ease; }
+  /* ── Admin mobile ── */
+  .adm-mobile-header { display: none; position: sticky; top: 0; z-index: 60; background: white; border-bottom: 1px solid #E2E8F0; padding: 13px 16px; align-items: center; gap: 12px; min-height: 56px; }
+  .adm-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 49; }
+  @media (max-width: 768px) {
+    .adm-mobile-header { display: flex; }
+    .sidebar { transform: translateX(-240px); box-shadow: none; }
+    .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.18); }
+    .adm-drawer-overlay.open { display: block; }
+    .desk-content { margin-left: 0 !important; padding: 16px !important; padding-top: 12px !important; }
+    #admin-stats { grid-template-columns: 1fr 1fr !important; }
+    #admin-unit-grid { grid-template-columns: 1fr !important; }
+    #adm-hm-missing .table-wrap { max-width: 100% !important; }
+    #adm-import-grid { grid-template-columns: 1fr !important; }
+    #adm-export-grid { grid-template-columns: 1fr !important; max-width: 100% !important; }
+    #adm-unit-layout { grid-template-columns: 1fr !important; }
+    #adm-riwayat-layout { grid-template-columns: 1fr !important; }
+    #admin-screen-jadwal > div:first-child,
+    #admin-screen-permintaan > div:first-child,
+    #admin-screen-jadwalmkn > div:first-child,
+    #admin-screen-pengguna > div:first-child { flex-wrap: wrap; gap: 10px !important; }
+  }
   .table-wrap { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 6px rgba(0,0,0,0.07); background: white; }
   /* ── Sticky mobile screen headers ── */
   #view-spv .mscreen > div:first-child,
@@ -488,6 +509,19 @@
 
 <!-- ===== ADMIN DESKTOP VIEW ===== -->
 <div id="view-admin" style="display:none;">
+  <!-- Mobile header (hidden on desktop) -->
+  <div class="adm-mobile-header" id="adm-mobile-header">
+    <button onclick="toggleAdminDrawer()" style="background:none;border:none;padding:6px;cursor:pointer;display:flex;align-items:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;">
+      <svg width="22" height="22" fill="none" stroke="#1E293B" stroke-width="2.5" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:14px;font-weight:800;color:#1E3A8A;line-height:1.2;">SERVIS SAA</div>
+      <div id="adm-mobile-screen-name" style="font-size:11px;color:#94A3B8;margin-top:1px;">Dashboard</div>
+    </div>
+    <div id="adm-mobile-user" style="font-size:12px;font-weight:700;color:#1D4ED8;text-align:right;"></div>
+  </div>
+  <!-- Drawer overlay -->
+  <div class="adm-drawer-overlay" id="adm-drawer-overlay" onclick="closeAdminDrawer()"></div>
   <div class="sidebar">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;padding:4px 6px;">
       <img src="data:image/png;base64,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" style="width:38px;height:auto;">
@@ -554,7 +588,7 @@
     <div id="admin-screen-riwayat" class="dscreen">
       <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:16px;">Riwayat Per Unit</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="adm-unit-pills"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div id="adm-riwayat-layout" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div>
           <div style="font-weight:700;color:#374151;margin-bottom:10px;font-size:14px;">Jadwal Maintenance</div>
           <div class="table-wrap" id="adm-riwayat-schedule"></div>
@@ -581,7 +615,7 @@
     <!-- Admin Import Data -->
     <div id="admin-screen-import" class="dscreen">
       <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:20px;">Import Data</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;">
+      <div id="adm-import-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;">
         <!-- Units CSV -->
         <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
           <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Import Units</div>
@@ -619,7 +653,7 @@
     <!-- Admin Export Data -->
     <div id="admin-screen-export" class="dscreen">
       <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:20px;">Export Data</div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-width:600px;">
+      <div id="adm-export-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-width:600px;">
         <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
           <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:6px;">Service Log</div>
           <div style="font-size:12px;color:#64748B;margin-bottom:14px;">Export semua riwayat servis ke CSV</div>
@@ -648,7 +682,7 @@
     <!-- Admin Kelola Unit -->
     <div id="admin-screen-unit" class="dscreen">
       <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:20px;">Kelola Unit</div>
-      <div style="display:grid;grid-template-columns:340px 1fr;gap:20px;">
+      <div id="adm-unit-layout" style="display:grid;grid-template-columns:340px 1fr;gap:20px;">
         <div style="background:white;border-radius:16px;padding:20px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
           <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:16px;" id="unit-form-title">Tambah Unit Baru</div>
           <div style="margin-bottom:12px;">
@@ -945,17 +979,13 @@ async function routeByRole() {
     show('pending-screen', 'flex');
     return;
   }
-  if (role === 'admin') {
-    if (isMobile) {
-      document.getElementById('wrong-device-icon').textContent = 'ðŸ’»';
-      document.getElementById('wrong-device-title').textContent = 'Gunakan Desktop';
-      document.getElementById('wrong-device-msg').textContent = 'Tampilan Admin hanya tersedia di desktop/laptop.';
-      show('wrong-device-screen', 'flex');
-    } else {
-      show('view-admin');
-      document.getElementById('admin-name-label').textContent = currentProfile.name || currentUser.email;
-      await loadAdminData();
-    }
+  if (role === ‘admin’) {
+    show(‘view-admin’);
+    const displayName = currentProfile.name || currentUser.email;
+    document.getElementById(‘admin-name-label’).textContent = displayName;
+    const mobileUser = document.getElementById(‘adm-mobile-user’);
+    if (mobileUser) mobileUser.textContent = displayName;
+    await loadAdminData();
     return;
   }
   if (['operator','spv','mkn'].includes(role)) {
@@ -3598,12 +3628,29 @@ function switchAdmin(name, el) {
   const screen = document.getElementById('admin-screen-' + name);
   if (screen) screen.classList.add('on');
   if (el) el.classList.add('on');
+  closeAdminDrawer();
+  const labels = { dashboard:'Dashboard', jadwal:'Jadwal Maintenance', permintaan:'Permintaan Servis', riwayat:'Riwayat Per Unit', jadwalmkn:'Jadwal MKN', import:'Import Data', export:'Export Data', pengguna:'Kelola Pengguna', unit:'Kelola Unit' };
+  const nameEl = document.getElementById('adm-mobile-screen-name');
+  if (nameEl) nameEl.textContent = labels[name] || name;
   // Lazy load specific screens
   if (name === 'dashboard') loadAdminDashboard();
   if (name === 'pengguna') loadAdminUsers();
   if (name === 'jadwalmkn') loadAdminJadwalMKN();
   if (name === 'riwayat') initAdminRiwayat();
   if (name === 'jadwal') renderAdminJadwal();
+}
+
+function toggleAdminDrawer() {
+  const sidebar = document.querySelector('#view-admin .sidebar');
+  const overlay = document.getElementById('adm-drawer-overlay');
+  if (!sidebar) return;
+  const isOpen = sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', !isOpen);
+  overlay.classList.toggle('open', !isOpen);
+}
+function closeAdminDrawer() {
+  document.querySelector('#view-admin .sidebar')?.classList.remove('open');
+  document.getElementById('adm-drawer-overlay')?.classList.remove('open');
 }
 
 // ============================================================
