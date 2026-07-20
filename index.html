@@ -3177,9 +3177,17 @@ async function adminDeleteSR(srId, srNum) {
 
 async function doAdminDeleteSR(srId) {
   try {
-    await sb.from('job_orders').delete().eq('linked_sr_id', srId);
-    const { error } = await sb.from('service_requests').delete().eq('id', srId);
+    // Null out service_log references before deleting linked JO (FK NO ACTION)
+    const { data: linkedJOs } = await sb.from('job_orders').select('id').eq('linked_sr_id', srId);
+    if (linkedJOs && linkedJOs.length > 0) {
+      for (const jo of linkedJOs) {
+        await sb.from('service_log').update({ job_order_id: null }).eq('job_order_id', jo.id);
+      }
+      await sb.from('job_orders').delete().eq('linked_sr_id', srId);
+    }
+    const { data, error } = await sb.from('service_requests').delete().eq('id', srId).select();
     if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Akses ditolak (RLS). Hubungi admin.');
     closeModal();
     showToast('SR berhasil dihapus.', 'info');
     await renderAdminSRTable();
@@ -3198,8 +3206,11 @@ async function adminDeleteJO(joId, joNum) {
 
 async function doAdminDeleteJO(joId) {
   try {
-    const { error } = await sb.from('job_orders').delete().eq('id', joId);
+    // Null out service_log job_order_id before deleting (FK NO ACTION)
+    await sb.from('service_log').update({ job_order_id: null }).eq('job_order_id', joId);
+    const { data, error } = await sb.from('job_orders').delete().eq('id', joId).select();
     if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Akses ditolak (RLS). Hubungi admin.');
     closeModal();
     showToast('JO berhasil dihapus.', 'info');
     await loadAdminJadwalMKN();
