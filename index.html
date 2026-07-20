@@ -3061,11 +3061,11 @@ async function renderAdminSRTable() {
     if (srsErr) throw srsErr;
     if (!srs || srs.length === 0) { wrap.innerHTML = '<div style="padding:30px;text-align:center;color:#94A3B8;">Tidak ada data.</div>'; return; }
     const colMap = {
-      pending_spv: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Tanggal','Aksi'],
-      scheduled: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Jadwal','MKN'],
-      in_progress: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN'],
-      done_confirm: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Aksi'],
-      confirmed: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Tgl Selesai'],
+      pending_spv: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Tanggal','Aksi',''],
+      scheduled: ['SR#','Unit','Kategori','Deskripsi','Urgensi','Jadwal','MKN',''],
+      in_progress: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN',''],
+      done_confirm: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Aksi',''],
+      confirmed: ['SR#','Unit','Kategori','Deskripsi','Urgensi','MKN','Tgl Selesai',''],
     };
     const cols = colMap[adminPipelineTab] || ['SR#','Unit','Kategori','Urgensi','Status'];
     const colCount = cols.length;
@@ -3084,12 +3084,13 @@ async function renderAdminSRTable() {
       const rowBase = `<td style="font-weight:700;color:#1D4ED8;">${sr.sr_number}</td>
         <td>${sr.units ? sr.units.code : '&mdash;'}</td>
         <td>${sr.category}</td>`;
-      if (adminPipelineTab === 'pending_spv') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.created_at)}</td>${actions}</tr>`;
-      if (adminPipelineTab === 'scheduled') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.scheduled_date)}</td><td>${mknName}</td></tr>`;
-      if (adminPipelineTab === 'in_progress') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td></tr>`;
-      if (adminPipelineTab === 'done_confirm') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td>${actions}</tr>`;
-      if (adminPipelineTab === 'confirmed') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.confirmed_at)}</td></tr>`;
-      return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${badge(sr.status)}</td></tr>`;
+      const delBtn = `<td><button class="btn-danger" style="padding:5px 9px;font-size:12px;" onclick="adminDeleteSR('${sr.id}','${sr.sr_number}')">Hapus</button></td>`;
+      if (adminPipelineTab === 'pending_spv') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.created_at)}</td>${actions}${delBtn}</tr>`;
+      if (adminPipelineTab === 'scheduled') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${formatDate(sr.scheduled_date)}</td><td>${mknName}</td>${delBtn}</tr>`;
+      if (adminPipelineTab === 'in_progress') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td>${delBtn}</tr>`;
+      if (adminPipelineTab === 'done_confirm') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td>${actions}${delBtn}</tr>`;
+      if (adminPipelineTab === 'confirmed') return `<tr>${rowBase}<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sr.description}</td><td>${badge(sr.urgency)}</td><td>${mknName}</td><td>${formatDate(sr.confirmed_at)}</td>${delBtn}</tr>`;
+      return `<tr>${rowBase}<td>${badge(sr.urgency)}</td><td>${badge(sr.status)}</td>${delBtn}</tr>`;
     }
 
     let rowsHtml = '';
@@ -3162,6 +3163,47 @@ async function doAdminRejectSR(srId) {
     if (error) throw error;
     closeModal(); showToast('Ditolak.', 'info');
     await renderAdminSRTable(); await loadAdminDashboard();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function adminDeleteSR(srId, srNum) {
+  showModal('<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Hapus SR: ' + srNum + '</div>' +
+    '<div style="color:#64748B;font-size:13px;margin-bottom:16px;">SR ini dan Job Order yang terhubung (jika ada) akan dihapus permanen.</div>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<button onclick="doAdminDeleteSR(' + "'" + srId + "'" + ')" class="btn-danger" style="flex:1;">Hapus</button>' +
+    '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>' +
+    '</div>');
+}
+
+async function doAdminDeleteSR(srId) {
+  try {
+    await sb.from('job_orders').delete().eq('linked_sr_id', srId);
+    const { error } = await sb.from('service_requests').delete().eq('id', srId);
+    if (error) throw error;
+    closeModal();
+    showToast('SR berhasil dihapus.', 'info');
+    await renderAdminSRTable();
+    await loadAdminDashboard();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function adminDeleteJO(joId, joNum) {
+  showModal('<div style="font-size:16px;font-weight:700;margin-bottom:12px;">Hapus JO: ' + joNum + '</div>' +
+    '<div style="color:#64748B;font-size:13px;margin-bottom:16px;">Job Order ini akan dihapus permanen.</div>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<button onclick="doAdminDeleteJO(' + "'" + joId + "'" + ')" class="btn-danger" style="flex:1;">Hapus</button>' +
+    '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>' +
+    '</div>');
+}
+
+async function doAdminDeleteJO(joId) {
+  try {
+    const { error } = await sb.from('job_orders').delete().eq('id', joId);
+    if (error) throw error;
+    closeModal();
+    showToast('JO berhasil dihapus.', 'info');
+    await loadAdminJadwalMKN();
+    await loadAdminDashboard();
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
@@ -3257,9 +3299,9 @@ async function loadAdminJadwalMKN() {
         if (!groups[unitCode]) groups[unitCode] = [];
         groups[unitCode].push(jo);
       });
-      html = `<table class="dt"><thead><tr><th>Unit</th><th>JO#</th><th>Tipe</th><th>Jadwal</th><th>Prioritas</th><th>Status</th><th>MKN</th></tr></thead><tbody>`;
+      html = `<table class="dt"><thead><tr><th>Unit</th><th>JO#</th><th>Tipe</th><th>Jadwal</th><th>Prioritas</th><th>Status</th><th>MKN</th><th></th></tr></thead><tbody>`;
       Object.entries(groups).forEach(([unit, joList]) => {
-        html += `<tr class="grp"><td colspan="7" style="color:#1D4ED8;">${unit}</td></tr>`;
+        html += `<tr class="grp"><td colspan="8" style="color:#1D4ED8;">${unit}</td></tr>`;
         joList.forEach(jo => {
           const mknName = allMknProfiles.find(m => m.id === jo.assigned_mkn_id)?.name || '&mdash;';
           html += `<tr>
@@ -3270,6 +3312,7 @@ async function loadAdminJadwalMKN() {
             <td>${badge(jo.priority)}</td>
             <td>${badge(jo.status)}</td>
             <td>${mknName}</td>
+            <td><button class="btn-danger" style="padding:5px 9px;font-size:12px;" onclick="adminDeleteJO('${jo.id}','${jo.jo_number}')">Hapus</button></td>
           </tr>`;
         });
       });
@@ -3285,9 +3328,9 @@ async function loadAdminJadwalMKN() {
         if (!groups[mknName]) groups[mknName] = [];
         groups[mknName].push(jo);
       });
-      html = `<table class="dt"><thead><tr><th>MKN</th><th>JO#</th><th>Unit</th><th>Tipe</th><th>Jadwal</th><th>Prioritas</th><th>Status</th></tr></thead><tbody>`;
+      html = `<table class="dt"><thead><tr><th>MKN</th><th>JO#</th><th>Unit</th><th>Tipe</th><th>Jadwal</th><th>Prioritas</th><th>Status</th><th></th></tr></thead><tbody>`;
       Object.entries(groups).forEach(([mkn, joList]) => {
-        html += `<tr class="grp"><td colspan="7">${mkn}</td></tr>`;
+        html += `<tr class="grp"><td colspan="8">${mkn}</td></tr>`;
         joList.forEach(jo => {
           html += `<tr>
             <td></td>
@@ -3297,6 +3340,7 @@ async function loadAdminJadwalMKN() {
             <td>${formatDate(jo.scheduled_date)}</td>
             <td>${badge(jo.priority)}</td>
             <td>${badge(jo.status)}</td>
+            <td><button class="btn-danger" style="padding:5px 9px;font-size:12px;" onclick="adminDeleteJO('${jo.id}','${jo.jo_number}')">Hapus</button></td>
           </tr>`;
         });
       });
