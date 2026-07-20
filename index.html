@@ -722,12 +722,21 @@
       <div style="max-width:600px;background:white;border-radius:16px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
         <div style="margin-bottom:14px;">
           <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Unit <span style="color:#EF4444;">*</span></label>
-          <select id="adm-catat-unit" class="finput" onchange="loadAdminCatatTypes(this.value)"></select>
+          <select id="adm-catat-unit" class="finput" onchange="onAdminCatatUnitChange(this.value)"></select>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Kategori Maintenance <span style="color:#EF4444;">*</span></label>
+          <select id="adm-catat-category" class="finput" onchange="switchAdminCatatCategory(this.value)">
+            <option value="terjadwal">Terjadwal</option>
+            <option value="undercarriage">Undercarriage</option>
+            <option value="solenoid">Solenoid</option>
+            <option value="pengelasan">Pengelasan</option>
+            <option value="sealkit">Seal Kit</option>
+          </select>
         </div>
         <div style="margin-bottom:14px;">
           <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Maintenance <span style="color:#EF4444;">*</span></label>
-          <input type="text" id="adm-catat-type" class="finput" list="adm-catat-types-datalist" placeholder="Ketik atau pilih dari daftar...">
-          <datalist id="adm-catat-types-datalist"></datalist>
+          <select id="adm-catat-type" class="finput"></select>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
           <div>
@@ -2523,12 +2532,14 @@ async function initAdminCatat() {
   document.getElementById('adm-catat-date').value = todayISO();
   const dl = document.getElementById('adm-catat-mkn-datalist');
   if (dl && allMknProfiles.length) dl.innerHTML = allMknProfiles.map(p => '<option value="' + (p.name || '') + '">').join('');
+  const catSel = document.getElementById('adm-catat-category');
+  if (catSel) catSel.value = 'terjadwal';
   await loadAdminCatatTypes('');
 }
 
 async function loadAdminCatatTypes(unitId) {
-  const dl = document.getElementById('adm-catat-types-datalist');
-  if (!dl) return;
+  const sel = document.getElementById('adm-catat-type');
+  if (!sel) return;
   try {
     let types = [];
     if (unitId) {
@@ -2540,10 +2551,33 @@ async function loadAdminCatatTypes(unitId) {
       types = [...new Set((all || []).map(s => s.type_name))];
     }
     if (types.length === 0) types = COMMON_MAINTENANCE_TYPES;
-    dl.innerHTML = types.map(t => '<option value="' + t + '">').join('');
+    sel.innerHTML = types.map(t => '<option value="' + t + '">' + t + '</option>').join('');
   } catch (e) {
-    dl.innerHTML = COMMON_MAINTENANCE_TYPES.map(t => '<option value="' + t + '">').join('');
+    sel.innerHTML = COMMON_MAINTENANCE_TYPES.map(t => '<option value="' + t + '">' + t + '</option>').join('');
   }
+}
+
+function switchAdminCatatCategory(cat) {
+  const sel = document.getElementById('adm-catat-type');
+  if (!sel) return;
+  const CATS = {
+    undercarriage: ['Roller','Tracklink','Shoe'],
+    solenoid: ['Pompa','Bucket','Boom','Travel','Arm'],
+    pengelasan: ['Perbaikan Bucket','Kuku Bucket','Capit Udang','Chassis','Dudukan Roller'],
+    sealkit: ['Seal Bucket','Seal Arm','Seal Boom'],
+  };
+  if (cat === 'terjadwal') {
+    const unitId = document.getElementById('adm-catat-unit').value;
+    loadAdminCatatTypes(unitId);
+  } else {
+    const items = CATS[cat] || [];
+    sel.innerHTML = items.map(t => '<option value="' + t + '">' + t + '</option>').join('');
+  }
+}
+
+function onAdminCatatUnitChange(unitId) {
+  const cat = document.getElementById('adm-catat-category');
+  if (!cat || cat.value === 'terjadwal') loadAdminCatatTypes(unitId);
 }
 
 async function submitAdminServiceLog() {
@@ -2567,7 +2601,9 @@ async function submitAdminServiceLog() {
     await sb.from('maintenance_schedules').update({ last_hm: hm, last_date: date }).eq('unit_id', unitId).eq('type_name', mType);
     showToast('Log servis berhasil disimpan!', 'success');
     document.getElementById('adm-catat-unit').value = '';
-    document.getElementById('adm-catat-type').value = '';
+    const resetCat = document.getElementById('adm-catat-category');
+    if (resetCat) resetCat.value = 'terjadwal';
+    await loadAdminCatatTypes('');
     document.getElementById('adm-catat-hm').value = '';
     document.getElementById('adm-catat-mekanik').value = '';
     document.getElementById('adm-catat-parts').value = '';
