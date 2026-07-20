@@ -979,11 +979,11 @@ async function routeByRole() {
     show('pending-screen', 'flex');
     return;
   }
-  if (role === ‘admin’) {
-    show(‘view-admin’);
+  if (role === 'admin') {
+    show('view-admin');
     const displayName = currentProfile.name || currentUser.email;
-    document.getElementById(‘admin-name-label’).textContent = displayName;
-    const mobileUser = document.getElementById(‘adm-mobile-user’);
+    document.getElementById('admin-name-label').textContent = displayName;
+    const mobileUser = document.getElementById('adm-mobile-user');
     if (mobileUser) mobileUser.textContent = displayName;
     await loadAdminData();
     return;
