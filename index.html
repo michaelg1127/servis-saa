@@ -543,6 +543,7 @@
     <div class="slink" onclick="switchAdmin('export',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Export Data</div>
     <div class="slink" onclick="switchAdmin('pengguna',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>Kelola Pengguna</div>
     <div class="slink" onclick="switchAdmin('unit',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h5l3 5v3h-8V8zM5.5 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm11 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>Kelola Unit</div>
+    <div class="slink" onclick="switchAdmin('catat',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Catat Servis</div>
     <div style="position:absolute;bottom:16px;left:12px;right:12px;">
       <button onclick="doLogout()" class="btn-secondary" style="width:100%;font-size:13px;">Keluar</button>
     </div>
@@ -712,6 +713,50 @@
           <button onclick="cancelUnitEdit()" class="btn-secondary" style="width:100%;margin-top:8px;display:none;" id="uf-cancel-btn">Batal</button>
         </div>
         <div class="table-wrap" id="adm-unit-table-wrap"></div>
+      </div>
+    </div>
+
+    <!-- Admin Catat Servis -->
+    <div id="admin-screen-catat" class="dscreen">
+      <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:20px;">Catat Servis</div>
+      <div style="max-width:600px;background:white;border-radius:16px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Unit <span style="color:#EF4444;">*</span></label>
+          <select id="adm-catat-unit" class="finput" onchange="loadAdminCatatTypes(this.value)"></select>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tipe Maintenance <span style="color:#EF4444;">*</span></label>
+          <input type="text" id="adm-catat-type" class="finput" list="adm-catat-types-datalist" placeholder="Ketik atau pilih dari daftar...">
+          <datalist id="adm-catat-types-datalist"></datalist>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+          <div>
+            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Servis <span style="color:#EF4444;">*</span></label>
+            <input type="number" id="adm-catat-hm" class="finput" placeholder="Masukkan HM" step="1">
+          </div>
+          <div>
+            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Servis <span style="color:#EF4444;">*</span></label>
+            <input type="date" id="adm-catat-date" class="finput">
+          </div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Mekanik</label>
+          <input type="text" id="adm-catat-mekanik" class="finput" list="adm-catat-mkn-datalist" placeholder="Nama mekanik (opsional)">
+          <datalist id="adm-catat-mkn-datalist"></datalist>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Parts Digunakan</label>
+          <textarea id="adm-catat-parts" class="finput" placeholder="Daftar parts..." rows="3"></textarea>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Biaya (IDR)</label>
+          <input type="number" id="adm-catat-cost" class="finput" placeholder="0">
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label>
+          <textarea id="adm-catat-notes" class="finput" placeholder="Catatan tambahan..." rows="3"></textarea>
+        </div>
+        <button onclick="submitAdminServiceLog()" class="btn-primary" style="width:100%;padding:13px;font-size:15px;font-weight:700;">Simpan Log Servis</button>
       </div>
     </div>
   </div>
@@ -2464,6 +2509,75 @@ async function submitSPVHMUpdate() {
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
+
+// ============================================================
+// ADMIN CATAT SERVIS
+// ============================================================
+async function initAdminCatat() {
+  const unitSel = document.getElementById('adm-catat-unit');
+  if (!unitSel) return;
+  if (unitSel.options.length <= 1) {
+    const { data: units } = await sb.from('units').select('id, code, name').order('code');
+    if (units) unitSel.innerHTML = '<option value="">-- Pilih Unit --</option>' + units.map(u => '<option value="' + u.id + '">' + u.code + ' — ' + u.name + '</option>').join('');
+  }
+  document.getElementById('adm-catat-date').value = todayISO();
+  const dl = document.getElementById('adm-catat-mkn-datalist');
+  if (dl && allMknProfiles.length) dl.innerHTML = allMknProfiles.map(p => '<option value="' + (p.name || '') + '">').join('');
+  await loadAdminCatatTypes('');
+}
+
+async function loadAdminCatatTypes(unitId) {
+  const dl = document.getElementById('adm-catat-types-datalist');
+  if (!dl) return;
+  try {
+    let types = [];
+    if (unitId) {
+      const { data } = await sb.from('maintenance_schedules').select('type_name').eq('unit_id', unitId).order('type_name');
+      types = (data || []).map(s => s.type_name);
+    }
+    if (types.length === 0) {
+      const { data: all } = await sb.from('maintenance_schedules').select('type_name').order('type_name');
+      types = [...new Set((all || []).map(s => s.type_name))];
+    }
+    if (types.length === 0) types = COMMON_MAINTENANCE_TYPES;
+    dl.innerHTML = types.map(t => '<option value="' + t + '">').join('');
+  } catch (e) {
+    dl.innerHTML = COMMON_MAINTENANCE_TYPES.map(t => '<option value="' + t + '">').join('');
+  }
+}
+
+async function submitAdminServiceLog() {
+  const unitId = document.getElementById('adm-catat-unit').value;
+  const mType = document.getElementById('adm-catat-type').value.trim();
+  const hm = parseInt(document.getElementById('adm-catat-hm').value);
+  const date = document.getElementById('adm-catat-date').value;
+  const mekanik = document.getElementById('adm-catat-mekanik').value.trim();
+  const parts = document.getElementById('adm-catat-parts').value.trim();
+  const cost = parseInt(document.getElementById('adm-catat-cost').value) || 0;
+  const notes = document.getElementById('adm-catat-notes').value.trim();
+  if (!unitId || !mType || !hm || !date) { showToast('Unit, Tipe, HM, dan Tanggal wajib diisi.'); return; }
+  try {
+    const { data: unit } = await sb.from('units').select('code').eq('id', unitId).single();
+    const { error } = await sb.from('service_log').insert({
+      unit_id: unitId, unit_code: unit ? unit.code : '',
+      maintenance_type: mType, hm_at_service: hm, service_date: date,
+      mkn_name: mekanik || null, parts_used: parts || null, cost_idr: cost, notes: notes || null,
+    });
+    if (error) throw error;
+    await sb.from('maintenance_schedules').update({ last_hm: hm, last_date: date }).eq('unit_id', unitId).eq('type_name', mType);
+    showToast('Log servis berhasil disimpan!', 'success');
+    document.getElementById('adm-catat-unit').value = '';
+    document.getElementById('adm-catat-type').value = '';
+    document.getElementById('adm-catat-hm').value = '';
+    document.getElementById('adm-catat-mekanik').value = '';
+    document.getElementById('adm-catat-parts').value = '';
+    document.getElementById('adm-catat-cost').value = '';
+    document.getElementById('adm-catat-notes').value = '';
+    document.getElementById('adm-catat-date').value = todayISO();
+    loadAdminDashboard();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
 async function initSPVCatat() {
   const unitSel = document.getElementById('spv-log-unit');
   if (!unitSel || unitSel.options.length > 1) {
@@ -3629,7 +3743,7 @@ function switchAdmin(name, el) {
   if (screen) screen.classList.add('on');
   if (el) el.classList.add('on');
   closeAdminDrawer();
-  const labels = { dashboard:'Dashboard', jadwal:'Jadwal Maintenance', permintaan:'Permintaan Servis', riwayat:'Riwayat Per Unit', jadwalmkn:'Jadwal MKN', import:'Import Data', export:'Export Data', pengguna:'Kelola Pengguna', unit:'Kelola Unit' };
+  const labels = { dashboard:'Dashboard', jadwal:'Jadwal Maintenance', permintaan:'Permintaan Servis', riwayat:'Riwayat Per Unit', jadwalmkn:'Jadwal MKN', import:'Import Data', export:'Export Data', pengguna:'Kelola Pengguna', unit:'Kelola Unit', catat:'Catat Servis' };
   const nameEl = document.getElementById('adm-mobile-screen-name');
   if (nameEl) nameEl.textContent = labels[name] || name;
   // Lazy load specific screens
@@ -3638,6 +3752,7 @@ function switchAdmin(name, el) {
   if (name === 'jadwalmkn') loadAdminJadwalMKN();
   if (name === 'riwayat') initAdminRiwayat();
   if (name === 'jadwal') renderAdminJadwal();
+  if (name === 'catat') initAdminCatat();
 }
 
 function toggleAdminDrawer() {
