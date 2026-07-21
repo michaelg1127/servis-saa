@@ -1658,13 +1658,15 @@ async function adminRunSyncSchedules(btn) {
 }
 
 async function loadHMMissing() {
-  const today = todayISO();
-  const [{ data: units }, { data: hmToday }] = await Promise.all([
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 2);
+  const cutoffISO = cutoff.toISOString().split('T')[0];
+  const [{ data: units }, { data: hmRecent }] = await Promise.all([
     sb.from('units').select('id, code, operator_name').order('code'),
-    sb.from('hm_updates').select('unit_id').gte('recorded_at', today + 'T00:00:00').lte('recorded_at', today + 'T23:59:59'),
+    sb.from('hm_updates').select('unit_id').gte('recorded_at', cutoffISO + 'T00:00:00'),
   ]);
   if (!units) return [];
-  const submittedIds = new Set((hmToday || []).map(h => h.unit_id));
+  const submittedIds = new Set((hmRecent || []).map(h => h.unit_id));
   return units.filter(u => !submittedIds.has(u.id));
 }
 
@@ -1676,7 +1678,7 @@ async function renderHMMissingForSPV() {
     if (missing.length === 0) {
       el.innerHTML = `<div style="background:#DCFCE7;border:1.5px solid #86EFAC;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
         <svg width="18" height="18" fill="none" stroke="#16A34A" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        <div style="font-size:13px;font-weight:700;color:#16A34A;">Semua unit sudah update HM hari ini</div>
+        <div style="font-size:13px;font-weight:700;color:#16A34A;">Semua unit sudah update HM dalam 3 hari terakhir</div>
       </div>`;
       return;
     }
@@ -1684,7 +1686,7 @@ async function renderHMMissingForSPV() {
     el.innerHTML = `<div style="background:#FFF1F2;border:1.5px solid #FECACA;border-radius:14px;padding:12px 16px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <svg width="18" height="18" fill="none" stroke="#DC2626" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <div style="font-size:13px;font-weight:700;color:#DC2626;">${missing.length} unit belum update HM hari ini</div>
+        <div style="font-size:13px;font-weight:700;color:#DC2626;">${missing.length} unit belum update HM dalam 3 hari terakhir</div>
       </div>
       <div style="line-height:1.8;">${pills}</div>
     </div>`;
@@ -1699,7 +1701,7 @@ async function renderHMMissingForAdmin() {
     if (missing.length === 0) {
       el.innerHTML = `<div style="background:#DCFCE7;border:1.5px solid #86EFAC;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:10px;max-width:680px;">
         <svg width="18" height="18" fill="none" stroke="#16A34A" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        <div style="font-size:13px;font-weight:700;color:#16A34A;">Semua unit sudah update HM hari ini</div>
+        <div style="font-size:13px;font-weight:700;color:#16A34A;">Semua unit sudah update HM dalam 3 hari terakhir</div>
       </div>`;
       return;
     }
@@ -1707,7 +1709,7 @@ async function renderHMMissingForAdmin() {
       <td style="font-weight:700;color:#DC2626;">${u.code}</td>
       <td style="color:#64748B;">${u.operator_name || '&mdash;'}</td>
     </tr>`).join('');
-    el.innerHTML = `<div style="font-size:15px;font-weight:700;color:#DC2626;margin-bottom:12px;">Unit Belum Update HM Hari Ini (${missing.length})</div>
+    el.innerHTML = `<div style="font-size:15px;font-weight:700;color:#DC2626;margin-bottom:12px;">Unit Belum Update HM 3 Hari Terakhir (${missing.length})</div>
       <div class="table-wrap" style="max-width:400px;">
         <table class="dt">
           <thead><tr><th>Unit</th><th>Operator</th></tr></thead>
