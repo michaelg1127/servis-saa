@@ -2561,7 +2561,7 @@ function switchAdminCatatCategory(cat) {
   const sel = document.getElementById('adm-catat-type');
   if (!sel) return;
   const CATS = {
-    undercarriage: ['Roller','Tracklink','Shoe'],
+    undercarriage: ['Roller','Tracklink','Shoe','Sprocket','Idler','Per Adjuster','Seal Adjuster','Piston Adj.','1 Set Adjuster'],
     solenoid: ['Pompa','Bucket','Boom','Travel','Arm'],
     pengelasan: ['Perbaikan Bucket','Kuku Bucket','Capit Udang','Chassis','Dudukan Roller'],
     sealkit: ['Seal Bucket','Seal Arm','Seal Boom'],
@@ -3818,9 +3818,18 @@ async function deleteUnit(id, code) {
 
 async function confirmDeleteUnit(id) {
   try {
-    await sb.from('maintenance_schedules').delete().eq('unit_id', id);
-    const { error } = await sb.from('units').delete().eq('id', id);
+    const { data: jos } = await sb.from('job_orders').select('id').eq('unit_id', id);
+    if (jos && jos.length > 0) {
+      const joIds = jos.map(j => j.id);
+      await sb.from('parts_requests').delete().in('job_order_id', joIds);
+      await sb.from('service_log').update({ job_order_id: null }).in('job_order_id', joIds);
+      await sb.from('job_orders').delete().eq('unit_id', id);
+    }
+    await sb.from('service_log').delete().eq('unit_id', id);
+    await sb.from('service_requests').delete().eq('unit_id', id);
+    const { data, error } = await sb.from('units').delete().eq('id', id).select();
     if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Akses ditolak (RLS).');
     closeModal(); showToast('Unit berhasil dihapus.', 'success');
     await loadAdminUnits(); await loadAdminDashboard();
   } catch (e) { showToast('Gagal: ' + e.message); }
