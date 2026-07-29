@@ -89,7 +89,7 @@
   .prog-label.done { color: #10B981; }
   .prog-label.active { color: #1D4ED8; font-weight: 700; }
   textarea.finput { resize: vertical; min-height: 90px; }
-  .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 224px; background: white; border-right: 1px solid #E2E8F0; padding: 20px 12px 16px; overflow-y: auto; z-index: 50; transition: transform 0.25s ease; }
+  .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 224px; background: white; border-right: 1px solid #E2E8F0; padding: 20px 12px 0; overflow: hidden; display: flex; flex-direction: column; z-index: 50; transition: transform 0.25s ease; }
   /* ── Admin mobile ── */
   .adm-mobile-header { display: none; position: sticky; top: 0; z-index: 60; background: white; border-bottom: 1px solid #E2E8F0; padding: 13px 16px; align-items: center; gap: 12px; min-height: 56px; }
   .adm-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 49; }
@@ -534,6 +534,7 @@
       <div style="font-size:12px;font-weight:700;color:#1D4ED8;" id="admin-name-label">&mdash;</div>
       <div style="font-size:11px;color:#64748B;">Administrator</div>
     </div>
+    <div style="flex:1;overflow-y:auto;margin:0 -12px;padding:0 12px;">
     <div class="slink on" onclick="switchAdmin('dashboard',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</div>
     <div class="slink" onclick="switchAdmin('jadwal',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Jadwal Maintenance</div>
     <div class="slink" onclick="switchAdmin('permintaan',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>Permintaan Servis</div>
@@ -545,7 +546,8 @@
     <div class="slink" onclick="switchAdmin('unit',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h5l3 5v3h-8V8zM5.5 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm11 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>Kelola Unit</div>
     <div class="slink" onclick="switchAdmin('catat',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Catat Servis</div>
     <div class="slink" onclick="switchAdmin('bbm',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z"/><line x1="7" y1="5" x2="7" y2="5"/><line x1="7" y1="12" x2="7" y2="12"/></svg>BBM</div>
-    <div style="position:sticky;bottom:16px;margin-top:16px;background:white;">
+    </div>
+    <div style="flex-shrink:0;padding:12px 0 4px;">
       <button onclick="doLogout()" class="btn-secondary" style="width:100%;font-size:13px;">Keluar</button>
     </div>
   </div>
