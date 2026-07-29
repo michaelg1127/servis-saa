@@ -869,6 +869,7 @@ let fuelBbmSubTab = 'status';
 let fuelRiwayatSort = 'date';
 let fuelRiwayatData = [];
 let fuelRiwayatFilters = { bunker: '', unit: '', project: '' };
+let fuelTankXferData = [];
 let bbmLastDispenseByUnit = {};
 const FUEL_TANKS = [{name:'hijau',label:'Tanki Hijau',cap:8000,color:'#16A34A'},{name:'merah',label:'Tanki Merah',cap:1500,color:'#DC2626'},{name:'kuning',label:'Tanki Kuning',cap:1500,color:'#CA8A04'}];
 
@@ -4203,10 +4204,16 @@ async function loadFuelStatus() {
   } catch(e) { el.innerHTML = '<div style="color:#DC2626;padding:16px;">Gagal load: ' + e.message + '</div>'; }
 }
 
-function openTankTransferModal() {
-  showModal('<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:16px;">Pindah Antar Tanki</div>' +
+async function openTankTransferModal() {
+  const { data: bunkers } = await sb.from('fuel_bunkers').select('id, bunker_code, tank_name, total_liters').order('delivery_date', { ascending: false });
+  const hijauBunkers = (bunkers || []).filter(b => b.tank_name === 'hijau');
+  const bunkerOptHtml = '<option value="">-- Pilih Bunker --</option>' + hijauBunkers.map(b => '<option value="' + b.id + '">' + b.bunker_code + ' (' + Number(b.total_liters).toLocaleString('id') + 'L)</option>').join('');
+  showModal(
+    '<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:16px;">Pindah Antar Tanki</div>' +
     '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Dari Tanki</label>' +
-    '<select id="tt-from" class="finput"><option value="">-- Pilih --</option><option value="hijau">Tanki Hijau</option><option value="merah">Tanki Merah</option><option value="kuning">Tanki Kuning</option></select></div>' +
+    '<select id="tt-from" class="finput" onchange="onTankFromChange()"><option value="">-- Pilih --</option><option value="hijau">Tanki Hijau</option><option value="merah">Tanki Merah</option><option value="kuning">Tanki Kuning</option></select></div>' +
+    '<div id="tt-bunker-row" style="display:none;margin-bottom:12px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Bunker <span style="color:#DC2626;">*</span></label>' +
+    '<select id="tt-bunker" class="finput">' + bunkerOptHtml + '</select></div>' +
     '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Ke Tanki</label>' +
     '<select id="tt-to" class="finput"><option value="">-- Pilih --</option><option value="hijau">Tanki Hijau</option><option value="merah">Tanki Merah</option><option value="kuning">Tanki Kuning</option></select></div>' +
     '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Volume (L)</label>' +
@@ -4215,7 +4222,14 @@ function openTankTransferModal() {
     '<input type="date" id="tt-date" class="finput" value="' + todayISO() + '"></div>' +
     '<div style="margin-bottom:16px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Catatan</label>' +
     '<textarea id="tt-notes" class="finput" rows="2" placeholder="Opsional..."></textarea></div>' +
-    '<div style="display:flex;gap:8px;"><button onclick="submitTankTransfer()" class="btn-primary" style="flex:1;">Simpan</button><button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button></div>');
+    '<div style="display:flex;gap:8px;"><button onclick="submitTankTransfer()" class="btn-primary" style="flex:1;">Simpan</button><button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button></div>'
+  );
+}
+
+function onTankFromChange() {
+  const from = document.getElementById('tt-from').value;
+  const row = document.getElementById('tt-bunker-row');
+  if (row) row.style.display = from === 'hijau' ? 'block' : 'none';
 }
 
 async function submitTankTransfer() {
@@ -4224,10 +4238,15 @@ async function submitTankTransfer() {
   const vol = parseFloat(document.getElementById('tt-vol').value);
   const date = document.getElementById('tt-date').value;
   const notes = document.getElementById('tt-notes').value.trim();
+  const bunkerEl = document.getElementById('tt-bunker');
+  const bunker_id = bunkerEl ? bunkerEl.value : '';
   if (!from_tank || !to_tank || !vol || !date) { showToast('Semua field wajib diisi.'); return; }
   if (from_tank === to_tank) { showToast('Tanki asal dan tujuan tidak boleh sama.'); return; }
+  if (from_tank === 'hijau' && !bunker_id) { showToast('Pilih bunker untuk transfer dari Tanki Hijau.'); return; }
   try {
-    const { error } = await sb.from('fuel_tank_transfers').insert({ from_tank, to_tank, volume_liters: vol, transfer_date: date, notes: notes || null });
+    const payload = { from_tank, to_tank, volume_liters: vol, transfer_date: date, notes: notes || null };
+    if (bunker_id) payload.bunker_id = bunker_id;
+    const { error } = await sb.from('fuel_tank_transfers').insert(payload);
     if (error) throw error;
     closeModal();
     showToast('Transfer berhasil dicatat.', 'success');
@@ -4451,6 +4470,16 @@ async function deletePengisian(dispenseId, transferId) {
   } catch(e) { showToast('Gagal hapus: ' + e.message); }
 }
 
+async function deleteTankTransfer(id) {
+  if (!confirm('Hapus transfer ini? Tindakan ini tidak bisa dibatalkan.')) return;
+  const { error } = await sb.from('fuel_tank_transfers').delete().eq('id', id);
+  if (error) { showToast('Gagal hapus: ' + error.message); return; }
+  showToast('Transfer berhasil dihapus.', 'success');
+  fuelTankXferData = fuelTankXferData.filter(r => r.id !== id);
+  renderFuelRiwayat();
+  loadFuelStatus();
+}
+
 async function calcLPerHr(unitId, hm, liters) {
   const { data } = await sb.from('fuel_dispenses').select('hm_at_fill').eq('unit_id', unitId).order('hm_at_fill', { ascending: false }).limit(1);
   if (!data || data.length === 0) return null;
@@ -4465,11 +4494,19 @@ async function loadFuelRiwayat() {
   if (!el) return;
   el.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const { data, error } = await sb.from('fuel_dispenses')
-      .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, project, notes, units(id, code, name), fuel_transfers(id, transfer_code, drum_name, fuel_bunkers(bunker_code))')
-      .order('dispense_date', { ascending: false }).order('created_at', { ascending: false });
-    if (error) throw error;
-    fuelRiwayatData = data || [];
+    const [{ data: dispenses, error: e1 }, { data: xfers, error: e2 }] = await Promise.all([
+      sb.from('fuel_dispenses')
+        .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, project, notes, units(id, code, name), fuel_transfers(id, transfer_code, drum_name, fuel_bunkers(bunker_code))')
+        .order('dispense_date', { ascending: false }).order('created_at', { ascending: false }),
+      sb.from('fuel_tank_transfers')
+        .select('id, from_tank, to_tank, volume_liters, transfer_date, notes, fuel_bunkers(bunker_code)')
+        .not('bunker_id', 'is', null)
+        .order('transfer_date', { ascending: false }).order('created_at', { ascending: false }),
+    ]);
+    if (e1) throw e1;
+    if (e2) throw e2;
+    fuelRiwayatData = (dispenses || []).map(r => ({ ...r, _type: 'dispense' }));
+    fuelTankXferData = (xfers || []).map(r => ({ ...r, _type: 'xfer' }));
     renderFuelRiwayat();
   } catch(e) { el.innerHTML = '<div style="color:#DC2626;padding:16px;">Gagal: ' + e.message + '</div>'; }
 }
@@ -4484,10 +4521,11 @@ function setFuelRiwayatSort(sort, el) {
 function renderFuelRiwayat() {
   const el = document.getElementById('bbm-panel-riwayat');
   if (!el) return;
-  const data = fuelRiwayatData;
-  const bunkerOpts = [...new Set(data.map(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : null).filter(Boolean))].sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; });
-  const unitOpts = [...new Set(data.map(r => r.units ? r.units.code : null).filter(Boolean))].sort();
-  const projectOpts = [...new Set(data.map(r => r.project).filter(Boolean))].sort();
+  const bunkerFromDisp = fuelRiwayatData.map(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : null);
+  const bunkerFromXfer = fuelTankXferData.map(r => r.fuel_bunkers ? r.fuel_bunkers.bunker_code : null);
+  const bunkerOpts = [...new Set([...bunkerFromDisp, ...bunkerFromXfer].filter(Boolean))].sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; });
+  const unitOpts = [...new Set(fuelRiwayatData.map(r => r.units ? r.units.code : null).filter(Boolean))].sort();
+  const projectOpts = [...new Set(fuelRiwayatData.map(r => r.project).filter(Boolean))].sort();
   const filterRow = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">' +
     '<select onchange="fuelRiwayatFilters.bunker=this.value;renderFuelRiwayat()" style="padding:6px 10px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;background:white;">' +
     '<option value="">Semua Bunker</option>' + bunkerOpts.map(b => '<option value="' + b + '"' + (fuelRiwayatFilters.bunker===b ? ' selected' : '') + '>' + b + '</option>').join('') + '</select>' +
@@ -4501,22 +4539,24 @@ function renderFuelRiwayat() {
     '<button class="filter-pill' + (fuelRiwayatSort==='unit' ? ' on' : '') + '" onclick="setFuelRiwayatSort(this.dataset.s,this)" data-s="unit">Per Unit</button>' +
     '<button class="filter-pill' + (fuelRiwayatSort==='bunker' ? ' on' : '') + '" onclick="setFuelRiwayatSort(this.dataset.s,this)" data-s="bunker">Per Bunker</button>' +
   '</div>';
-  let filtered = data;
-  if (fuelRiwayatFilters.bunker) filtered = filtered.filter(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers && r.fuel_transfers.fuel_bunkers.bunker_code === fuelRiwayatFilters.bunker);
-  if (fuelRiwayatFilters.unit) filtered = filtered.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit);
-  if (fuelRiwayatFilters.project) filtered = filtered.filter(r => r.project === fuelRiwayatFilters.project);
-  if (!filtered || filtered.length === 0) {
-    el.innerHTML = filterRow + sortPills + '<div style="color:#94A3B8;padding:20px;">Belum ada data pengisian.</div>';
+  let filtDisp = fuelRiwayatData.slice();
+  let filtXfer = fuelTankXferData.slice();
+  if (fuelRiwayatFilters.bunker) {
+    filtDisp = filtDisp.filter(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers && r.fuel_transfers.fuel_bunkers.bunker_code === fuelRiwayatFilters.bunker);
+    filtXfer = filtXfer.filter(r => r.fuel_bunkers && r.fuel_bunkers.bunker_code === fuelRiwayatFilters.bunker);
+  }
+  if (fuelRiwayatFilters.unit) { filtDisp = filtDisp.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit); filtXfer = []; }
+  if (fuelRiwayatFilters.project) { filtDisp = filtDisp.filter(r => r.project === fuelRiwayatFilters.project); filtXfer = []; }
+  if (!filtDisp.length && !filtXfer.length) {
+    el.innerHTML = filterRow + sortPills + '<div style="color:#94A3B8;padding:20px;">Belum ada data.</div>';
     return;
   }
-  const rowHtml = (r) => {
+  const dispRow = (r) => {
     const unit = r.units ? r.units.code : '—';
     const tc = r.fuel_transfers ? r.fuel_transfers.transfer_code : '—';
     const drum = r.fuel_transfers ? r.fuel_transfers.drum_name : '—';
     const bunker = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—';
     const lhr = r.l_per_hr ? Number(r.l_per_hr).toFixed(2) : '—';
-    const dispId = r.id;
-    const transId = r.fuel_transfers ? r.fuel_transfers.id : '';
     return '<tr>' +
       '<td>' + formatDate(r.dispense_date) + '</td>' +
       '<td style="color:#64748B;font-size:12px;">' + (r.dispense_time ? r.dispense_time.substring(0,5) : '—') + '</td>' +
@@ -4528,27 +4568,47 @@ function renderFuelRiwayat() {
       '<td style="color:#64748B;font-size:12px;">' + (r.project || '—') + '</td>' +
       '<td>' + r.liters_dispensed + 'L</td>' +
       '<td style="color:' + (r.l_per_hr ? '#16A34A' : '#94A3B8') + ';font-weight:700;">' + lhr + '</td>' +
-      '<td><button onclick="deletePengisian(this.dataset.did,this.dataset.tid)" data-did="' + dispId + '" data-tid="' + transId + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;">Hapus</button></td>' +
+      '<td><button onclick="deletePengisian(this.dataset.did,this.dataset.tid)" data-did="' + r.id + '" data-tid="' + (r.fuel_transfers ? r.fuel_transfers.id : '') + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;">Hapus</button></td>' +
       '</tr>';
   };
-  const hdrRow = '<thead><tr><th>Tanggal</th><th>Jam</th><th>Unit</th><th>HM</th><th>Transfer</th><th>Drum</th><th>Bunker</th><th>Project</th><th>Liter</th><th>L/Hr</th><th></th></tr></thead>';
-  let bodyHtml = '';
+  const xferRow = (r) => {
+    const bunker = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '—';
+    const fromL = r.from_tank.charAt(0).toUpperCase() + r.from_tank.slice(1);
+    const toL = r.to_tank.charAt(0).toUpperCase() + r.to_tank.slice(1);
+    return '<tr style="background:#EFF6FF;">' +
+      '<td>' + formatDate(r.transfer_date) + '</td>' +
+      '<td>—</td>' +
+      '<td><span style="background:#DBEAFE;color:#1D4ED8;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">PINDAH</span></td>' +
+      '<td>—</td><td>—</td>' +
+      '<td style="font-weight:600;color:#1D4ED8;">' + fromL + ' → ' + toL + '</td>' +
+      '<td>' + bunker + '</td>' +
+      '<td>—</td>' +
+      '<td>' + Number(r.volume_liters).toLocaleString('id') + 'L</td>' +
+      '<td>—</td>' +
+      '<td><button onclick="deleteTankTransfer(this.dataset.id)" data-id="' + r.id + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;">Hapus</button></td>' +
+      '</tr>';
+  };
+  const hdr = '<thead><tr><th>Tanggal</th><th>Jam</th><th>Unit</th><th>HM</th><th>Transfer</th><th>Drum / Rute</th><th>Bunker</th><th>Project</th><th>Liter</th><th>L/Hr</th><th></th></tr></thead>';
+  let body = '';
   if (fuelRiwayatSort === 'date') {
-    bodyHtml = '<tbody>' + filtered.map(rowHtml).join('') + '</tbody>';
+    const all = [...filtDisp.map(r => ({ ...r, _d: r.dispense_date })), ...filtXfer.map(r => ({ ...r, _d: r.transfer_date }))].sort((a,b) => b._d.localeCompare(a._d));
+    body = '<tbody>' + all.map(r => r._type === 'xfer' ? xferRow(r) : dispRow(r)).join('') + '</tbody>';
   } else if (fuelRiwayatSort === 'unit') {
-    const groups = {};
-    filtered.forEach(r => { const k = r.units ? r.units.code : '—'; if (!groups[k]) groups[k] = []; groups[k].push(r); });
-    Object.keys(groups).sort().forEach(k => {
-      bodyHtml += '<tbody><tr style="background:#EFF6FF;"><td colspan="11" style="font-weight:800;color:#1D4ED8;padding:8px 12px;">' + k + '</td></tr>' + groups[k].map(rowHtml).join('') + '</tbody>';
+    const grps = {};
+    filtDisp.forEach(r => { const k = r.units ? r.units.code : '—'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    Object.keys(grps).sort().forEach(k => {
+      body += '<tbody><tr style="background:#EFF6FF;"><td colspan="11" style="font-weight:800;color:#1D4ED8;padding:8px 12px;">' + k + '</td></tr>' + grps[k].map(dispRow).join('') + '</tbody>';
     });
+    if (filtXfer.length) body += '<tbody><tr style="background:#DBEAFE;"><td colspan="11" style="font-weight:800;color:#1E40AF;padding:8px 12px;">Pindah Antar Tanki</td></tr>' + filtXfer.map(xferRow).join('') + '</tbody>';
   } else {
-    const groups = {};
-    filtered.forEach(r => { const k = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—'; if (!groups[k]) groups[k] = []; groups[k].push(r); });
-    Object.keys(groups).sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; }).forEach(k => {
-      bodyHtml += '<tbody><tr style="background:#F0FDF4;"><td colspan="11" style="font-weight:800;color:#166534;padding:8px 12px;">' + k + '</td></tr>' + groups[k].map(rowHtml).join('') + '</tbody>';
+    const grps = {};
+    filtDisp.forEach(r => { const k = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    filtXfer.forEach(r => { const k = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '—'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    Object.keys(grps).sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; }).forEach(k => {
+      body += '<tbody><tr style="background:#F0FDF4;"><td colspan="11" style="font-weight:800;color:#166534;padding:8px 12px;">' + k + '</td></tr>' + grps[k].map(r => r._type === 'xfer' ? xferRow(r) : dispRow(r)).join('') + '</tbody>';
     });
   }
-  el.innerHTML = filterRow + sortPills + '<div class="table-wrap"><table class="dt">' + hdrRow + bodyHtml + '</table></div>';
+  el.innerHTML = filterRow + sortPills + '<div class="table-wrap"><table class="dt">' + hdr + body + '</table></div>';
 }
 
 // ============================================================
