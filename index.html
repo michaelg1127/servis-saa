@@ -777,8 +777,7 @@
   <div id="bbm-tabs" style="display:flex;gap:0;border-bottom:2px solid #E2E8F0;margin-bottom:20px;flex-wrap:wrap;">
     <button id="bbm-tab-status" onclick="switchBBMTab('status',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#1D4ED8;border-bottom:3px solid #1D4ED8;margin-bottom:-2px;">Status</button>
     <button id="bbm-tab-terima" onclick="switchBBMTab('terima',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Terima BBM</button>
-    <button id="bbm-tab-isidrum" onclick="switchBBMTab('isidrum',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Isi Drum</button>
-    <button id="bbm-tab-distribusi" onclick="switchBBMTab('distribusi',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Distribusi</button>
+    <button id="bbm-tab-pengisian" onclick="switchBBMTab('pengisian',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">PENGISIAN</button>
     <button id="bbm-tab-riwayat" onclick="switchBBMTab('riwayat',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Riwayat</button>
   </div>
   <div id="bbm-panel-status"></div>
@@ -791,30 +790,27 @@
       <div style="margin-bottom:20px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label><textarea id="bbm-terima-notes" class="finput" rows="2" placeholder="Opsional..."></textarea></div>
       <button onclick="submitFuelBunker()" class="btn-primary" style="width:100%;padding:13px;font-size:15px;font-weight:700;">Simpan Bunker</button>
     </div>
+    <div id="bbm-bunker-history"></div>
   </div>
-  <div id="bbm-panel-isidrum" style="display:none;max-width:600px;">
+  <div id="bbm-panel-pengisian" style="display:none;max-width:600px;">
     <div style="background:white;border-radius:16px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
-      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Bunker <span style="color:#EF4444;">*</span></label><select id="bbm-drum-bunker" class="finput" onchange="updateIsiPreview()"><option value="">-- Pilih Bunker --</option></select></div>
-      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Isi <span style="color:#EF4444;">*</span></label><input type="date" id="bbm-drum-date" class="finput"></div>
-      <div id="bbm-drum-rows" style="margin-bottom:14px;"></div>
-      <button onclick="addDrumRow()" style="background:#EFF6FF;color:#1D4ED8;border:1.5px dashed #93C5FD;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:14px;">+ Tambah Drum</button>
-      <div id="bbm-drum-preview" style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#166534;font-weight:600;display:none;"></div>
-      <button onclick="submitDrumFills()" class="btn-primary" style="width:100%;padding:13px;font-size:15px;font-weight:700;">Simpan Isi Drum</button>
-    </div>
-  </div>
-  <div id="bbm-panel-distribusi" style="display:none;max-width:560px;">
-    <div style="background:white;border-radius:16px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
-      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Drum (Staged) <span style="color:#EF4444;">*</span></label><select id="bbm-dist-drum" class="finput"><option value="">-- Pilih Drum --</option></select></div>
-      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Unit <span style="color:#EF4444;">*</span></label><select id="bbm-dist-unit" class="finput" onchange="onDistribusiUnitChange(this.value)"><option value="">-- Pilih Unit --</option></select></div>
-      <div id="bbm-dist-last-info" style="display:none;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#475569;"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-        <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Isi <span style="color:#EF4444;">*</span></label><input type="number" id="bbm-dist-hm" class="finput" placeholder="HM" oninput="onDistribusiHMChange()"></div>
-        <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal <span style="color:#EF4444;">*</span></label><input type="date" id="bbm-dist-date" class="finput"></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Bunker <span style="color:#EF4444;">*</span></label><select id="bbm-peng-bunker" class="finput" onchange="onPengisianBunkerChange()"><option value="">-- Pilih Bunker --</option></select></div>
+      <div id="bbm-peng-bunker-preview" style="display:none;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#1D4ED8;font-weight:600;"></div>
+      <div style="display:grid;grid-template-columns:1fr 100px;gap:12px;margin-bottom:14px;">
+        <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Drum <span style="color:#EF4444;">*</span></label><input type="text" id="bbm-peng-drum" class="finput" placeholder="Contoh: Drum 3, Polos"></div>
+        <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Volume (L) <span style="color:#EF4444;">*</span></label><input type="number" id="bbm-peng-vol" class="finput" value="200" min="1" oninput="onPengisianHMChange()"></div>
       </div>
-      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Jam</label><input type="time" id="bbm-dist-time" class="finput"></div>
-      <div style="margin-bottom:20px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label><textarea id="bbm-dist-notes" class="finput" rows="2" placeholder="Opsional..."></textarea></div>
-      <div id="bbm-dist-lhr-preview" style="display:none;background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#92400E;font-weight:600;"></div>
-      <button onclick="submitFuelDispense()" class="btn-primary" style="width:100%;padding:13px;font-size:15px;font-weight:700;">Catat Distribusi</button>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Unit <span style="color:#EF4444;">*</span></label><select id="bbm-peng-unit" class="finput" onchange="onPengisianUnitChange(this.value)"><option value="">-- Pilih Unit --</option></select></div>
+      <div id="bbm-peng-last-info" style="display:none;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#475569;"></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Project</label><input type="text" id="bbm-peng-project" class="finput" placeholder="Nama project (opsional)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Isi <span style="color:#EF4444;">*</span></label><input type="number" id="bbm-peng-hm" class="finput" placeholder="HM" oninput="onPengisianHMChange()"></div>
+        <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal <span style="color:#EF4444;">*</span></label><input type="date" id="bbm-peng-date" class="finput"></div>
+        <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Jam</label><input type="time" id="bbm-peng-time" class="finput"></div>
+      </div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label><textarea id="bbm-peng-notes" class="finput" rows="2" placeholder="Opsional..."></textarea></div>
+      <div id="bbm-peng-lhr-preview" style="display:none;background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#92400E;font-weight:600;"></div>
+      <button onclick="submitPengisian()" class="btn-primary" style="width:100%;padding:13px;font-size:15px;font-weight:700;">Catat Pengisian</button>
     </div>
   </div>
   <div id="bbm-panel-riwayat" style="display:none;"></div>
@@ -872,7 +868,7 @@ let _alertSRUrgency = 'Normal';
 let fuelBbmSubTab = 'status';
 let fuelRiwayatSort = 'date';
 let fuelRiwayatData = [];
-let bbmDrumRowCount = 0;
+let fuelRiwayatFilters = { bunker: '', unit: '', project: '' };
 let bbmLastDispenseByUnit = {};
 const FUEL_TANKS = [{name:'hijau',label:'Tanki Hijau',cap:8000,color:'#16A34A'},{name:'merah',label:'Tanki Merah',cap:1500,color:'#DC2626'},{name:'kuning',label:'Tanki Kuning',cap:1500,color:'#CA8A04'}];
 
@@ -4141,7 +4137,7 @@ async function exportSchedule() {
 // ============================================================
 function switchBBMTab(tab, el) {
   fuelBbmSubTab = tab;
-  const tabs = ['status','terima','isidrum','distribusi','riwayat'];
+  const tabs = ['status','terima','pengisian','riwayat'];
   tabs.forEach(t => {
     const btn = document.getElementById('bbm-tab-' + t);
     const panel = document.getElementById('bbm-panel-' + t);
@@ -4151,8 +4147,7 @@ function switchBBMTab(tab, el) {
   });
   if (tab === 'status') loadFuelStatus();
   if (tab === 'terima') initTerimaForm();
-  if (tab === 'isidrum') initIsiDrumForm();
-  if (tab === 'distribusi') initDistribusiForm();
+  if (tab === 'pengisian') initPengisianForm();
   if (tab === 'riwayat') loadFuelRiwayat();
 }
 
@@ -4197,33 +4192,15 @@ function renderTankGauges(levels) {
   '</div>';
 }
 
-function renderStagedDrums(transfers) {
-  if (!transfers || transfers.length === 0) {
-    return '<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:10px;"><svg width="18" height="18" fill="none" stroke="#16A34A" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><div style="font-size:13px;font-weight:700;color:#16A34A;">Tidak ada drum staged — semua sudah didistribusi</div></div>';
-  }
-  const rows = transfers.map(t => '<tr>' +
-    '<td style="font-weight:700;color:#1D4ED8;">' + (t.transfer_code || '') + '</td>' +
-    '<td>' + (t.drum_name || '') + '</td>' +
-    '<td>' + (t.volume_liters || '') + ' L</td>' +
-    '<td>' + formatDate(t.filled_date) + '</td>' +
-    '<td>' + ((t.fuel_bunkers && t.fuel_bunkers.bunker_code) || '') + '</td>' +
-    '<td><button class="btn-primary" style="padding:4px 10px;font-size:12px;" onclick="prefillDistribusiDrum(\'' + t.id + '\');">Distribusi</button></td>' +
-  '</tr>').join('');
-  return '<div style="font-size:15px;font-weight:700;color:#DC2626;margin-bottom:12px;">Drum Staged — Belum Didistribusi (' + transfers.length + ')</div>' +
-    '<div class="table-wrap"><table class="dt"><thead><tr><th>Kode Transfer</th><th>Drum</th><th>Volume</th><th>Tgl Isi</th><th>Bunker</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
-}
-
+async function loadFuelStatus() {
 async function loadFuelStatus() {
   const el = document.getElementById('bbm-panel-status');
   if (!el) return;
   el.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const [levels, { data: staged }] = await Promise.all([
-      calcTankLevels(),
-      sb.from('fuel_transfers').select('id, transfer_code, drum_name, volume_liters, filled_date, fuel_bunkers(bunker_code)').eq('status','staged').order('created_at'),
-    ]);
+    const levels = await calcTankLevels();
     const transferBtn = '<button onclick="openTankTransferModal()" style="background:#F1F5F9;border:1.5px solid #CBD5E1;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:700;color:#475569;cursor:pointer;margin-bottom:20px;">&#8646; Pindah Antar Tanki</button>';
-    el.innerHTML = renderTankGauges(levels) + transferBtn + renderStagedDrums(staged);
+    el.innerHTML = renderTankGauges(levels) + transferBtn;
   } catch(e) { el.innerHTML = '<div style="color:#DC2626;padding:16px;">Gagal load: ' + e.message + '</div>'; }
 }
 
@@ -4271,6 +4248,7 @@ async function initTerimaForm() {
   const dateEl = document.getElementById('bbm-terima-date');
   if (dateEl && !dateEl.value) dateEl.value = todayISO();
   await onTerimaChange();
+  await loadBunkerHistory();
 }
 
 async function onTerimaChange() {
@@ -4305,41 +4283,42 @@ async function submitFuelBunker() {
     document.getElementById('bbm-terima-tank').value = '';
     document.getElementById('bbm-terima-date').value = todayISO();
     await onTerimaChange();
+    await loadBunkerHistory();
   } catch(e) { showToast('Gagal: ' + e.message); }
 }
 
-async function initIsiDrumForm() {
-  const dateEl = document.getElementById('bbm-drum-date');
-  if (dateEl && !dateEl.value) dateEl.value = todayISO();
-  const bunkerSel = document.getElementById('bbm-drum-bunker');
-  if (!bunkerSel) return;
-  const { data } = await sb.from('fuel_bunkers').select('id, bunker_code, tank_name, total_liters, delivery_date').order('delivery_date', { ascending: false });
-  bunkerSel.innerHTML = '<option value="">-- Pilih Bunker --</option>' + (data || []).map(b => '<option value="' + b.id + '" data-code="' + b.bunker_code + '" data-tank="' + b.tank_name + '" data-total="' + b.total_liters + '">' + b.bunker_code + ' — ' + b.tank_name.charAt(0).toUpperCase() + b.tank_name.slice(1) + ' — ' + Number(b.total_liters).toLocaleString('id') + 'L — ' + formatDate(b.delivery_date) + '</option>').join('');
-  const rows = document.getElementById('bbm-drum-rows');
-  if (rows && rows.children.length === 0) addDrumRow();
+async function loadBunkerHistory() {
+  const el = document.getElementById('bbm-bunker-history');
+  if (!el) return;
+  const { data } = await sb.from('fuel_bunkers').select('id, bunker_code, delivery_date, tank_name, total_liters, notes').order('delivery_date', { ascending: false });
+  if (!data || data.length === 0) {
+    el.innerHTML = '<div style="color:#94A3B8;font-size:13px;margin-top:12px;">Belum ada bunker.</div>'; return;
+  }
+  const rows = data.map(b =>
+    '<tr><td style="font-weight:700;color:#1D4ED8;">' + b.bunker_code + '</td>' +
+    '<td>' + formatDate(b.delivery_date) + '</td>' +
+    '<td style="text-transform:capitalize;">' + b.tank_name + '</td>' +
+    '<td>' + Number(b.total_liters).toLocaleString('id') + ' L</td>' +
+    '<td style="color:#64748B;font-size:12px;">' + (b.notes || '—') + '</td>' +
+    '<td><button onclick="deleteBunkerRecord(this.dataset.id)" data-id="' + b.id + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;">Hapus</button></td></tr>'
+  ).join('');
+  el.innerHTML = '<div style="font-size:14px;font-weight:700;color:#1E293B;margin-top:24px;margin-bottom:10px;">Riwayat Bunker</div>' +
+    '<div class="table-wrap"><table class="dt"><thead><tr><th>Kode</th><th>Tanggal</th><th>Tanki</th><th>Volume</th><th>Catatan</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
-function addDrumRow() {
-  bbmDrumRowCount++;
-  const idx = bbmDrumRowCount;
-  const wrap = document.getElementById('bbm-drum-rows');
-  if (!wrap) return;
-  const row = document.createElement('div');
-  row.id = 'bbm-drum-row-' + idx;
-  row.style.cssText = 'display:grid;grid-template-columns:1fr 100px 36px;gap:8px;margin-bottom:8px;align-items:center;';
-  row.innerHTML = '<input type="text" id="bbm-drum-name-' + idx + '" class="finput" placeholder="Nama Drum (contoh: Drum 3)" oninput="updateIsiPreview()"> ' +
-    '<input type="number" id="bbm-drum-vol-' + idx + '" class="finput" value="200" min="1" oninput="updateIsiPreview()"> ' +
-    '<button onclick="removeDrumRow(' + idx + ')" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:8px;width:36px;height:40px;font-size:18px;cursor:pointer;font-weight:700;">x</button>';
-  wrap.appendChild(row);
-  updateIsiPreview();
+async function deleteBunkerRecord(id) {
+  if (!confirm('Hapus bunker ini? Data pengisian terkait harus dihapus terlebih dahulu.')) return;
+  const { data: transfers } = await sb.from('fuel_transfers').select('id').eq('bunker_id', id).limit(1);
+  if (transfers && transfers.length > 0) { showToast('Tidak bisa hapus: bunker ini punya data pengisian. Hapus data pengisian dulu.'); return; }
+  const { error } = await sb.from('fuel_bunkers').delete().eq('id', id);
+  if (error) { showToast('Gagal hapus: ' + error.message); return; }
+  showToast('Bunker berhasil dihapus.', 'success');
+  await loadBunkerHistory();
+  await onTerimaChange();
+  loadFuelStatus();
 }
 
-function removeDrumRow(idx) {
-  const row = document.getElementById('bbm-drum-row-' + idx);
-  if (row) row.remove();
-  updateIsiPreview();
-}
-
+async function getNextTransferSeq(
 async function getNextTransferSeq(bunkerCode) {
   const { data } = await sb.from('fuel_transfers').select('transfer_code').like('transfer_code', bunkerCode + '-%');
   if (!data || data.length === 0) return 1;
@@ -4347,115 +4326,131 @@ async function getNextTransferSeq(bunkerCode) {
   return nums.length ? Math.max(...nums) + 1 : 1;
 }
 
-async function updateIsiPreview() {
-  const prev = document.getElementById('bbm-drum-preview');
-  if (!prev) return;
-  const bunkerSel = document.getElementById('bbm-drum-bunker');
+async function initPengisianForm() {
+  const dateEl = document.getElementById('bbm-peng-date');
+  if (dateEl && !dateEl.value) dateEl.value = todayISO();
+  const [{ data: bunkers }, { data: units }] = await Promise.all([
+    sb.from('fuel_bunkers').select('id, bunker_code, tank_name, total_liters, delivery_date').order('delivery_date', { ascending: false }),
+    sb.from('units').select('id, code, name').order('code'),
+  ]);
+  const bunkerSel = document.getElementById('bbm-peng-bunker');
+  if (bunkerSel) bunkerSel.innerHTML = '<option value="">-- Pilih Bunker --</option>' +
+    (bunkers || []).map(b => '<option value="' + b.id + '" data-code="' + b.bunker_code + '" data-total="' + b.total_liters + '">' +
+      b.bunker_code + ' — ' + b.tank_name.charAt(0).toUpperCase() + b.tank_name.slice(1) + ' — ' + Number(b.total_liters).toLocaleString('id') + 'L — ' + formatDate(b.delivery_date) + '</option>').join('');
+  const unitSel = document.getElementById('bbm-peng-unit');
+  if (unitSel) unitSel.innerHTML = '<option value="">-- Pilih Unit --</option>' +
+    (units || []).map(u => '<option value="' + u.id + '">' + u.code + ' — ' + u.name + '</option>').join('');
+  bbmLastDispenseByUnit = {};
+  const info = document.getElementById('bbm-peng-last-info');
+  if (info) info.style.display = 'none';
+  const prev = document.getElementById('bbm-peng-lhr-preview');
+  if (prev) prev.style.display = 'none';
+  const bprev = document.getElementById('bbm-peng-bunker-preview');
+  if (bprev) bprev.style.display = 'none';
+}
+
+async function onPengisianBunkerChange() {
+  const bunkerSel = document.getElementById('bbm-peng-bunker');
   const opt = bunkerSel && bunkerSel.selectedOptions[0];
+  const prev = document.getElementById('bbm-peng-bunker-preview');
+  if (!prev) return;
   if (!opt || !opt.value) { prev.style.display = 'none'; return; }
   const bunkerCode = opt.dataset.code;
   const totalLiters = parseFloat(opt.dataset.total) || 0;
-  const rows = document.getElementById('bbm-drum-rows');
-  const inputs = rows ? rows.querySelectorAll('[id^="bbm-drum-name-"]') : [];
-  let totalVol = 0;
-  inputs.forEach(inp => {
-    const idx = inp.id.replace('bbm-drum-name-','');
-    const v = parseFloat(document.getElementById('bbm-drum-vol-'+idx) ? document.getElementById('bbm-drum-vol-'+idx).value : 0) || 0;
-    totalVol += v;
-  });
-  const startSeq = await getNextTransferSeq(bunkerCode);
-  const codes = Array.from({length: inputs.length}, (_,i) => bunkerCode + '-' + (startSeq+i)).join(', ');
-  const usedInBunker = totalLiters; // approximate: we sum all transfers for this bunker
   const { data: existingT } = await sb.from('fuel_transfers').select('volume_liters').eq('bunker_id', opt.value);
-  const usedSoFar = (existingT || []).reduce((s,t) => s + Number(t.volume_liters), 0);
+  const usedSoFar = (existingT || []).reduce((s, t) => s + Number(t.volume_liters), 0);
   const remaining = totalLiters - usedSoFar;
+  const nextSeq = await getNextTransferSeq(bunkerCode);
+  const nextCode = bunkerCode + '-' + nextSeq;
   prev.style.display = '';
-  prev.innerHTML = 'Kode: <strong>' + (codes || '—') + '</strong> &nbsp;|&nbsp; Total: <strong>' + totalVol.toLocaleString('id') + 'L</strong> &nbsp;|&nbsp; Sisa Bunker: ' + remaining.toLocaleString('id') + 'L &rarr; <strong>' + Math.max(0, remaining - totalVol).toLocaleString('id') + 'L</strong>';
+  prev.innerHTML = 'Kode transfer: <strong>' + nextCode + '</strong> &nbsp;|&nbsp; Sisa bunker: <strong>' + Math.max(0, remaining).toLocaleString('id') + ' L</strong>';
 }
 
-async function submitDrumFills() {
-  const bunkerSel = document.getElementById('bbm-drum-bunker');
-  const opt = bunkerSel && bunkerSel.selectedOptions[0];
-  if (!opt || !opt.value) { showToast('Pilih bunker terlebih dahulu.'); return; }
-  const bunkerId = opt.value;
-  const bunkerCode = opt.dataset.code;
-  const date = document.getElementById('bbm-drum-date').value;
-  if (!date) { showToast('Tanggal isi wajib diisi.'); return; }
-  const rows = document.getElementById('bbm-drum-rows');
-  const nameInputs = rows ? Array.from(rows.querySelectorAll('[id^="bbm-drum-name-"]')) : [];
-  if (nameInputs.length === 0) { showToast('Tambah minimal satu drum.'); return; }
-  const drumData = [];
-  for (const inp of nameInputs) {
-    const idx = inp.id.replace('bbm-drum-name-','');
-    const name = inp.value.trim();
-    const vol = parseFloat(document.getElementById('bbm-drum-vol-'+idx) ? document.getElementById('bbm-drum-vol-'+idx).value : 0);
-    if (!name) { showToast('Nama drum tidak boleh kosong.'); return; }
-    if (!vol || vol <= 0) { showToast('Volume drum harus > 0.'); return; }
-    drumData.push({ name, vol });
-  }
-  // Validate total volume doesn't exceed bunker remaining capacity
-  const { data: existingFills } = await sb.from('fuel_transfers').select('volume_liters').eq('bunker_id', bunkerId);
-  const usedSoFar = (existingFills || []).reduce((s, t) => s + Number(t.volume_liters), 0);
-  const totalVol = drumData.reduce((s, d) => s + d.vol, 0);
-  const totalBunker = parseFloat(opt.dataset.total) || 0;
-  const remaining = totalBunker - usedSoFar;
-  if (totalVol > remaining) {
-    showToast('Volume total drum (' + totalVol + 'L) melebihi sisa bunker (' + Math.round(remaining) + 'L). Kurangi volume.'); return;
-  }
-  try {
-    const startSeq = await getNextTransferSeq(bunkerCode);
-    const inserts = drumData.map((d, i) => ({ transfer_code: bunkerCode + '-' + (startSeq+i), bunker_id: bunkerId, drum_name: d.name, volume_liters: d.vol, filled_date: date, status: 'staged' }));
-    const { error } = await sb.from('fuel_transfers').insert(inserts);
-    if (error) throw error;
-    showToast(inserts.length + ' drum berhasil disimpan (' + inserts.map(r=>r.transfer_code).join(', ') + ')!', 'success');
-    document.getElementById('bbm-drum-rows').innerHTML = '';
-    bbmDrumRowCount = 0;
-    document.getElementById('bbm-drum-bunker').value = '';
-    document.getElementById('bbm-drum-date').value = todayISO();
-    document.getElementById('bbm-drum-preview').style.display = 'none';
-    addDrumRow();
-  } catch(e) { showToast('Gagal: ' + e.message); }
-}
-
-async function initDistribusiForm() {
-  const dateEl = document.getElementById('bbm-dist-date');
-  if (dateEl && !dateEl.value) dateEl.value = todayISO();
-  const [{ data: units }, { data: staged }] = await Promise.all([
-    sb.from('units').select('id, code, name').order('code'),
-    sb.from('fuel_transfers').select('id, transfer_code, drum_name, volume_liters, filled_date').eq('status','staged').order('created_at'),
-  ]);
-  const unitSel = document.getElementById('bbm-dist-unit');
-  if (unitSel) unitSel.innerHTML = '<option value="">-- Pilih Unit --</option>' + (units||[]).map(u => '<option value="' + u.id + '">' + u.code + ' — ' + u.name + '</option>').join('');
-  const drumSel = document.getElementById('bbm-dist-drum');
-  if (drumSel) drumSel.innerHTML = '<option value="">-- Pilih Drum --</option>' + (staged||[]).map(t => '<option value="' + t.id + '" data-vol="' + t.volume_liters + '">' + t.transfer_code + ' · ' + t.drum_name + ' · ' + t.volume_liters + 'L · Isi: ' + formatDate(t.filled_date) + '</option>').join('');
-}
-
-async function onDistribusiUnitChange(unitId) {
-  const info = document.getElementById('bbm-dist-last-info');
+async function onPengisianUnitChange(unitId) {
+  const info = document.getElementById('bbm-peng-last-info');
   if (!info) return;
-  if (!unitId) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; return; }
+  if (!unitId) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; onPengisianHMChange(); return; }
   const { data } = await sb.from('fuel_dispenses').select('hm_at_fill, dispense_date, liters_dispensed, l_per_hr').eq('unit_id', unitId).order('hm_at_fill', { ascending: false }).limit(1);
-  if (!data || data.length === 0) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; return; }
+  if (!data || data.length === 0) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; onPengisianHMChange(); return; }
   const last = data[0];
   bbmLastDispenseByUnit = last;
   info.style.display = '';
-  info.innerHTML = 'Pengisian terakhir: <strong>' + formatDate(last.dispense_date) + '</strong> — HM: <strong>' + Number(last.hm_at_fill).toLocaleString('id') + '</strong>' + (last.l_per_hr ? ' — L/Hr: <strong>' + Number(last.l_per_hr).toFixed(2) + '</strong>' : '');
-  onDistribusiHMChange();
+  info.innerHTML = 'Pengisian terakhir: <strong>' + formatDate(last.dispense_date) + '</strong> — HM: <strong>' + Number(last.hm_at_fill).toLocaleString('id') + '</strong>' +
+    (last.l_per_hr ? ' — L/Hr: <strong>' + Number(last.l_per_hr).toFixed(2) + '</strong>' : '');
+  onPengisianHMChange();
 }
 
-function onDistribusiHMChange() {
-  const prev = document.getElementById('bbm-dist-lhr-preview');
+function onPengisianHMChange() {
+  const prev = document.getElementById('bbm-peng-lhr-preview');
   if (!prev) return;
-  const hm = parseFloat(document.getElementById('bbm-dist-hm').value);
-  const drumSel = document.getElementById('bbm-dist-drum');
-  const opt = drumSel && drumSel.selectedOptions[0];
-  const liters = opt ? parseFloat(opt.dataset.vol || 0) : 0;
+  const hm = parseFloat(document.getElementById('bbm-peng-hm').value);
+  const liters = parseFloat(document.getElementById('bbm-peng-vol').value) || 0;
   if (!hm || !liters || !bbmLastDispenseByUnit || !bbmLastDispenseByUnit.hm_at_fill) { prev.style.display = 'none'; return; }
   const hmDiff = hm - Number(bbmLastDispenseByUnit.hm_at_fill);
   if (hmDiff <= 0) { prev.style.display = 'none'; return; }
   const lhr = (liters / hmDiff).toFixed(2);
   prev.style.display = '';
   prev.innerHTML = 'Estimasi L/Hr: <strong>' + lhr + ' L/Hr</strong> (' + liters + 'L / ' + hmDiff.toLocaleString('id') + ' HM)';
+}
+
+async function submitPengisian() {
+  const bunkerSel = document.getElementById('bbm-peng-bunker');
+  const bunkerOpt = bunkerSel && bunkerSel.selectedOptions[0];
+  const bunkerId = bunkerOpt ? bunkerOpt.value : '';
+  const bunkerCode = bunkerOpt ? bunkerOpt.dataset.code : '';
+  const drumName = document.getElementById('bbm-peng-drum').value.trim();
+  const vol = parseFloat(document.getElementById('bbm-peng-vol').value);
+  const unitId = document.getElementById('bbm-peng-unit').value;
+  const project = document.getElementById('bbm-peng-project').value.trim() || null;
+  const hm = parseFloat(document.getElementById('bbm-peng-hm').value);
+  const date = document.getElementById('bbm-peng-date').value;
+  const time = document.getElementById('bbm-peng-time').value || null;
+  const notes = document.getElementById('bbm-peng-notes').value.trim() || null;
+  if (!bunkerId || !drumName || !vol || !unitId || !hm || !date) { showToast('Bunker, Drum, Volume, Unit, HM, dan Tanggal wajib diisi.'); return; }
+  const totalBunker = parseFloat(bunkerOpt.dataset.total) || 0;
+  const { data: existingT } = await sb.from('fuel_transfers').select('volume_liters').eq('bunker_id', bunkerId);
+  const usedSoFar = (existingT || []).reduce((s, t) => s + Number(t.volume_liters), 0);
+  if (vol > totalBunker - usedSoFar) { showToast('Volume melebihi sisa kapasitas bunker (' + Math.round(totalBunker - usedSoFar) + 'L).'); return; }
+  try {
+    const seq = await getNextTransferSeq(bunkerCode);
+    const transferCode = bunkerCode + '-' + seq;
+    const { data: tData, error: e1 } = await sb.from('fuel_transfers')
+      .insert({ transfer_code: transferCode, bunker_id: bunkerId, drum_name: drumName, volume_liters: vol, filled_date: date, status: 'deployed' })
+      .select('id').single();
+    if (e1) throw e1;
+    const lhr = await calcLPerHr(unitId, hm, vol);
+    const { error: e2 } = await sb.from('fuel_dispenses')
+      .insert({ transfer_id: tData.id, unit_id: unitId, hm_at_fill: hm, dispense_date: date, dispense_time: time, liters_dispensed: vol, l_per_hr: lhr, project, notes });
+    if (e2) throw e2;
+    showToast('Pengisian ' + transferCode + ' berhasil dicatat!', 'success');
+    document.getElementById('bbm-peng-bunker').value = '';
+    document.getElementById('bbm-peng-drum').value = '';
+    document.getElementById('bbm-peng-vol').value = '200';
+    document.getElementById('bbm-peng-unit').value = '';
+    document.getElementById('bbm-peng-project').value = '';
+    document.getElementById('bbm-peng-hm').value = '';
+    document.getElementById('bbm-peng-date').value = todayISO();
+    document.getElementById('bbm-peng-time').value = '';
+    document.getElementById('bbm-peng-notes').value = '';
+    document.getElementById('bbm-peng-bunker-preview').style.display = 'none';
+    document.getElementById('bbm-peng-last-info').style.display = 'none';
+    document.getElementById('bbm-peng-lhr-preview').style.display = 'none';
+    bbmLastDispenseByUnit = {};
+    loadFuelStatus();
+  } catch(e) { showToast('Gagal: ' + e.message); }
+}
+
+async function deletePengisian(dispenseId, transferId) {
+  if (!confirm('Hapus catatan pengisian ini? Tindakan ini tidak bisa dibatalkan.')) return;
+  try {
+    const { error: e1 } = await sb.from('fuel_dispenses').delete().eq('id', dispenseId);
+    if (e1) throw e1;
+    const { error: e2 } = await sb.from('fuel_transfers').delete().eq('id', transferId);
+    if (e2) throw e2;
+    showToast('Data pengisian berhasil dihapus.', 'success');
+    await loadFuelRiwayat();
+    loadFuelStatus();
+  } catch(e) { showToast('Gagal hapus: ' + e.message); }
 }
 
 async function calcLPerHr(unitId, hm, liters) {
@@ -4467,52 +4462,14 @@ async function calcLPerHr(unitId, hm, liters) {
   return Math.round((liters / diff) * 100) / 100;
 }
 
-async function prefillDistribusiDrum(transferId) {
-  switchBBMTab('distribusi', document.getElementById('bbm-tab-distribusi'));
-  await initDistribusiForm();
-  const drumSel = document.getElementById('bbm-dist-drum');
-  if (drumSel) { drumSel.value = transferId; }
-}
-
-async function submitFuelDispense() {
-  const drumSel = document.getElementById('bbm-dist-drum');
-  const drumOpt = drumSel && drumSel.selectedOptions[0];
-  const transferId = drumOpt ? drumOpt.value : '';
-  const unitId = document.getElementById('bbm-dist-unit').value;
-  const hm = parseFloat(document.getElementById('bbm-dist-hm').value);
-  const date = document.getElementById('bbm-dist-date').value;
-  const time = document.getElementById('bbm-dist-time').value || null;
-  const notes = document.getElementById('bbm-dist-notes').value.trim() || null;
-  if (!transferId || !unitId || !hm || !date) { showToast('Drum, Unit, HM, dan Tanggal wajib diisi.'); return; }
-  const liters = parseFloat((drumOpt && drumOpt.dataset.vol) || 0);
-  if (!liters) { showToast('Volume drum tidak valid.'); return; }
-  try {
-    const lhr = await calcLPerHr(unitId, hm, liters);
-    const { error: e1 } = await sb.from('fuel_dispenses').insert({ transfer_id: transferId, unit_id: unitId, hm_at_fill: hm, dispense_date: date, dispense_time: time, liters_dispensed: liters, l_per_hr: lhr, notes });
-    if (e1) throw e1;
-    const { error: e2 } = await sb.from('fuel_transfers').update({ status: 'deployed' }).eq('id', transferId);
-    if (e2) throw e2;
-    showToast('Distribusi berhasil dicatat!', 'success');
-    document.getElementById('bbm-dist-hm').value = '';
-    document.getElementById('bbm-dist-notes').value = '';
-    document.getElementById('bbm-dist-date').value = todayISO();
-    document.getElementById('bbm-dist-time').value = '';
-    document.getElementById('bbm-dist-last-info').style.display = 'none';
-    document.getElementById('bbm-dist-lhr-preview').style.display = 'none';
-    bbmLastDispenseByUnit = {};
-    document.getElementById('bbm-dist-unit').value = '';
-    document.getElementById('bbm-dist-drum').value = '';
-    await initDistribusiForm();
-  } catch(e) { showToast('Gagal: ' + e.message); }
-}
-
+async function loadFuelRiwayat() {
 async function loadFuelRiwayat() {
   const el = document.getElementById('bbm-panel-riwayat');
   if (!el) return;
   el.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
     const { data, error } = await sb.from('fuel_dispenses')
-      .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, notes, units(code, name), fuel_transfers(transfer_code, drum_name, fuel_bunkers(bunker_code))')
+      .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, project, notes, units(id, code, name), fuel_transfers(id, transfer_code, drum_name, fuel_bunkers(bunker_code))')
       .order('dispense_date', { ascending: false }).order('created_at', { ascending: false });
     if (error) throw error;
     fuelRiwayatData = data || [];
@@ -4531,13 +4488,28 @@ function renderFuelRiwayat() {
   const el = document.getElementById('bbm-panel-riwayat');
   if (!el) return;
   const data = fuelRiwayatData;
-  const sortPills = '<div id="bbm-riwayat-sort-pills" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">' +
-    '<button class="filter-pill' + (fuelRiwayatSort==='date'?' on':'') + '" onclick="setFuelRiwayatSort(\'date\',this)">Terbaru</button>' +
-    '<button class="filter-pill' + (fuelRiwayatSort==='unit'?' on':'') + '" onclick="setFuelRiwayatSort(\'unit\',this)">Per Unit</button>' +
-    '<button class="filter-pill' + (fuelRiwayatSort==='bunker'?' on':'') + '" onclick="setFuelRiwayatSort(\'bunker\',this)">Per Bunker</button>' +
+  const bunkerOpts = [...new Set(data.map(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : null).filter(Boolean))].sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; });
+  const unitOpts = [...new Set(data.map(r => r.units ? r.units.code : null).filter(Boolean))].sort();
+  const projectOpts = [...new Set(data.map(r => r.project).filter(Boolean))].sort();
+  const filterRow = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">' +
+    '<select onchange="fuelRiwayatFilters.bunker=this.value;renderFuelRiwayat()" style="padding:6px 10px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;background:white;">' +
+    '<option value="">Semua Bunker</option>' + bunkerOpts.map(b => '<option value="' + b + '"' + (fuelRiwayatFilters.bunker===b ? ' selected' : '') + '>' + b + '</option>').join('') + '</select>' +
+    '<select onchange="fuelRiwayatFilters.unit=this.value;renderFuelRiwayat()" style="padding:6px 10px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;background:white;">' +
+    '<option value="">Semua Unit</option>' + unitOpts.map(u => '<option value="' + u + '"' + (fuelRiwayatFilters.unit===u ? ' selected' : '') + '>' + u + '</option>').join('') + '</select>' +
+    '<select onchange="fuelRiwayatFilters.project=this.value;renderFuelRiwayat()" style="padding:6px 10px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;background:white;">' +
+    '<option value="">Semua Project</option>' + projectOpts.map(p => '<option value="' + p + '"' + (fuelRiwayatFilters.project===p ? ' selected' : '') + '>' + p + '</option>').join('') + '</select>' +
   '</div>';
-  if (!data || data.length === 0) {
-    el.innerHTML = sortPills + '<div style="color:#94A3B8;padding:20px;">Belum ada data distribusi.</div>';
+  const sortPills = '<div id="bbm-riwayat-sort-pills" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">' +
+    '<button class="filter-pill' + (fuelRiwayatSort==='date' ? ' on' : '') + '" onclick="setFuelRiwayatSort(this.dataset.s,this)" data-s="date">Terbaru</button>' +
+    '<button class="filter-pill' + (fuelRiwayatSort==='unit' ? ' on' : '') + '" onclick="setFuelRiwayatSort(this.dataset.s,this)" data-s="unit">Per Unit</button>' +
+    '<button class="filter-pill' + (fuelRiwayatSort==='bunker' ? ' on' : '') + '" onclick="setFuelRiwayatSort(this.dataset.s,this)" data-s="bunker">Per Bunker</button>' +
+  '</div>';
+  let filtered = data;
+  if (fuelRiwayatFilters.bunker) filtered = filtered.filter(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers && r.fuel_transfers.fuel_bunkers.bunker_code === fuelRiwayatFilters.bunker);
+  if (fuelRiwayatFilters.unit) filtered = filtered.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit);
+  if (fuelRiwayatFilters.project) filtered = filtered.filter(r => r.project === fuelRiwayatFilters.project);
+  if (!filtered || filtered.length === 0) {
+    el.innerHTML = filterRow + sortPills + '<div style="color:#94A3B8;padding:20px;">Belum ada data pengisian.</div>';
     return;
   }
   const rowHtml = (r) => {
@@ -4546,28 +4518,44 @@ function renderFuelRiwayat() {
     const drum = r.fuel_transfers ? r.fuel_transfers.drum_name : '—';
     const bunker = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—';
     const lhr = r.l_per_hr ? Number(r.l_per_hr).toFixed(2) : '—';
-    return '<tr><td>' + formatDate(r.dispense_date) + '</td><td style="color:#64748B;font-size:12px;">' + (r.dispense_time ? r.dispense_time.substring(0,5) : '—') + '</td><td style="font-weight:700;">' + unit + '</td><td>' + Number(r.hm_at_fill).toLocaleString('id') + '</td><td style="color:#1D4ED8;font-weight:600;">' + tc + '</td><td>' + drum + '</td><td>' + bunker + '</td><td>' + r.liters_dispensed + 'L</td><td style="color:' + (r.l_per_hr ? '#16A34A' : '#94A3B8') + ';font-weight:700;">' + lhr + '</td></tr>';
+    const dispId = r.id;
+    const transId = r.fuel_transfers ? r.fuel_transfers.id : '';
+    return '<tr>' +
+      '<td>' + formatDate(r.dispense_date) + '</td>' +
+      '<td style="color:#64748B;font-size:12px;">' + (r.dispense_time ? r.dispense_time.substring(0,5) : '—') + '</td>' +
+      '<td style="font-weight:700;">' + unit + '</td>' +
+      '<td>' + Number(r.hm_at_fill).toLocaleString('id') + '</td>' +
+      '<td style="color:#1D4ED8;font-weight:600;">' + tc + '</td>' +
+      '<td>' + drum + '</td>' +
+      '<td>' + bunker + '</td>' +
+      '<td style="color:#64748B;font-size:12px;">' + (r.project || '—') + '</td>' +
+      '<td>' + r.liters_dispensed + 'L</td>' +
+      '<td style="color:' + (r.l_per_hr ? '#16A34A' : '#94A3B8') + ';font-weight:700;">' + lhr + '</td>' +
+      '<td><button onclick="deletePengisian(this.dataset.did,this.dataset.tid)" data-did="' + dispId + '" data-tid="' + transId + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;">Hapus</button></td>' +
+      '</tr>';
   };
-  const hdrRow = '<thead><tr><th>Tanggal</th><th>Jam</th><th>Unit</th><th>HM</th><th>Transfer</th><th>Drum</th><th>Bunker</th><th>Liter</th><th>L/Hr</th></tr></thead>';
+  const hdrRow = '<thead><tr><th>Tanggal</th><th>Jam</th><th>Unit</th><th>HM</th><th>Transfer</th><th>Drum</th><th>Bunker</th><th>Project</th><th>Liter</th><th>L/Hr</th><th></th></tr></thead>';
   let bodyHtml = '';
   if (fuelRiwayatSort === 'date') {
-    bodyHtml = '<tbody>' + data.map(rowHtml).join('') + '</tbody>';
+    bodyHtml = '<tbody>' + filtered.map(rowHtml).join('') + '</tbody>';
   } else if (fuelRiwayatSort === 'unit') {
     const groups = {};
-    data.forEach(r => { const k = r.units ? r.units.code : '—'; if (!groups[k]) groups[k] = []; groups[k].push(r); });
+    filtered.forEach(r => { const k = r.units ? r.units.code : '—'; if (!groups[k]) groups[k] = []; groups[k].push(r); });
     Object.keys(groups).sort().forEach(k => {
-      bodyHtml += '<tbody><tr style="background:#EFF6FF;"><td colspan="9" style="font-weight:800;color:#1D4ED8;padding:8px 12px;">' + k + '</td></tr>' + groups[k].map(rowHtml).join('') + '</tbody>';
+      bodyHtml += '<tbody><tr style="background:#EFF6FF;"><td colspan="11" style="font-weight:800;color:#1D4ED8;padding:8px 12px;">' + k + '</td></tr>' + groups[k].map(rowHtml).join('') + '</tbody>';
     });
   } else {
     const groups = {};
-    data.forEach(r => { const k = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—'; if (!groups[k]) groups[k] = []; groups[k].push(r); });
+    filtered.forEach(r => { const k = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—'; if (!groups[k]) groups[k] = []; groups[k].push(r); });
     Object.keys(groups).sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; }).forEach(k => {
-      bodyHtml += '<tbody><tr style="background:#F0FDF4;"><td colspan="9" style="font-weight:800;color:#166534;padding:8px 12px;">' + k + '</td></tr>' + groups[k].map(rowHtml).join('') + '</tbody>';
+      bodyHtml += '<tbody><tr style="background:#F0FDF4;"><td colspan="11" style="font-weight:800;color:#166534;padding:8px 12px;">' + k + '</td></tr>' + groups[k].map(rowHtml).join('') + '</tbody>';
     });
   }
-  el.innerHTML = sortPills + '<div class="table-wrap"><table class="dt">' + hdrRow + bodyHtml + '</table></div>';
+  el.innerHTML = filterRow + sortPills + '<div class="table-wrap"><table class="dt">' + hdrRow + bodyHtml + '</table></div>';
 }
 
+// ============================================================
+// KEYBOARD ENTER ON LOGIN
 // ============================================================
 // KEYBOARD ENTER ON LOGIN
 // ============================================================
