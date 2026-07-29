@@ -4440,6 +4440,15 @@ async function submitDrumFills() {
     if (!vol || vol <= 0) { showToast('Volume drum harus > 0.'); return; }
     drumData.push({ name, vol });
   }
+  // Validate total volume doesn't exceed bunker remaining capacity
+  const { data: existingFills } = await sb.from('fuel_transfers').select('volume_liters').eq('bunker_id', bunkerId);
+  const usedSoFar = (existingFills || []).reduce((s, t) => s + Number(t.volume_liters), 0);
+  const totalVol = drumData.reduce((s, d) => s + d.vol, 0);
+  const totalBunker = parseFloat(opt.dataset.total) || 0;
+  const remaining = totalBunker - usedSoFar;
+  if (totalVol > remaining) {
+    showToast('Volume total drum (' + totalVol + 'L) melebihi sisa bunker (' + Math.round(remaining) + 'L). Kurangi volume.'); return;
+  }
   try {
     const startSeq = await getNextTransferSeq(bunkerCode);
     const inserts = drumData.map((d, i) => ({ transfer_code: bunkerCode + '-' + (startSeq+i), bunker_id: bunkerId, drum_name: d.name, volume_liters: d.vol, filled_date: date, status: 'staged' }));
