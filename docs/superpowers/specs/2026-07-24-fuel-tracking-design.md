@@ -264,14 +264,10 @@ calcLPerHr(unitId, hm, liters) query prev dispense HM, compute ratio
 
 ## 7. Supabase Starting State
 
-After tables are created, seed one manual record:
-```sql
--- Most recent bunker already used was X25
--- No seed rows needed; getNextBunkerCode() will return X26 automatically
--- Tank levels start at 0 until first Terima BBM is recorded
-```
-
-Admin will input historical bunker data manually via Terima BBM if desired.
+- No seed rows needed. `getNextBunkerCode()` reads MAX from `fuel_bunkers`; if table is empty it returns X26 (hardcoded starting point since X1–X25 are on paper).
+- Tank levels derive from records, so they will show 0 until data is entered.
+- **To initialize current stock**: on first use, admin enters a "Terima BBM" record for each tank that has fuel today (using today's date and actual current liters). This primes the tank level display without needing manual SQL.
+- Historical bunker records (X1–X25) do not need to be entered unless riwayat completeness is required.
 
 ---
 
