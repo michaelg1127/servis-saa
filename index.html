@@ -4306,6 +4306,55 @@ async function submitTankTransfer() {
   } catch(e) { showToast('Gagal: ' + e.message); }
 }
 
+async function getNextBunkerCode() {
+  const { data } = await sb.from('fuel_bunkers').select('bunker_code').order('created_at', { ascending: false }).limit(1);
+  if (!data || data.length === 0) return 'X26';
+  const last = data[0].bunker_code;
+  const num = parseInt(last.replace('X',''), 10);
+  return isNaN(num) ? 'X26' : 'X' + (num + 1);
+}
+
+async function initTerimaForm() {
+  const dateEl = document.getElementById('bbm-terima-date');
+  if (dateEl && !dateEl.value) dateEl.value = todayISO();
+  await onTerimaChange();
+}
+
+async function onTerimaChange() {
+  const prev = document.getElementById('bbm-terima-preview');
+  if (!prev) return;
+  const tank = document.getElementById('bbm-terima-tank').value;
+  const code = await getNextBunkerCode();
+  let msg = 'Kode Bunker: <strong>' + code + '</strong>';
+  if (tank) {
+    const levels = await calcTankLevels();
+    const cap = FUEL_TANKS.find(t => t.name === tank);
+    const rem = cap ? cap.cap - (levels[tank] || 0) : 0;
+    const label = cap ? cap.label : tank;
+    msg += ' &nbsp;|&nbsp; Kapasitas sisa ' + label + ': <strong>' + Math.max(0,rem).toLocaleString('id') + ' L</strong>';
+  }
+  prev.innerHTML = msg;
+}
+
+async function submitFuelBunker() {
+  const date = document.getElementById('bbm-terima-date').value;
+  const tank = document.getElementById('bbm-terima-tank').value;
+  const vol = parseFloat(document.getElementById('bbm-terima-vol').value);
+  const notes = document.getElementById('bbm-terima-notes').value.trim();
+  if (!date || !tank || !vol) { showToast('Tanggal, Tanki, dan Volume wajib diisi.'); return; }
+  try {
+    const code = await getNextBunkerCode();
+    const { error } = await sb.from('fuel_bunkers').insert({ bunker_code: code, delivery_date: date, tank_name: tank, total_liters: vol, notes: notes || null });
+    if (error) throw error;
+    showToast('Bunker ' + code + ' berhasil disimpan!', 'success');
+    document.getElementById('bbm-terima-vol').value = '';
+    document.getElementById('bbm-terima-notes').value = '';
+    document.getElementById('bbm-terima-tank').value = '';
+    document.getElementById('bbm-terima-date').value = todayISO();
+    await onTerimaChange();
+  } catch(e) { showToast('Gagal: ' + e.message); }
+}
+
   boot();
 });
 </script>
