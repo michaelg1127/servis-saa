@@ -4355,6 +4355,106 @@ async function submitFuelBunker() {
   } catch(e) { showToast('Gagal: ' + e.message); }
 }
 
+async function initIsiDrumForm() {
+  const dateEl = document.getElementById('bbm-drum-date');
+  if (dateEl && !dateEl.value) dateEl.value = todayISO();
+  const bunkerSel = document.getElementById('bbm-drum-bunker');
+  if (!bunkerSel) return;
+  const { data } = await sb.from('fuel_bunkers').select('id, bunker_code, tank_name, total_liters, delivery_date').order('delivery_date', { ascending: false });
+  bunkerSel.innerHTML = '<option value="">-- Pilih Bunker --</option>' + (data || []).map(b => '<option value="' + b.id + '" data-code="' + b.bunker_code + '" data-tank="' + b.tank_name + '" data-total="' + b.total_liters + '">' + b.bunker_code + ' — ' + b.tank_name.charAt(0).toUpperCase() + b.tank_name.slice(1) + ' — ' + Number(b.total_liters).toLocaleString('id') + 'L — ' + formatDate(b.delivery_date) + '</option>').join('');
+  const rows = document.getElementById('bbm-drum-rows');
+  if (rows && rows.children.length === 0) addDrumRow();
+}
+
+function addDrumRow() {
+  bbmDrumRowCount++;
+  const idx = bbmDrumRowCount;
+  const wrap = document.getElementById('bbm-drum-rows');
+  if (!wrap) return;
+  const row = document.createElement('div');
+  row.id = 'bbm-drum-row-' + idx;
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 100px 36px;gap:8px;margin-bottom:8px;align-items:center;';
+  row.innerHTML = '<input type="text" id="bbm-drum-name-' + idx + '" class="finput" placeholder="Nama Drum (contoh: Drum 3)" oninput="updateIsiPreview()"> ' +
+    '<input type="number" id="bbm-drum-vol-' + idx + '" class="finput" value="200" min="1" oninput="updateIsiPreview()"> ' +
+    '<button onclick="removeDrumRow(' + idx + ')" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:8px;width:36px;height:40px;font-size:18px;cursor:pointer;font-weight:700;">x</button>';
+  wrap.appendChild(row);
+  updateIsiPreview();
+}
+
+function removeDrumRow(idx) {
+  const row = document.getElementById('bbm-drum-row-' + idx);
+  if (row) row.remove();
+  updateIsiPreview();
+}
+
+async function getNextTransferSeq(bunkerCode) {
+  const { data } = await sb.from('fuel_transfers').select('transfer_code').like('transfer_code', bunkerCode + '-%');
+  if (!data || data.length === 0) return 1;
+  const nums = data.map(r => parseInt(r.transfer_code.split('-').pop(), 10)).filter(n => !isNaN(n));
+  return nums.length ? Math.max(...nums) + 1 : 1;
+}
+
+async function updateIsiPreview() {
+  const prev = document.getElementById('bbm-drum-preview');
+  if (!prev) return;
+  const bunkerSel = document.getElementById('bbm-drum-bunker');
+  const opt = bunkerSel && bunkerSel.selectedOptions[0];
+  if (!opt || !opt.value) { prev.style.display = 'none'; return; }
+  const bunkerCode = opt.dataset.code;
+  const totalLiters = parseFloat(opt.dataset.total) || 0;
+  const rows = document.getElementById('bbm-drum-rows');
+  const inputs = rows ? rows.querySelectorAll('[id^="bbm-drum-name-"]') : [];
+  let totalVol = 0;
+  inputs.forEach(inp => {
+    const idx = inp.id.replace('bbm-drum-name-','');
+    const v = parseFloat(document.getElementById('bbm-drum-vol-'+idx) ? document.getElementById('bbm-drum-vol-'+idx).value : 0) || 0;
+    totalVol += v;
+  });
+  const startSeq = await getNextTransferSeq(bunkerCode);
+  const codes = Array.from({length: inputs.length}, (_,i) => bunkerCode + '-' + (startSeq+i)).join(', ');
+  const usedInBunker = totalLiters; // approximate: we sum all transfers for this bunker
+  const { data: existingT } = await sb.from('fuel_transfers').select('volume_liters').eq('bunker_id', opt.value);
+  const usedSoFar = (existingT || []).reduce((s,t) => s + Number(t.volume_liters), 0);
+  const remaining = totalLiters - usedSoFar;
+  prev.style.display = '';
+  prev.innerHTML = 'Kode: <strong>' + (codes || '—') + '</strong> &nbsp;|&nbsp; Total: <strong>' + totalVol.toLocaleString('id') + 'L</strong> &nbsp;|&nbsp; Sisa Bunker: ' + remaining.toLocaleString('id') + 'L &rarr; <strong>' + Math.max(0, remaining - totalVol).toLocaleString('id') + 'L</strong>';
+}
+
+async function submitDrumFills() {
+  const bunkerSel = document.getElementById('bbm-drum-bunker');
+  const opt = bunkerSel && bunkerSel.selectedOptions[0];
+  if (!opt || !opt.value) { showToast('Pilih bunker terlebih dahulu.'); return; }
+  const bunkerId = opt.value;
+  const bunkerCode = opt.dataset.code;
+  const date = document.getElementById('bbm-drum-date').value;
+  if (!date) { showToast('Tanggal isi wajib diisi.'); return; }
+  const rows = document.getElementById('bbm-drum-rows');
+  const nameInputs = rows ? Array.from(rows.querySelectorAll('[id^="bbm-drum-name-"]')) : [];
+  if (nameInputs.length === 0) { showToast('Tambah minimal satu drum.'); return; }
+  const drumData = [];
+  for (const inp of nameInputs) {
+    const idx = inp.id.replace('bbm-drum-name-','');
+    const name = inp.value.trim();
+    const vol = parseFloat(document.getElementById('bbm-drum-vol-'+idx) ? document.getElementById('bbm-drum-vol-'+idx).value : 0);
+    if (!name) { showToast('Nama drum tidak boleh kosong.'); return; }
+    if (!vol || vol <= 0) { showToast('Volume drum harus > 0.'); return; }
+    drumData.push({ name, vol });
+  }
+  try {
+    const startSeq = await getNextTransferSeq(bunkerCode);
+    const inserts = drumData.map((d, i) => ({ transfer_code: bunkerCode + '-' + (startSeq+i), bunker_id: bunkerId, drum_name: d.name, volume_liters: d.vol, filled_date: date, status: 'staged' }));
+    const { error } = await sb.from('fuel_transfers').insert(inserts);
+    if (error) throw error;
+    showToast(inserts.length + ' drum berhasil disimpan (' + inserts.map(r=>r.transfer_code).join(', ') + ')!', 'success');
+    document.getElementById('bbm-drum-rows').innerHTML = '';
+    bbmDrumRowCount = 0;
+    document.getElementById('bbm-drum-bunker').value = '';
+    document.getElementById('bbm-drum-date').value = todayISO();
+    document.getElementById('bbm-drum-preview').style.display = 'none';
+    addDrumRow();
+  } catch(e) { showToast('Gagal: ' + e.message); }
+}
+
   boot();
 });
 </script>
