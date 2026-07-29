@@ -4207,6 +4207,105 @@ function initFuelBBM() {
   switchBBMTab('status', document.getElementById('bbm-tab-status'));
 }
 
+async function calcTankLevels() {
+  const [bunkRes, transRes, ttRes] = await Promise.all([
+    sb.from('fuel_bunkers').select('tank_name, total_liters'),
+    sb.from('fuel_transfers').select('volume_liters, bunker_id, fuel_bunkers(tank_name)'),
+    sb.from('fuel_tank_transfers').select('from_tank, to_tank, volume_liters'),
+  ]);
+  const levels = { hijau: 0, merah: 0, kuning: 0 };
+  (bunkRes.data || []).forEach(b => { levels[b.tank_name] = (levels[b.tank_name] || 0) + Number(b.total_liters); });
+  (transRes.data || []).forEach(t => {
+    const tn = t.fuel_bunkers && t.fuel_bunkers.tank_name;
+    if (tn) levels[tn] = (levels[tn] || 0) - Number(t.volume_liters);
+  });
+  (ttRes.data || []).forEach(tt => {
+    levels[tt.from_tank] = (levels[tt.from_tank] || 0) - Number(tt.volume_liters);
+    levels[tt.to_tank] = (levels[tt.to_tank] || 0) + Number(tt.volume_liters);
+  });
+  FUEL_TANKS.forEach(t => { if (levels[t.name] < 0) levels[t.name] = 0; });
+  return levels;
+}
+
+function renderTankGauges(levels) {
+  return '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">' +
+    FUEL_TANKS.map(t => {
+      const lvl = levels[t.name] || 0;
+      const pct = Math.min(100, Math.round(lvl / t.cap * 100));
+      const barColor = pct < 20 ? '#F97316' : t.color;
+      const warn = pct < 20 ? '<span style="margin-left:6px;font-size:11px;background:#FEF3C7;color:#92400E;padding:2px 7px;border-radius:20px;font-weight:700;">LOW</span>' : '';
+      return '<div style="background:white;border-radius:14px;padding:18px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">' +
+        '<div style="font-size:14px;font-weight:800;color:#1E293B;margin-bottom:4px;">' + t.label + warn + '</div>' +
+        '<div style="font-size:24px;font-weight:900;color:' + barColor + ';margin-bottom:4px;">' + lvl.toLocaleString('id') + ' L</div>' +
+        '<div style="font-size:12px;color:#94A3B8;margin-bottom:10px;">' + pct + '% dari ' + t.cap.toLocaleString('id') + ' L</div>' +
+        '<div style="background:#F1F5F9;border-radius:99px;height:10px;overflow:hidden;"><div style="background:' + barColor + ';height:10px;border-radius:99px;width:' + pct + '%;transition:width 0.4s;"></div></div>' +
+      '</div>';
+    }).join('') +
+  '</div>';
+}
+
+function renderStagedDrums(transfers) {
+  if (!transfers || transfers.length === 0) {
+    return '<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:10px;"><svg width="18" height="18" fill="none" stroke="#16A34A" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><div style="font-size:13px;font-weight:700;color:#16A34A;">Tidak ada drum staged — semua sudah didistribusi</div></div>';
+  }
+  const rows = transfers.map(t => '<tr>' +
+    '<td style="font-weight:700;color:#1D4ED8;">' + (t.transfer_code || '') + '</td>' +
+    '<td>' + (t.drum_name || '') + '</td>' +
+    '<td>' + (t.volume_liters || '') + ' L</td>' +
+    '<td>' + formatDate(t.filled_date) + '</td>' +
+    '<td>' + ((t.fuel_bunkers && t.fuel_bunkers.bunker_code) || '') + '</td>' +
+    '<td><button class="btn-primary" style="padding:4px 10px;font-size:12px;" onclick="prefillDistribusiDrum(\'' + t.id + '\');">Distribusi</button></td>' +
+  '</tr>').join('');
+  return '<div style="font-size:15px;font-weight:700;color:#DC2626;margin-bottom:12px;">Drum Staged — Belum Didistribusi (' + transfers.length + ')</div>' +
+    '<div class="table-wrap"><table class="dt"><thead><tr><th>Kode Transfer</th><th>Drum</th><th>Volume</th><th>Tgl Isi</th><th>Bunker</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+async function loadFuelStatus() {
+  const el = document.getElementById('bbm-panel-status');
+  if (!el) return;
+  el.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const [levels, { data: staged }] = await Promise.all([
+      calcTankLevels(),
+      sb.from('fuel_transfers').select('id, transfer_code, drum_name, volume_liters, filled_date, fuel_bunkers(bunker_code)').eq('status','staged').order('created_at'),
+    ]);
+    const transferBtn = '<button onclick="openTankTransferModal()" style="background:#F1F5F9;border:1.5px solid #CBD5E1;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:700;color:#475569;cursor:pointer;margin-bottom:20px;">&#8646; Pindah Antar Tanki</button>';
+    el.innerHTML = renderTankGauges(levels) + transferBtn + renderStagedDrums(staged);
+  } catch(e) { el.innerHTML = '<div style="color:#DC2626;padding:16px;">Gagal load: ' + e.message + '</div>'; }
+}
+
+function openTankTransferModal() {
+  showModal('<div style="font-size:16px;font-weight:700;color:#1E293B;margin-bottom:16px;">Pindah Antar Tanki</div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Dari Tanki</label>' +
+    '<select id="tt-from" class="finput"><option value="">-- Pilih --</option><option value="hijau">Tanki Hijau</option><option value="merah">Tanki Merah</option><option value="kuning">Tanki Kuning</option></select></div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Ke Tanki</label>' +
+    '<select id="tt-to" class="finput"><option value="">-- Pilih --</option><option value="hijau">Tanki Hijau</option><option value="merah">Tanki Merah</option><option value="kuning">Tanki Kuning</option></select></div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Volume (L)</label>' +
+    '<input type="number" id="tt-vol" class="finput" placeholder="Jumlah liter" min="1"></div>' +
+    '<div style="margin-bottom:16px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Tanggal</label>' +
+    '<input type="date" id="tt-date" class="finput" value="' + todayISO() + '"></div>' +
+    '<div style="margin-bottom:16px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Catatan</label>' +
+    '<textarea id="tt-notes" class="finput" rows="2" placeholder="Opsional..."></textarea></div>' +
+    '<div style="display:flex;gap:8px;"><button onclick="submitTankTransfer()" class="btn-primary" style="flex:1;">Simpan</button><button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button></div>');
+}
+
+async function submitTankTransfer() {
+  const from_tank = document.getElementById('tt-from').value;
+  const to_tank = document.getElementById('tt-to').value;
+  const vol = parseFloat(document.getElementById('tt-vol').value);
+  const date = document.getElementById('tt-date').value;
+  const notes = document.getElementById('tt-notes').value.trim();
+  if (!from_tank || !to_tank || !vol || !date) { showToast('Semua field wajib diisi.'); return; }
+  if (from_tank === to_tank) { showToast('Tanki asal dan tujuan tidak boleh sama.'); return; }
+  try {
+    const { error } = await sb.from('fuel_tank_transfers').insert({ from_tank, to_tank, volume_liters: vol, transfer_date: date, notes: notes || null });
+    if (error) throw error;
+    closeModal();
+    showToast('Transfer berhasil dicatat.', 'success');
+    loadFuelStatus();
+  } catch(e) { showToast('Gagal: ' + e.message); }
+}
+
   boot();
 });
 </script>
