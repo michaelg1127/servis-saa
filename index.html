@@ -4135,55 +4135,6 @@ async function exportSchedule() {
 }
 
 // ============================================================
-// KEYBOARD ENTER ON LOGIN
-// ============================================================
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    const loginScreen = document.getElementById('login-screen');
-    if (loginScreen && loginScreen.style.display !== 'none') doLogin();
-  }
-});
-
-// ============================================================
-// INIT
-// ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-  // Set initial screen states
-  document.querySelectorAll('.mscreen').forEach((el, i) => { if (i === 0 || el.id.endsWith('0')) {} });
-  // Set first mscreen as on for each view
-  ['view-operator','view-spv','view-mkn'].forEach(viewId => {
-    const view = document.getElementById(viewId);
-    if (view) {
-      const screens = view.querySelectorAll('.mscreen');
-      if (screens.length > 0) screens[0].classList.add('on');
-    }
-  });
-  // Debug overlay (activated by ?debug=1 in URL)
-  if (location.search.includes('debug=1')) {
-    function updateDebugOverlay() {
-      let el = document.getElementById('__debug_overlay');
-      if (!el) {
-        el = document.createElement('div');
-        el.id = '__debug_overlay';
-        el.style.cssText = 'position:fixed;bottom:72px;left:0;right:0;background:rgba(0,0,0,0.85);color:#0f0;font-size:10px;padding:6px 8px;z-index:99999;font-family:monospace;white-space:pre-wrap;pointer-events:none;';
-        document.body.appendChild(el);
-      }
-      const spv = document.getElementById('view-spv');
-      const dash = document.getElementById('spv-screen-dashboard');
-      const stats = document.getElementById('spv-stats');
-      el.textContent = [
-        'window.innerWidth=' + window.innerWidth,
-        'clientWidth=' + document.documentElement.clientWidth,
-        'body.offsetWidth=' + document.body.offsetWidth,
-        'view-spv: w=' + (spv ? spv.offsetWidth : '?') + ' class=' + (spv ? spv.className : '?') + ' style.w=' + (spv ? spv.style.width : '?'),
-        'spv-screen-dashboard: w=' + (dash ? dash.offsetWidth : '?') + ' class=' + (dash ? dash.className : '?'),
-        'spv-stats: w=' + (stats ? stats.offsetWidth : '?'),
-      ].join('\n');
-    }
-    updateDebugOverlay();
-    setInterval(updateDebugOverlay, 1000);
-  }
-// ============================================================
 // FUEL TRACKING (BBM)
 // ============================================================
 function switchBBMTab(tab, el) {
@@ -4614,6 +4565,57 @@ function renderFuelRiwayat() {
   }
   el.innerHTML = sortPills + '<div class="table-wrap"><table class="dt">' + hdrRow + bodyHtml + '</table></div>';
 }
+
+// ============================================================
+// KEYBOARD ENTER ON LOGIN
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen && loginScreen.style.display !== 'none') doLogin();
+  }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Set initial screen states
+  document.querySelectorAll('.mscreen').forEach((el, i) => { if (i === 0 || el.id.endsWith('0')) {} });
+  // Set first mscreen as on for each view
+  ['view-operator','view-spv','view-mkn'].forEach(viewId => {
+    const view = document.getElementById(viewId);
+    if (view) {
+      const screens = view.querySelectorAll('.mscreen');
+      if (screens.length > 0) screens[0].classList.add('on');
+    }
+  });
+  // Debug overlay (activated by ?debug=1 in URL)
+  if (location.search.includes('debug=1')) {
+    function updateDebugOverlay() {
+      let el = document.getElementById('__debug_overlay');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = '__debug_overlay';
+        el.style.cssText = 'position:fixed;bottom:72px;left:0;right:0;background:rgba(0,0,0,0.85);color:#0f0;font-size:10px;padding:6px 8px;z-index:99999;font-family:monospace;white-space:pre-wrap;pointer-events:none;';
+        document.body.appendChild(el);
+      }
+      const spv = document.getElementById('view-spv');
+      const dash = document.getElementById('spv-screen-dashboard');
+      const stats = document.getElementById('spv-stats');
+      el.textContent = [
+        'window.innerWidth=' + window.innerWidth,
+        'clientWidth=' + document.documentElement.clientWidth,
+        'body.offsetWidth=' + document.body.offsetWidth,
+        'view-spv: w=' + (spv ? spv.offsetWidth : '?') + ' class=' + (spv ? spv.className : '?') + ' style.w=' + (spv ? spv.style.width : '?'),
+        'spv-screen-dashboard: w=' + (dash ? dash.offsetWidth : '?') + ' class=' + (dash ? dash.className : '?'),
+        'spv-stats: w=' + (stats ? stats.offsetWidth : '?'),
+      ].join('\n');
+    }
+    updateDebugOverlay();
+    setInterval(updateDebugOverlay, 1000);
+  }
+
 
   boot();
 });
