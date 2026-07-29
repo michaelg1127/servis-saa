@@ -4544,6 +4544,68 @@ async function submitFuelDispense() {
   } catch(e) { showToast('Gagal: ' + e.message); }
 }
 
+async function loadFuelRiwayat() {
+  const el = document.getElementById('bbm-panel-riwayat');
+  if (!el) return;
+  el.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
+  try {
+    const { data, error } = await sb.from('fuel_dispenses')
+      .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, notes, units(code, name), fuel_transfers(transfer_code, drum_name, fuel_bunkers(bunker_code))')
+      .order('dispense_date', { ascending: false }).order('created_at', { ascending: false });
+    if (error) throw error;
+    fuelRiwayatData = data || [];
+    renderFuelRiwayat();
+  } catch(e) { el.innerHTML = '<div style="color:#DC2626;padding:16px;">Gagal: ' + e.message + '</div>'; }
+}
+
+function setFuelRiwayatSort(sort, el) {
+  fuelRiwayatSort = sort;
+  document.querySelectorAll('#bbm-riwayat-sort-pills button').forEach(b => b.classList.remove('on'));
+  if (el) el.classList.add('on');
+  renderFuelRiwayat();
+}
+
+function renderFuelRiwayat() {
+  const el = document.getElementById('bbm-panel-riwayat');
+  if (!el) return;
+  const data = fuelRiwayatData;
+  const sortPills = '<div id="bbm-riwayat-sort-pills" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">' +
+    '<button class="filter-pill' + (fuelRiwayatSort==='date'?' on':'') + '" onclick="setFuelRiwayatSort(\' date\',this)">Terbaru</button>' +
+    '<button class="filter-pill' + (fuelRiwayatSort==='unit'?' on':'') + '" onclick="setFuelRiwayatSort(\'unit\',this)">Per Unit</button>' +
+    '<button class="filter-pill' + (fuelRiwayatSort==='bunker'?' on':'') + '" onclick="setFuelRiwayatSort(\'bunker\',this)">Per Bunker</button>' +
+  '</div>';
+  if (!data || data.length === 0) {
+    el.innerHTML = sortPills + '<div style="color:#94A3B8;padding:20px;">Belum ada data distribusi.</div>';
+    return;
+  }
+  const rowHtml = (r) => {
+    const unit = r.units ? r.units.code : '—';
+    const tc = r.fuel_transfers ? r.fuel_transfers.transfer_code : '—';
+    const drum = r.fuel_transfers ? r.fuel_transfers.drum_name : '—';
+    const bunker = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—';
+    const lhr = r.l_per_hr ? Number(r.l_per_hr).toFixed(2) : '—';
+    return '<tr><td>' + formatDate(r.dispense_date) + '</td><td style="color:#64748B;font-size:12px;">' + (r.dispense_time ? r.dispense_time.substring(0,5) : '—') + '</td><td style="font-weight:700;">' + unit + '</td><td>' + Number(r.hm_at_fill).toLocaleString('id') + '</td><td style="color:#1D4ED8;font-weight:600;">' + tc + '</td><td>' + drum + '</td><td>' + bunker + '</td><td>' + r.liters_dispensed + 'L</td><td style="color:' + (r.l_per_hr ? '#16A34A' : '#94A3B8') + ';font-weight:700;">' + lhr + '</td></tr>';
+  };
+  const hdrRow = '<thead><tr><th>Tanggal</th><th>Jam</th><th>Unit</th><th>HM</th><th>Transfer</th><th>Drum</th><th>Bunker</th><th>Liter</th><th>L/Hr</th></tr></thead>';
+  let bodyHtml = '';
+  if (fuelRiwayatSort === 'date') {
+    bodyHtml = '<tbody>' + data.map(rowHtml).join('') + '</tbody>';
+  } else if (fuelRiwayatSort === 'unit') {
+    const groups = {};
+    data.forEach(r => { const k = r.units ? r.units.code : '—'; if (!groups[k]) groups[k] = []; groups[k].push(r); });
+    Object.keys(groups).sort().forEach(k => {
+      bodyHtml += '<tbody><tr style="background:#EFF6FF;"><td colspan="9" style="font-weight:800;color:#1D4ED8;padding:8px 12px;">' + k + '</td></tr>' + groups[k].map(rowHtml).join('') + '</tbody>';
+    });
+  } else {
+    const groups = {};
+    data.forEach(r => { const k = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—'; if (!groups[k]) groups[k] = []; groups[k].push(r); });
+    Object.keys(groups).sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; }).forEach(k => {
+      bodyHtml += '<tbody><tr style="background:#F0FDF4;"><td colspan="9" style="font-weight:800;color:#166534;padding:8px 12px;">' + k + '</td></tr>' + groups[k].map(rowHtml).join('') + '</tbody>';
+    });
+  }
+  el.innerHTML = sortPills + '<div class="table-wrap"><table class="dt">' + hdrRow + bodyHtml + '</table></div>';
+}
+
   boot();
 });
 </script>
