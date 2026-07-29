@@ -4193,7 +4193,6 @@ function renderTankGauges(levels) {
 }
 
 async function loadFuelStatus() {
-async function loadFuelStatus() {
   const el = document.getElementById('bbm-panel-status');
   if (!el) return;
   el.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
@@ -4318,7 +4317,6 @@ async function deleteBunkerRecord(id) {
   loadFuelStatus();
 }
 
-async function getNextTransferSeq(
 async function getNextTransferSeq(bunkerCode) {
   const { data } = await sb.from('fuel_transfers').select('transfer_code').like('transfer_code', bunkerCode + '-%');
   if (!data || data.length === 0) return 1;
@@ -4462,7 +4460,6 @@ async function calcLPerHr(unitId, hm, liters) {
   return Math.round((liters / diff) * 100) / 100;
 }
 
-async function loadFuelRiwayat() {
 async function loadFuelRiwayat() {
   const el = document.getElementById('bbm-panel-riwayat');
   if (!el) return;
