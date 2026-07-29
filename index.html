@@ -544,6 +544,7 @@
     <div class="slink" onclick="switchAdmin('pengguna',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>Kelola Pengguna</div>
     <div class="slink" onclick="switchAdmin('unit',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h5l3 5v3h-8V8zM5.5 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm11 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>Kelola Unit</div>
     <div class="slink" onclick="switchAdmin('catat',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Catat Servis</div>
+    <div class="slink" onclick="switchAdmin('bbm',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z"/><line x1="7" y1="5" x2="7" y2="5"/><line x1="7" y1="12" x2="7" y2="12"/></svg>BBM</div>
     <div style="position:absolute;bottom:16px;left:12px;right:12px;">
       <button onclick="doLogout()" class="btn-secondary" style="width:100%;font-size:13px;">Keluar</button>
     </div>
@@ -771,6 +772,53 @@
   </div>
 </div>
 
+<div id="admin-screen-bbm" class="dscreen">
+  <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:16px;">BBM — Fuel Tracking</div>
+  <div id="bbm-tabs" style="display:flex;gap:0;border-bottom:2px solid #E2E8F0;margin-bottom:20px;flex-wrap:wrap;">
+    <button id="bbm-tab-status" onclick="switchBBMTab('status',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#1D4ED8;border-bottom:3px solid #1D4ED8;margin-bottom:-2px;">Status</button>
+    <button id="bbm-tab-terima" onclick="switchBBMTab('terima',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Terima BBM</button>
+    <button id="bbm-tab-isidrum" onclick="switchBBMTab('isidrum',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Isi Drum</button>
+    <button id="bbm-tab-distribusi" onclick="switchBBMTab('distribusi',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Distribusi</button>
+    <button id="bbm-tab-riwayat" onclick="switchBBMTab('riwayat',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Riwayat</button>
+  </div>
+  <div id="bbm-panel-status"></div>
+  <div id="bbm-panel-terima" style="display:none;max-width:560px;">
+    <div style="background:white;border-radius:16px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+      <div id="bbm-terima-preview" style="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#1D4ED8;font-weight:600;"></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Terima <span style="color:#EF4444;">*</span></label><input type="date" id="bbm-terima-date" class="finput" onchange="onTerimaChange()"></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanki Tujuan <span style="color:#EF4444;">*</span></label><select id="bbm-terima-tank" class="finput" onchange="onTerimaChange()"><option value="">-- Pilih Tanki --</option><option value="hijau">Tanki Hijau (8.000 L)</option><option value="merah">Tanki Merah (1.500 L)</option><option value="kuning">Tanki Kuning (1.500 L)</option></select></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Volume (L) <span style="color:#EF4444;">*</span></label><input type="number" id="bbm-terima-vol" class="finput" placeholder="Contoh: 8000" min="1" onchange="onTerimaChange()"></div>
+      <div style="margin-bottom:20px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label><textarea id="bbm-terima-notes" class="finput" rows="2" placeholder="Opsional..."></textarea></div>
+      <button onclick="submitFuelBunker()" class="btn-primary" style="width:100%;padding:13px;font-size:15px;font-weight:700;">Simpan Bunker</button>
+    </div>
+  </div>
+  <div id="bbm-panel-isidrum" style="display:none;max-width:600px;">
+    <div style="background:white;border-radius:16px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Bunker <span style="color:#EF4444;">*</span></label><select id="bbm-drum-bunker" class="finput" onchange="updateIsiPreview()"><option value="">-- Pilih Bunker --</option></select></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Isi <span style="color:#EF4444;">*</span></label><input type="date" id="bbm-drum-date" class="finput"></div>
+      <div id="bbm-drum-rows" style="margin-bottom:14px;"></div>
+      <button onclick="addDrumRow()" style="background:#EFF6FF;color:#1D4ED8;border:1.5px dashed #93C5FD;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:14px;">+ Tambah Drum</button>
+      <div id="bbm-drum-preview" style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#166534;font-weight:600;display:none;"></div>
+      <button onclick="submitDrumFills()" class="btn-primary" style="width:100%;padding:13px;font-size:15px;font-weight:700;">Simpan Isi Drum</button>
+    </div>
+  </div>
+  <div id="bbm-panel-distribusi" style="display:none;max-width:560px;">
+    <div style="background:white;border-radius:16px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Drum (Staged) <span style="color:#EF4444;">*</span></label><select id="bbm-dist-drum" class="finput"><option value="">-- Pilih Drum --</option></select></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Unit <span style="color:#EF4444;">*</span></label><select id="bbm-dist-unit" class="finput" onchange="onDistribusiUnitChange(this.value)"><option value="">-- Pilih Unit --</option></select></div>
+      <div id="bbm-dist-last-info" style="display:none;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#475569;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Isi <span style="color:#EF4444;">*</span></label><input type="number" id="bbm-dist-hm" class="finput" placeholder="HM" oninput="onDistribusiHMChange()"></div>
+        <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal <span style="color:#EF4444;">*</span></label><input type="date" id="bbm-dist-date" class="finput"></div>
+      </div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Jam</label><input type="time" id="bbm-dist-time" class="finput"></div>
+      <div style="margin-bottom:20px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label><textarea id="bbm-dist-notes" class="finput" rows="2" placeholder="Opsional..."></textarea></div>
+      <div id="bbm-dist-lhr-preview" style="display:none;background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#92400E;font-weight:600;"></div>
+      <button onclick="submitFuelDispense()" class="btn-primary" style="width:100%;padding:13px;font-size:15px;font-weight:700;">Catat Distribusi</button>
+    </div>
+  </div>
+  <div id="bbm-panel-riwayat" style="display:none;"></div>
+</div>
 <!-- MODAL OVERLAY -->
 <div id="modal-overlay" class="modal-overlay" style="display:none;" onclick="closeModalOnBg(event)">
   <div class="modal-box" id="modal-box"></div>
@@ -819,6 +867,12 @@ let allOperatorProfiles = [];
 let isMobile = window.innerWidth <= 1024;
 let _alertData = {};
 let _alertSRUrgency = 'Normal';
+let fuelBbmSubTab = 'status';
+let fuelRiwayatSort = 'date';
+let fuelRiwayatData = [];
+let bbmDrumRowCount = 0;
+let bbmLastDispenseByUnit = {};
+const FUEL_TANKS = [{name:'hijau',label:'Tanki Hijau',cap:8000,color:'#16A34A'},{name:'merah',label:'Tanki Merah',cap:1500,color:'#DC2626'},{name:'kuning',label:'Tanki Kuning',cap:1500,color:'#CA8A04'}];
 
 // ============================================================
 // UTILITY FUNCTIONS
@@ -3833,7 +3887,7 @@ function switchAdmin(name, el) {
   if (screen) screen.classList.add('on');
   if (el) el.classList.add('on');
   closeAdminDrawer();
-  const labels = { dashboard:'Dashboard', jadwal:'Jadwal Maintenance', permintaan:'Permintaan Servis', riwayat:'Riwayat Per Unit', jadwalmkn:'Jadwal MKN', import:'Import Data', export:'Export Data', pengguna:'Kelola Pengguna', unit:'Kelola Unit', catat:'Catat Servis' };
+  const labels = { dashboard:'Dashboard', jadwal:'Jadwal Maintenance', permintaan:'Permintaan Servis', riwayat:'Riwayat Per Unit', jadwalmkn:'Jadwal MKN', import:'Import Data', export:'Export Data', pengguna:'Kelola Pengguna', unit:'Kelola Unit', catat:'Catat Servis', bbm:'BBM' };
   const nameEl = document.getElementById('adm-mobile-screen-name');
   if (nameEl) nameEl.textContent = labels[name] || name;
   // Lazy load specific screens
@@ -3843,6 +3897,7 @@ function switchAdmin(name, el) {
   if (name === 'riwayat') initAdminRiwayat();
   if (name === 'jadwal') renderAdminJadwal();
   if (name === 'catat') initAdminCatat();
+  if (name === 'bbm') initFuelBBM();
 }
 
 function toggleAdminDrawer() {
@@ -4128,6 +4183,30 @@ document.addEventListener('DOMContentLoaded', () => {
     updateDebugOverlay();
     setInterval(updateDebugOverlay, 1000);
   }
+// ============================================================
+// FUEL TRACKING (BBM)
+// ============================================================
+function switchBBMTab(tab, el) {
+  fuelBbmSubTab = tab;
+  const tabs = ['status','terima','isidrum','distribusi','riwayat'];
+  tabs.forEach(t => {
+    const btn = document.getElementById('bbm-tab-' + t);
+    const panel = document.getElementById('bbm-panel-' + t);
+    const active = t === tab;
+    if (btn) { btn.style.color = active ? '#1D4ED8' : '#94A3B8'; btn.style.borderBottomColor = active ? '#1D4ED8' : 'transparent'; }
+    if (panel) panel.style.display = active ? '' : 'none';
+  });
+  if (tab === 'status') loadFuelStatus();
+  if (tab === 'terima') initTerimaForm();
+  if (tab === 'isidrum') initIsiDrumForm();
+  if (tab === 'distribusi') initDistribusiForm();
+  if (tab === 'riwayat') loadFuelRiwayat();
+}
+
+function initFuelBBM() {
+  switchBBMTab('status', document.getElementById('bbm-tab-status'));
+}
+
   boot();
 });
 </script>
