@@ -4538,6 +4538,8 @@ async function submitFuelDispense() {
     document.getElementById('bbm-dist-last-info').style.display = 'none';
     document.getElementById('bbm-dist-lhr-preview').style.display = 'none';
     bbmLastDispenseByUnit = {};
+    document.getElementById('bbm-dist-unit').value = '';
+    document.getElementById('bbm-dist-drum').value = '';
     await initDistribusiForm();
   } catch(e) { showToast('Gagal: ' + e.message); }
 }
