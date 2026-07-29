@@ -4455,6 +4455,93 @@ async function submitDrumFills() {
   } catch(e) { showToast('Gagal: ' + e.message); }
 }
 
+async function initDistribusiForm() {
+  const dateEl = document.getElementById('bbm-dist-date');
+  if (dateEl && !dateEl.value) dateEl.value = todayISO();
+  const [{ data: units }, { data: staged }] = await Promise.all([
+    sb.from('units').select('id, code, name').order('code'),
+    sb.from('fuel_transfers').select('id, transfer_code, drum_name, volume_liters, filled_date').eq('status','staged').order('created_at'),
+  ]);
+  const unitSel = document.getElementById('bbm-dist-unit');
+  if (unitSel) unitSel.innerHTML = '<option value="">-- Pilih Unit --</option>' + (units||[]).map(u => '<option value="' + u.id + '">' + u.code + ' — ' + u.name + '</option>').join('');
+  const drumSel = document.getElementById('bbm-dist-drum');
+  if (drumSel) drumSel.innerHTML = '<option value="">-- Pilih Drum --</option>' + (staged||[]).map(t => '<option value="' + t.id + '" data-vol="' + t.volume_liters + '">' + t.transfer_code + ' · ' + t.drum_name + ' · ' + t.volume_liters + 'L · Isi: ' + formatDate(t.filled_date) + '</option>').join('');
+}
+
+async function onDistribusiUnitChange(unitId) {
+  const info = document.getElementById('bbm-dist-last-info');
+  if (!info) return;
+  if (!unitId) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; return; }
+  const { data } = await sb.from('fuel_dispenses').select('hm_at_fill, dispense_date, liters_dispensed, l_per_hr').eq('unit_id', unitId).order('hm_at_fill', { ascending: false }).limit(1);
+  if (!data || data.length === 0) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; return; }
+  const last = data[0];
+  bbmLastDispenseByUnit = last;
+  info.style.display = '';
+  info.innerHTML = 'Pengisian terakhir: <strong>' + formatDate(last.dispense_date) + '</strong> — HM: <strong>' + Number(last.hm_at_fill).toLocaleString('id') + '</strong>' + (last.l_per_hr ? ' — L/Hr: <strong>' + Number(last.l_per_hr).toFixed(2) + '</strong>' : '');
+  onDistribusiHMChange();
+}
+
+function onDistribusiHMChange() {
+  const prev = document.getElementById('bbm-dist-lhr-preview');
+  if (!prev) return;
+  const hm = parseFloat(document.getElementById('bbm-dist-hm').value);
+  const drumSel = document.getElementById('bbm-dist-drum');
+  const opt = drumSel && drumSel.selectedOptions[0];
+  const liters = opt ? parseFloat(opt.dataset.vol || 0) : 0;
+  if (!hm || !liters || !bbmLastDispenseByUnit || !bbmLastDispenseByUnit.hm_at_fill) { prev.style.display = 'none'; return; }
+  const hmDiff = hm - Number(bbmLastDispenseByUnit.hm_at_fill);
+  if (hmDiff <= 0) { prev.style.display = 'none'; return; }
+  const lhr = (liters / hmDiff).toFixed(2);
+  prev.style.display = '';
+  prev.innerHTML = 'Estimasi L/Hr: <strong>' + lhr + ' L/Hr</strong> (' + liters + 'L / ' + hmDiff.toLocaleString('id') + ' HM)';
+}
+
+async function calcLPerHr(unitId, hm, liters) {
+  const { data } = await sb.from('fuel_dispenses').select('hm_at_fill').eq('unit_id', unitId).order('hm_at_fill', { ascending: false }).limit(1);
+  if (!data || data.length === 0) return null;
+  const prevHm = Number(data[0].hm_at_fill);
+  const diff = hm - prevHm;
+  if (diff <= 0) return null;
+  return Math.round((liters / diff) * 100) / 100;
+}
+
+async function prefillDistribusiDrum(transferId) {
+  switchBBMTab('distribusi', document.getElementById('bbm-tab-distribusi'));
+  await initDistribusiForm();
+  const drumSel = document.getElementById('bbm-dist-drum');
+  if (drumSel) { drumSel.value = transferId; }
+}
+
+async function submitFuelDispense() {
+  const drumSel = document.getElementById('bbm-dist-drum');
+  const drumOpt = drumSel && drumSel.selectedOptions[0];
+  const transferId = drumOpt ? drumOpt.value : '';
+  const unitId = document.getElementById('bbm-dist-unit').value;
+  const hm = parseFloat(document.getElementById('bbm-dist-hm').value);
+  const date = document.getElementById('bbm-dist-date').value;
+  const time = document.getElementById('bbm-dist-time').value || null;
+  const notes = document.getElementById('bbm-dist-notes').value.trim() || null;
+  if (!transferId || !unitId || !hm || !date) { showToast('Drum, Unit, HM, dan Tanggal wajib diisi.'); return; }
+  const liters = parseFloat((drumOpt && drumOpt.dataset.vol) || 0);
+  if (!liters) { showToast('Volume drum tidak valid.'); return; }
+  try {
+    const lhr = await calcLPerHr(unitId, hm, liters);
+    const { error: e1 } = await sb.from('fuel_dispenses').insert({ transfer_id: transferId, unit_id: unitId, hm_at_fill: hm, dispense_date: date, dispense_time: time, liters_dispensed: liters, l_per_hr: lhr, notes });
+    if (e1) throw e1;
+    const { error: e2 } = await sb.from('fuel_transfers').update({ status: 'deployed' }).eq('id', transferId);
+    if (e2) throw e2;
+    showToast('Distribusi berhasil dicatat!', 'success');
+    document.getElementById('bbm-dist-hm').value = '';
+    document.getElementById('bbm-dist-notes').value = '';
+    document.getElementById('bbm-dist-date').value = todayISO();
+    document.getElementById('bbm-dist-time').value = '';
+    document.getElementById('bbm-dist-last-info').style.display = 'none';
+    document.getElementById('bbm-dist-lhr-preview').style.display = 'none';
+    bbmLastDispenseByUnit = {};
+    await initDistribusiForm();
+  } catch(e) { showToast('Gagal: ' + e.message); }
+}
+
   boot();
 });
 </script>
