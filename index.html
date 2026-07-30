@@ -800,6 +800,7 @@
         <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Drum <span style="color:#EF4444;">*</span></label><input type="text" id="bbm-peng-drum" class="finput" placeholder="Contoh: Drum 3, Polos"></div>
         <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Volume (L) <span style="color:#EF4444;">*</span></label><input type="number" id="bbm-peng-vol" class="finput" value="200" min="1" oninput="onPengisianHMChange()"></div>
       </div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Gauge Tangki (%) <span style="color:#64748B;font-size:11px;font-weight:400;">sebelum isi</span></label><div style="display:flex;align-items:center;gap:12px;"><input type="number" id="bbm-peng-gauge" class="finput" min="0" max="100" placeholder="0-100" style="width:80px;" oninput="onGaugeInput(this.value)"><div style="flex:1;background:#F1F5F9;border-radius:99px;height:14px;overflow:hidden;border:1px solid #E2E8F0;"><div id="bbm-peng-gauge-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#EF4444 0%,#F59E0B 50%,#22C55E 100%);border-radius:99px;transition:width 0.2s;"></div></div><span id="bbm-peng-gauge-label" style="font-size:14px;font-weight:800;color:#374151;min-width:40px;">—</span></div></div>
       <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Unit <span style="color:#EF4444;">*</span></label><select id="bbm-peng-unit" class="finput" onchange="onPengisianUnitChange(this.value)"><option value="">-- Pilih Unit --</option></select></div>
       <div id="bbm-peng-last-info" style="display:none;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#475569;"></div>
       <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Project</label><input type="text" id="bbm-peng-project" class="finput" placeholder="Nama project (opsional)"></div>
@@ -4390,13 +4391,14 @@ async function onPengisianUnitChange(unitId) {
   const info = document.getElementById('bbm-peng-last-info');
   if (!info) return;
   if (!unitId) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; onPengisianHMChange(); return; }
-  const { data } = await sb.from('fuel_dispenses').select('hm_at_fill, dispense_date, liters_dispensed, l_per_hr').eq('unit_id', unitId).order('hm_at_fill', { ascending: false }).limit(1);
+  const { data } = await sb.from('fuel_dispenses').select('hm_at_fill, dispense_date, liters_dispensed, l_per_hr, gauge_pct').eq('unit_id', unitId).order('hm_at_fill', { ascending: false }).limit(1);
   if (!data || data.length === 0) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; onPengisianHMChange(); return; }
   const last = data[0];
   bbmLastDispenseByUnit = last;
   info.style.display = '';
   info.innerHTML = 'Pengisian terakhir: <strong>' + formatDate(last.dispense_date) + '</strong> — HM: <strong>' + Number(last.hm_at_fill).toLocaleString('id') + '</strong>' +
-    (last.l_per_hr ? ' — L/Hr: <strong>' + Number(last.l_per_hr).toFixed(2) + '</strong>' : '');
+    (last.l_per_hr ? ' — L/Hr: <strong>' + Number(last.l_per_hr).toFixed(2) + '</strong>' : '') +
+    (last.gauge_pct != null ? ' — Gauge: <strong>' + last.gauge_pct + '%</strong>' : '');
   onPengisianHMChange();
 }
 
@@ -4408,9 +4410,29 @@ function onPengisianHMChange() {
   if (!hm || !liters || !bbmLastDispenseByUnit || !bbmLastDispenseByUnit.hm_at_fill) { prev.style.display = 'none'; return; }
   const hmDiff = hm - Number(bbmLastDispenseByUnit.hm_at_fill);
   if (hmDiff <= 0) { prev.style.display = 'none'; return; }
-  const lhr = (liters / hmDiff).toFixed(2);
+  const lhrBasic = (liters / hmDiff).toFixed(2);
+  let lines = 'Est. L/Hr (isi): <strong>' + lhrBasic + ' L/Hr</strong> (' + liters + 'L / ' + hmDiff.toLocaleString('id') + ' HM)';
+  const gaugeEl = document.getElementById('bbm-peng-gauge');
+  const gaugeNow = gaugeEl && gaugeEl.value !== '' ? parseInt(gaugeEl.value) : NaN;
+  const prevGauge = bbmLastDispenseByUnit.gauge_pct;
+  if (!isNaN(gaugeNow) && gaugeNow >= 0 && prevGauge != null) {
+    const consumed = Number(prevGauge) + Number(bbmLastDispenseByUnit.liters_dispensed || 0) - gaugeNow;
+    if (consumed > 0) {
+      const lhrGauge = (consumed / hmDiff).toFixed(2);
+      lines += '<br>Est. L/Hr (gauge): <strong>' + lhrGauge + ' L/Hr</strong> (' + prevGauge + ' + ' + (bbmLastDispenseByUnit.liters_dispensed || 0) + ' − ' + gaugeNow + ' = ' + consumed + ')';
+    }
+  }
   prev.style.display = '';
-  prev.innerHTML = 'Estimasi L/Hr: <strong>' + lhr + ' L/Hr</strong> (' + liters + 'L / ' + hmDiff.toLocaleString('id') + ' HM)';
+  prev.innerHTML = lines;
+}
+
+function onGaugeInput(v) {
+  const val = v !== '' ? Math.min(100, Math.max(0, parseInt(v) || 0)) : null;
+  const bar = document.getElementById('bbm-peng-gauge-bar');
+  const lbl = document.getElementById('bbm-peng-gauge-label');
+  if (bar) bar.style.width = (val !== null ? val : 0) + '%';
+  if (lbl) lbl.textContent = val !== null ? val + '%' : '—';
+  onPengisianHMChange();
 }
 
 async function submitPengisian() {
@@ -4426,6 +4448,8 @@ async function submitPengisian() {
   const date = document.getElementById('bbm-peng-date').value;
   const time = document.getElementById('bbm-peng-time').value || null;
   const notes = document.getElementById('bbm-peng-notes').value.trim() || null;
+  const gaugeRaw = parseInt((document.getElementById('bbm-peng-gauge') || {}).value || '');
+  const gaugePct = !isNaN(gaugeRaw) && gaugeRaw >= 0 && gaugeRaw <= 100 ? gaugeRaw : null;
   if (!bunkerId || !drumName || !vol || !unitId || !hm || !date) { showToast('Bunker, Drum, Volume, Unit, HM, dan Tanggal wajib diisi.'); return; }
   const totalBunker = parseFloat(bunkerOpt.dataset.total) || 0;
   const { data: existingT } = await sb.from('fuel_transfers').select('volume_liters').eq('bunker_id', bunkerId);
@@ -4438,9 +4462,9 @@ async function submitPengisian() {
       .insert({ transfer_code: transferCode, bunker_id: bunkerId, drum_name: drumName, volume_liters: vol, filled_date: date, status: 'deployed' })
       .select('id').single();
     if (e1) throw e1;
-    const lhr = await calcLPerHr(unitId, hm, vol);
+    const lhr = await calcLPerHr(unitId, hm, vol, gaugePct);
     const { error: e2 } = await sb.from('fuel_dispenses')
-      .insert({ transfer_id: tData.id, unit_id: unitId, hm_at_fill: hm, dispense_date: date, dispense_time: time, liters_dispensed: vol, l_per_hr: lhr, project, notes });
+      .insert({ transfer_id: tData.id, unit_id: unitId, hm_at_fill: hm, dispense_date: date, dispense_time: time, liters_dispensed: vol, l_per_hr: lhr, gauge_pct: gaugePct, project, notes });
     if (e2) throw e2;
     showToast('Pengisian ' + transferCode + ' berhasil dicatat!', 'success');
     document.getElementById('bbm-peng-bunker').value = '';
@@ -4452,6 +4476,12 @@ async function submitPengisian() {
     document.getElementById('bbm-peng-date').value = todayISO();
     document.getElementById('bbm-peng-time').value = '';
     document.getElementById('bbm-peng-notes').value = '';
+    const gResetEl = document.getElementById('bbm-peng-gauge');
+    if (gResetEl) gResetEl.value = '';
+    const gBarEl = document.getElementById('bbm-peng-gauge-bar');
+    if (gBarEl) gBarEl.style.width = '0%';
+    const gLblEl = document.getElementById('bbm-peng-gauge-label');
+    if (gLblEl) gLblEl.textContent = '—';
     document.getElementById('bbm-peng-bunker-preview').style.display = 'none';
     document.getElementById('bbm-peng-last-info').style.display = 'none';
     document.getElementById('bbm-peng-lhr-preview').style.display = 'none';
@@ -4483,12 +4513,16 @@ async function deleteTankTransfer(id) {
   loadFuelStatus();
 }
 
-async function calcLPerHr(unitId, hm, liters) {
-  const { data } = await sb.from('fuel_dispenses').select('hm_at_fill').eq('unit_id', unitId).order('hm_at_fill', { ascending: false }).limit(1);
+async function calcLPerHr(unitId, hm, liters, gaugeNow) {
+  const { data } = await sb.from('fuel_dispenses').select('hm_at_fill, gauge_pct, liters_dispensed').eq('unit_id', unitId).order('hm_at_fill', { ascending: false }).limit(1);
   if (!data || data.length === 0) return null;
-  const prevHm = Number(data[0].hm_at_fill);
-  const diff = hm - prevHm;
+  const prev = data[0];
+  const diff = hm - Number(prev.hm_at_fill);
   if (diff <= 0) return null;
+  if (gaugeNow != null && prev.gauge_pct != null) {
+    const consumed = Number(prev.gauge_pct) + Number(prev.liters_dispensed) - gaugeNow;
+    if (consumed > 0) return Math.round((consumed / diff) * 100) / 100;
+  }
   return Math.round((liters / diff) * 100) / 100;
 }
 
@@ -4499,7 +4533,7 @@ async function loadFuelRiwayat() {
   try {
     const [{ data: dispenses, error: e1 }, { data: xfers, error: e2 }, { data: bunkers, error: e3 }] = await Promise.all([
       sb.from('fuel_dispenses')
-        .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, project, notes, units(id, code, name), fuel_transfers(id, transfer_code, drum_name, fuel_bunkers(bunker_code))')
+        .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, gauge_pct, project, notes, units(id, code, name), fuel_transfers(id, transfer_code, drum_name, fuel_bunkers(bunker_code))')
         .order('dispense_date', { ascending: false }).order('created_at', { ascending: false }),
       sb.from('fuel_tank_transfers')
         .select('id, from_tank, to_tank, volume_liters, transfer_date, notes, fuel_bunkers(bunker_code)')
@@ -4563,57 +4597,63 @@ function renderFuelRiwayat() {
     return;
   }
   const dispRow = (r) => {
-    const unit = r.units ? r.units.code : '\u2014';
-    const tc = r.fuel_transfers ? r.fuel_transfers.transfer_code : '\u2014';
-    const drum = r.fuel_transfers ? r.fuel_transfers.drum_name : '\u2014';
-    const bunker = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '\u2014';
-    const lhr = r.l_per_hr ? Number(r.l_per_hr).toFixed(2) : '\u2014';
+    const unit = r.units ? r.units.code : '—';
+    const tc = r.fuel_transfers ? r.fuel_transfers.transfer_code : '—';
+    const drum = r.fuel_transfers ? r.fuel_transfers.drum_name : '—';
+    const bunker = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—';
+    const lhr = r.l_per_hr ? Number(r.l_per_hr).toFixed(2) : '—';
+    const gaugeCell = r.gauge_pct != null
+      ? '<span style="background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">' + r.gauge_pct + '%</span>'
+      : '—';
     return '<tr>' +
       '<td>' + formatDate(r.dispense_date) + '</td>' +
-      '<td style="color:#64748B;font-size:12px;">' + (r.dispense_time ? r.dispense_time.substring(0,5) : '\u2014') + '</td>' +
+      '<td style="color:#64748B;font-size:12px;">' + (r.dispense_time ? r.dispense_time.substring(0,5) : '—') + '</td>' +
       '<td style="font-weight:700;">' + unit + '</td>' +
       '<td>' + Number(r.hm_at_fill).toLocaleString('id') + '</td>' +
       '<td style="color:#1D4ED8;font-weight:600;">' + tc + '</td>' +
       '<td>' + drum + '</td>' +
       '<td>' + bunker + '</td>' +
-      '<td style="color:#64748B;font-size:12px;">' + (r.project || '\u2014') + '</td>' +
+      '<td style="color:#64748B;font-size:12px;">' + (r.project || '—') + '</td>' +
       '<td>' + r.liters_dispensed + 'L</td>' +
+      '<td>' + gaugeCell + '</td>' +
       '<td style="color:' + (r.l_per_hr ? '#16A34A' : '#94A3B8') + ';font-weight:700;">' + lhr + '</td>' +
       '<td><button onclick="deletePengisian(this.dataset.did,this.dataset.tid)" data-did="' + r.id + '" data-tid="' + (r.fuel_transfers ? r.fuel_transfers.id : '') + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;">Hapus</button></td>' +
       '</tr>';
   };
   const xferRow = (r) => {
-    const bunker = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '\u2014';
+    const bunker = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '—';
     const fromL = r.from_tank.charAt(0).toUpperCase() + r.from_tank.slice(1);
     const toL = r.to_tank.charAt(0).toUpperCase() + r.to_tank.slice(1);
     return '<tr style="background:#EFF6FF;">' +
       '<td>' + formatDate(r.transfer_date) + '</td>' +
-      '<td>\u2014</td>' +
+      '<td>—</td>' +
       '<td><span style="background:#DBEAFE;color:#1D4ED8;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">PINDAH</span></td>' +
-      '<td>\u2014</td><td>\u2014</td>' +
-      '<td style="font-weight:600;color:#1D4ED8;">' + fromL + ' \u2192 ' + toL + '</td>' +
+      '<td>—</td><td>—</td>' +
+      '<td style="font-weight:600;color:#1D4ED8;">' + fromL + ' → ' + toL + '</td>' +
       '<td>' + bunker + '</td>' +
-      '<td>\u2014</td>' +
+      '<td>—</td>' +
       '<td>' + Number(r.volume_liters).toLocaleString('id') + 'L</td>' +
-      '<td>\u2014</td>' +
+      '<td>—</td>' +
+      '<td>—</td>' +
       '<td><button onclick="deleteTankTransfer(this.dataset.id)" data-id="' + r.id + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;">Hapus</button></td>' +
       '</tr>';
   };
   const bunkerRow = (r) => {
     return '<tr style="background:#F0FDF4;">' +
       '<td>' + formatDate(r.delivery_date) + '</td>' +
-      '<td>\u2014</td>' +
+      '<td>—</td>' +
       '<td><span style="background:#DCFCE7;color:#166534;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">TERIMA</span></td>' +
-      '<td>\u2014</td><td>\u2014</td>' +
-      '<td style="font-weight:600;color:#166534;">\u2192 Hijau</td>' +
+      '<td>—</td><td>—</td>' +
+      '<td style="font-weight:600;color:#166534;">→ Hijau</td>' +
       '<td>' + r.bunker_code + '</td>' +
-      '<td>\u2014</td>' +
+      '<td>—</td>' +
       '<td style="color:#166534;font-weight:700;">+' + Number(r.total_liters).toLocaleString('id') + 'L</td>' +
-      '<td>\u2014</td>' +
-      '<td>\u2014</td>' +
+      '<td>—</td>' +
+      '<td>—</td>' +
+      '<td>—</td>' +
       '</tr>';
   };
-  const hdr = '<thead><tr><th>Tanggal</th><th>Jam</th><th>Unit</th><th>HM</th><th>Transfer</th><th>Drum / Rute</th><th>Bunker</th><th>Project</th><th>Liter</th><th>L/Hr</th><th></th></tr></thead>';
+  const hdr = '<thead><tr><th>Tanggal</th><th>Jam</th><th>Unit</th><th>HM</th><th>Transfer</th><th>Drum / Rute</th><th>Bunker</th><th>Project</th><th>Liter</th><th>Gauge</th><th>L/Hr</th><th></th></tr></thead>';
   let body = '';
   if (fuelRiwayatSort === 'date') {
     const all = [
@@ -4624,19 +4664,19 @@ function renderFuelRiwayat() {
     body = '<tbody>' + all.map(r => r._type === 'xfer' ? xferRow(r) : r._type === 'bunker' ? bunkerRow(r) : dispRow(r)).join('') + '</tbody>';
   } else if (fuelRiwayatSort === 'unit') {
     const grps = {};
-    filtDisp.forEach(r => { const k = r.units ? r.units.code : '\u2014'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    filtDisp.forEach(r => { const k = r.units ? r.units.code : '—'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
     Object.keys(grps).sort().forEach(k => {
-      body += '<tbody><tr style="background:#EFF6FF;"><td colspan="11" style="font-weight:800;color:#1D4ED8;padding:8px 12px;">' + k + '</td></tr>' + grps[k].map(dispRow).join('') + '</tbody>';
+      body += '<tbody><tr style="background:#EFF6FF;"><td colspan="12" style="font-weight:800;color:#1D4ED8;padding:8px 12px;">' + k + '</td></tr>' + grps[k].map(dispRow).join('') + '</tbody>';
     });
-    if (filtXfer.length) body += '<tbody><tr style="background:#DBEAFE;"><td colspan="11" style="font-weight:800;color:#1E40AF;padding:8px 12px;">Pindah Antar Tanki</td></tr>' + filtXfer.map(xferRow).join('') + '</tbody>';
-    if (filtBunkers.length) body += '<tbody><tr style="background:#DCFCE7;"><td colspan="11" style="font-weight:800;color:#166534;padding:8px 12px;">Terima Bunker</td></tr>' + filtBunkers.map(bunkerRow).join('') + '</tbody>';
+    if (filtXfer.length) body += '<tbody><tr style="background:#DBEAFE;"><td colspan="12" style="font-weight:800;color:#1E40AF;padding:8px 12px;">Pindah Antar Tanki</td></tr>' + filtXfer.map(xferRow).join('') + '</tbody>';
+    if (filtBunkers.length) body += '<tbody><tr style="background:#DCFCE7;"><td colspan="12" style="font-weight:800;color:#166534;padding:8px 12px;">Terima Bunker</td></tr>' + filtBunkers.map(bunkerRow).join('') + '</tbody>';
   } else {
     const grps = {};
-    filtDisp.forEach(r => { const k = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '\u2014'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
-    filtXfer.forEach(r => { const k = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '\u2014'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
-    filtBunkers.forEach(r => { const k = r.bunker_code || '\u2014'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    filtDisp.forEach(r => { const k = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    filtXfer.forEach(r => { const k = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '—'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    filtBunkers.forEach(r => { const k = r.bunker_code || '—'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
     Object.keys(grps).sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; }).forEach(k => {
-      body += '<tbody><tr style="background:#F0FDF4;"><td colspan="11" style="font-weight:800;color:#166534;padding:8px 12px;">' + k + '</td></tr>' + grps[k].map(r => r._type === 'xfer' ? xferRow(r) : r._type === 'bunker' ? bunkerRow(r) : dispRow(r)).join('') + '</tbody>';
+      body += '<tbody><tr style="background:#F0FDF4;"><td colspan="12" style="font-weight:800;color:#166534;padding:8px 12px;">' + k + '</td></tr>' + grps[k].map(r => r._type === 'xfer' ? xferRow(r) : r._type === 'bunker' ? bunkerRow(r) : dispRow(r)).join('') + '</tbody>';
     });
   }
   el.innerHTML = filterRow + sortPills + '<div class="table-wrap"><table class="dt">' + hdr + body + '</table></div>';
