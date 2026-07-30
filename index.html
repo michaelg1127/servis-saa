@@ -870,6 +870,7 @@ let fuelRiwayatSort = 'date';
 let fuelRiwayatData = [];
 let fuelRiwayatFilters = { bunker: '', unit: '', project: '' };
 let fuelTankXferData = [];
+let fuelBunkerData = [];
 let bbmLastDispenseByUnit = {};
 const FUEL_TANKS = [{name:'hijau',label:'Tanki Hijau',cap:8000,color:'#16A34A'},{name:'merah',label:'Tanki Merah',cap:1500,color:'#DC2626'},{name:'kuning',label:'Tanki Kuning',cap:1500,color:'#CA8A04'}];
 
@@ -4255,11 +4256,11 @@ async function submitTankTransfer() {
 }
 
 async function getNextBunkerCode() {
-  const { data } = await sb.from('fuel_bunkers').select('bunker_code').order('created_at', { ascending: false }).limit(1);
-  if (!data || data.length === 0) return 'X26';
+  const { data } = await sb.from('fuel_bunkers').select('bunker_code').like('bunker_code', 'X%').order('created_at', { ascending: false }).limit(1);
+  if (!data || data.length === 0) return 'X24';
   const last = data[0].bunker_code;
   const num = parseInt(last.replace('X',''), 10);
-  return isNaN(num) ? 'X26' : 'X' + (num + 1);
+  return isNaN(num) ? 'X24' : 'X' + (num + 1);
 }
 
 async function initTerimaForm() {
@@ -4334,6 +4335,8 @@ async function deleteBunkerRecord(id) {
   await loadBunkerHistory();
   await onTerimaChange();
   loadFuelStatus();
+  fuelBunkerData = fuelBunkerData.filter(r => String(r.id) !== String(id));
+  renderFuelRiwayat();
 }
 
 async function getNextTransferSeq(bunkerCode) {
@@ -4494,7 +4497,7 @@ async function loadFuelRiwayat() {
   if (!el) return;
   el.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
-    const [{ data: dispenses, error: e1 }, { data: xfers, error: e2 }] = await Promise.all([
+    const [{ data: dispenses, error: e1 }, { data: xfers, error: e2 }, { data: bunkers, error: e3 }] = await Promise.all([
       sb.from('fuel_dispenses')
         .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, project, notes, units(id, code, name), fuel_transfers(id, transfer_code, drum_name, fuel_bunkers(bunker_code))')
         .order('dispense_date', { ascending: false }).order('created_at', { ascending: false }),
@@ -4502,11 +4505,16 @@ async function loadFuelRiwayat() {
         .select('id, from_tank, to_tank, volume_liters, transfer_date, notes, fuel_bunkers(bunker_code)')
         .not('bunker_id', 'is', null)
         .order('transfer_date', { ascending: false }).order('created_at', { ascending: false }),
+      sb.from('fuel_bunkers')
+        .select('id, bunker_code, tank_name, total_liters, delivery_date')
+        .order('delivery_date', { ascending: false }),
     ]);
     if (e1) throw e1;
     if (e2) throw e2;
+    if (e3) throw e3;
     fuelRiwayatData = (dispenses || []).map(r => ({ ...r, _type: 'dispense' }));
     fuelTankXferData = (xfers || []).map(r => ({ ...r, _type: 'xfer' }));
+    fuelBunkerData = (bunkers || []).map(r => ({ ...r, _type: 'bunker' }));
     renderFuelRiwayat();
   } catch(e) { el.innerHTML = '<div style="color:#DC2626;padding:16px;">Gagal: ' + e.message + '</div>'; }
 }
@@ -4523,7 +4531,8 @@ function renderFuelRiwayat() {
   if (!el) return;
   const bunkerFromDisp = fuelRiwayatData.map(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : null);
   const bunkerFromXfer = fuelTankXferData.map(r => r.fuel_bunkers ? r.fuel_bunkers.bunker_code : null);
-  const bunkerOpts = [...new Set([...bunkerFromDisp, ...bunkerFromXfer].filter(Boolean))].sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; });
+  const bunkerFromTerima = fuelBunkerData.map(r => r.bunker_code);
+  const bunkerOpts = [...new Set([...bunkerFromDisp, ...bunkerFromXfer, ...bunkerFromTerima].filter(Boolean))].sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; });
   const unitOpts = [...new Set(fuelRiwayatData.map(r => r.units ? r.units.code : null).filter(Boolean))].sort();
   const projectOpts = [...new Set(fuelRiwayatData.map(r => r.project).filter(Boolean))].sort();
   const filterRow = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;">' +
@@ -4541,71 +4550,93 @@ function renderFuelRiwayat() {
   '</div>';
   let filtDisp = fuelRiwayatData.slice();
   let filtXfer = fuelTankXferData.slice();
+  let filtBunkers = fuelBunkerData.slice();
   if (fuelRiwayatFilters.bunker) {
     filtDisp = filtDisp.filter(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers && r.fuel_transfers.fuel_bunkers.bunker_code === fuelRiwayatFilters.bunker);
     filtXfer = filtXfer.filter(r => r.fuel_bunkers && r.fuel_bunkers.bunker_code === fuelRiwayatFilters.bunker);
+    filtBunkers = filtBunkers.filter(r => r.bunker_code === fuelRiwayatFilters.bunker);
   }
-  if (fuelRiwayatFilters.unit) { filtDisp = filtDisp.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit); filtXfer = []; }
-  if (fuelRiwayatFilters.project) { filtDisp = filtDisp.filter(r => r.project === fuelRiwayatFilters.project); filtXfer = []; }
-  if (!filtDisp.length && !filtXfer.length) {
+  if (fuelRiwayatFilters.unit) { filtDisp = filtDisp.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit); filtXfer = []; filtBunkers = []; }
+  if (fuelRiwayatFilters.project) { filtDisp = filtDisp.filter(r => r.project === fuelRiwayatFilters.project); filtXfer = []; filtBunkers = []; }
+  if (!filtDisp.length && !filtXfer.length && !filtBunkers.length) {
     el.innerHTML = filterRow + sortPills + '<div style="color:#94A3B8;padding:20px;">Belum ada data.</div>';
     return;
   }
   const dispRow = (r) => {
-    const unit = r.units ? r.units.code : '—';
-    const tc = r.fuel_transfers ? r.fuel_transfers.transfer_code : '—';
-    const drum = r.fuel_transfers ? r.fuel_transfers.drum_name : '—';
-    const bunker = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—';
-    const lhr = r.l_per_hr ? Number(r.l_per_hr).toFixed(2) : '—';
+    const unit = r.units ? r.units.code : '\u2014';
+    const tc = r.fuel_transfers ? r.fuel_transfers.transfer_code : '\u2014';
+    const drum = r.fuel_transfers ? r.fuel_transfers.drum_name : '\u2014';
+    const bunker = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '\u2014';
+    const lhr = r.l_per_hr ? Number(r.l_per_hr).toFixed(2) : '\u2014';
     return '<tr>' +
       '<td>' + formatDate(r.dispense_date) + '</td>' +
-      '<td style="color:#64748B;font-size:12px;">' + (r.dispense_time ? r.dispense_time.substring(0,5) : '—') + '</td>' +
+      '<td style="color:#64748B;font-size:12px;">' + (r.dispense_time ? r.dispense_time.substring(0,5) : '\u2014') + '</td>' +
       '<td style="font-weight:700;">' + unit + '</td>' +
       '<td>' + Number(r.hm_at_fill).toLocaleString('id') + '</td>' +
       '<td style="color:#1D4ED8;font-weight:600;">' + tc + '</td>' +
       '<td>' + drum + '</td>' +
       '<td>' + bunker + '</td>' +
-      '<td style="color:#64748B;font-size:12px;">' + (r.project || '—') + '</td>' +
+      '<td style="color:#64748B;font-size:12px;">' + (r.project || '\u2014') + '</td>' +
       '<td>' + r.liters_dispensed + 'L</td>' +
       '<td style="color:' + (r.l_per_hr ? '#16A34A' : '#94A3B8') + ';font-weight:700;">' + lhr + '</td>' +
       '<td><button onclick="deletePengisian(this.dataset.did,this.dataset.tid)" data-did="' + r.id + '" data-tid="' + (r.fuel_transfers ? r.fuel_transfers.id : '') + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;">Hapus</button></td>' +
       '</tr>';
   };
   const xferRow = (r) => {
-    const bunker = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '—';
+    const bunker = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '\u2014';
     const fromL = r.from_tank.charAt(0).toUpperCase() + r.from_tank.slice(1);
     const toL = r.to_tank.charAt(0).toUpperCase() + r.to_tank.slice(1);
     return '<tr style="background:#EFF6FF;">' +
       '<td>' + formatDate(r.transfer_date) + '</td>' +
-      '<td>—</td>' +
+      '<td>\u2014</td>' +
       '<td><span style="background:#DBEAFE;color:#1D4ED8;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">PINDAH</span></td>' +
-      '<td>—</td><td>—</td>' +
-      '<td style="font-weight:600;color:#1D4ED8;">' + fromL + ' → ' + toL + '</td>' +
+      '<td>\u2014</td><td>\u2014</td>' +
+      '<td style="font-weight:600;color:#1D4ED8;">' + fromL + ' \u2192 ' + toL + '</td>' +
       '<td>' + bunker + '</td>' +
-      '<td>—</td>' +
+      '<td>\u2014</td>' +
       '<td>' + Number(r.volume_liters).toLocaleString('id') + 'L</td>' +
-      '<td>—</td>' +
+      '<td>\u2014</td>' +
       '<td><button onclick="deleteTankTransfer(this.dataset.id)" data-id="' + r.id + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;">Hapus</button></td>' +
+      '</tr>';
+  };
+  const bunkerRow = (r) => {
+    return '<tr style="background:#F0FDF4;">' +
+      '<td>' + formatDate(r.delivery_date) + '</td>' +
+      '<td>\u2014</td>' +
+      '<td><span style="background:#DCFCE7;color:#166534;font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;">TERIMA</span></td>' +
+      '<td>\u2014</td><td>\u2014</td>' +
+      '<td style="font-weight:600;color:#166534;">\u2192 Hijau</td>' +
+      '<td>' + r.bunker_code + '</td>' +
+      '<td>\u2014</td>' +
+      '<td style="color:#166534;font-weight:700;">+' + Number(r.total_liters).toLocaleString('id') + 'L</td>' +
+      '<td>\u2014</td>' +
+      '<td>\u2014</td>' +
       '</tr>';
   };
   const hdr = '<thead><tr><th>Tanggal</th><th>Jam</th><th>Unit</th><th>HM</th><th>Transfer</th><th>Drum / Rute</th><th>Bunker</th><th>Project</th><th>Liter</th><th>L/Hr</th><th></th></tr></thead>';
   let body = '';
   if (fuelRiwayatSort === 'date') {
-    const all = [...filtDisp.map(r => ({ ...r, _d: r.dispense_date })), ...filtXfer.map(r => ({ ...r, _d: r.transfer_date }))].sort((a,b) => b._d.localeCompare(a._d));
-    body = '<tbody>' + all.map(r => r._type === 'xfer' ? xferRow(r) : dispRow(r)).join('') + '</tbody>';
+    const all = [
+      ...filtDisp.map(r => ({ ...r, _d: r.dispense_date })),
+      ...filtXfer.map(r => ({ ...r, _d: r.transfer_date })),
+      ...filtBunkers.map(r => ({ ...r, _d: r.delivery_date }))
+    ].sort((a,b) => b._d.localeCompare(a._d));
+    body = '<tbody>' + all.map(r => r._type === 'xfer' ? xferRow(r) : r._type === 'bunker' ? bunkerRow(r) : dispRow(r)).join('') + '</tbody>';
   } else if (fuelRiwayatSort === 'unit') {
     const grps = {};
-    filtDisp.forEach(r => { const k = r.units ? r.units.code : '—'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    filtDisp.forEach(r => { const k = r.units ? r.units.code : '\u2014'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
     Object.keys(grps).sort().forEach(k => {
       body += '<tbody><tr style="background:#EFF6FF;"><td colspan="11" style="font-weight:800;color:#1D4ED8;padding:8px 12px;">' + k + '</td></tr>' + grps[k].map(dispRow).join('') + '</tbody>';
     });
     if (filtXfer.length) body += '<tbody><tr style="background:#DBEAFE;"><td colspan="11" style="font-weight:800;color:#1E40AF;padding:8px 12px;">Pindah Antar Tanki</td></tr>' + filtXfer.map(xferRow).join('') + '</tbody>';
+    if (filtBunkers.length) body += '<tbody><tr style="background:#DCFCE7;"><td colspan="11" style="font-weight:800;color:#166534;padding:8px 12px;">Terima Bunker</td></tr>' + filtBunkers.map(bunkerRow).join('') + '</tbody>';
   } else {
     const grps = {};
-    filtDisp.forEach(r => { const k = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '—'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
-    filtXfer.forEach(r => { const k = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '—'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    filtDisp.forEach(r => { const k = r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : '\u2014'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    filtXfer.forEach(r => { const k = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '\u2014'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
+    filtBunkers.forEach(r => { const k = r.bunker_code || '\u2014'; if (!grps[k]) grps[k] = []; grps[k].push(r); });
     Object.keys(grps).sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; }).forEach(k => {
-      body += '<tbody><tr style="background:#F0FDF4;"><td colspan="11" style="font-weight:800;color:#166534;padding:8px 12px;">' + k + '</td></tr>' + grps[k].map(r => r._type === 'xfer' ? xferRow(r) : dispRow(r)).join('') + '</tbody>';
+      body += '<tbody><tr style="background:#F0FDF4;"><td colspan="11" style="font-weight:800;color:#166534;padding:8px 12px;">' + k + '</td></tr>' + grps[k].map(r => r._type === 'xfer' ? xferRow(r) : r._type === 'bunker' ? bunkerRow(r) : dispRow(r)).join('') + '</tbody>';
     });
   }
   el.innerHTML = filterRow + sortPills + '<div class="table-wrap"><table class="dt">' + hdr + body + '</table></div>';
