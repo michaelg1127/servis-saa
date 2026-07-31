@@ -4833,6 +4833,97 @@ async function checkHMContinuity(unitId, hmAwal) {
 // ============================================================
 // PROYEK MODULE
 // ============================================================
+
+async function loadProyekKapal() {
+  const panel = document.getElementById('proyek-panel-kapal');
+  panel.innerHTML = '<div style="color:#64748B;padding:20px;">Memuat data...</div>';
+  try {
+    const { data, error } = await sb.from('projects')
+      .select('*, project_units(*, units(code,name))')
+      .eq('type', 'kapal')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    proyekKapalData = data || [];
+    renderProyekKapalList();
+  } catch(e) { panel.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
+}
+
+function renderProyekKapalList() {
+  const panel = document.getElementById('proyek-panel-kapal');
+  let html2 = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
+  html2 += '<div style="font-size:15px;font-weight:700;color:#1E293B;">Daftar Proyek Kapal (' + proyekKapalData.length + ')</div>';
+  html2 += '<button onclick="openAddKapalModal()" class="btn-primary" style="padding:8px 16px;font-size:13px;">+ Tambah Kapal</button>';
+  html2 += '</div>';
+  if (proyekKapalData.length === 0) {
+    html2 += '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Belum ada proyek kapal.</div>';
+    panel.innerHTML = html2;
+    return;
+  }
+  html2 += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
+  html2 += '<thead><tr style="background:#F1F5F9;">';
+  ['Kode','Nama Kapal','Pemberi Kerja','Kade','Tgl','Kapal#','Unit','HM Total','MT/M3','Salary Total'].forEach(h => {
+    html2 += '<th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;white-space:nowrap;">' + h + '</th>';
+  });
+  html2 += '<th style="padding:10px 12px;"></th></tr></thead><tbody>';
+  proyekKapalData.forEach(p => {
+    const units = p.project_units || [];
+    const totalHM = units.reduce((s, u) => s + (u.hm_akhir - u.hm_awal), 0);
+    const rate = calcKapalRate(p.ship_number_in_month || 1);
+    const split = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
+    const totalSalary = split.reduce((s, u) => s + u.allocatedMt * rate, 0);
+    html2 += '<tr style="border-bottom:1px solid #F1F5F9;cursor:pointer;" onclick="toggleKapalDetail(\'' + p.id + '\')">';
+    html2 += '<td style="padding:10px 12px;font-weight:700;color:#1D4ED8;">' + p.project_code + '</td>';
+    html2 += '<td style="padding:10px 12px;">' + (p.nama_kapal || '—') + '</td>';
+    html2 += '<td style="padding:10px 12px;">' + p.pemberi_kerja + '</td>';
+    html2 += '<td style="padding:10px 12px;">' + (p.kade || '—') + '</td>';
+    html2 += '<td style="padding:10px 12px;white-space:nowrap;">' + formatDate(p.start_date) + ' – ' + formatDate(p.end_date) + '</td>';
+    html2 += '<td style="padding:10px 12px;text-align:center;">' + (p.ship_number_in_month || '—') + '</td>';
+    html2 += '<td style="padding:10px 12px;text-align:center;">' + units.length + '</td>';
+    html2 += '<td style="padding:10px 12px;text-align:right;">' + totalHM.toFixed(1) + '</td>';
+    html2 += '<td style="padding:10px 12px;text-align:right;">' + (p.total_mt_m3 ? p.total_mt_m3.toLocaleString('id-ID') : '—') + '</td>';
+    html2 += '<td style="padding:10px 12px;text-align:right;font-weight:700;color:#16A34A;">' + fmtRp(totalSalary) + '</td>';
+    html2 += '<td style="padding:10px 12px;"><svg style="width:14px;height:14px;" fill="none" stroke="#94A3B8" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></td>';
+    html2 += '</tr>';
+    html2 += '<tr id="kapal-detail-' + p.id + '" style="display:none;background:#F8FAFC;">';
+    html2 += '<td colspan="11" style="padding:12px 16px;">';
+    html2 += renderKapalDetailHTML(p);
+    html2 += '</td></tr>';
+  });
+  html2 += '</tbody></table></div>';
+  panel.innerHTML = html2;
+}
+
+function toggleKapalDetail(id) {
+  const row = document.getElementById('kapal-detail-' + id);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+function renderKapalDetailHTML(p) {
+  const units = p.project_units || [];
+  const rate = calcKapalRate(p.ship_number_in_month || 1);
+  const split = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px;">';
+  h += '<tr style="background:#E2E8F0;"><th style="padding:6px 10px;text-align:left;">Unit</th><th style="padding:6px 10px;text-align:right;">HM Awal</th><th style="padding:6px 10px;text-align:right;">HM Akhir</th><th style="padding:6px 10px;text-align:right;">HM Kerja</th><th style="padding:6px 10px;text-align:right;">MT Alokasi</th><th style="padding:6px 10px;text-align:right;">Rate</th><th style="padding:6px 10px;text-align:right;">Salary</th><th style="padding:6px 10px;text-align:right;">Solar (L)</th></tr>';
+  split.forEach(u => {
+    const hmKerja = u.hm_akhir - u.hm_awal;
+    const solar = calcSolarConsumed(u.solar_awal_pct, u.solar_akhir_pct, u.solar_isi_liters);
+    const salary = u.allocatedMt * rate;
+    const unitCode = u.units ? u.units.code : '?';
+    h += '<tr style="border-bottom:1px solid #E2E8F0;">';
+    h += '<td style="padding:6px 10px;font-weight:700;">' + unitCode + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + u.hm_awal + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + u.hm_akhir + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + hmKerja.toFixed(1) + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + u.allocatedMt.toFixed(2) + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">Rp ' + rate + '/MT</td>';
+    h += '<td style="padding:6px 10px;text-align:right;font-weight:700;color:#16A34A;">' + fmtRp(salary) + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + solar.toFixed(1) + ' L</td>';
+    h += '</tr>';
+  });
+  h += '</table>';
+  if (p.notes) h += '<div style="margin-top:8px;font-size:12px;color:#64748B;">Catatan: ' + p.notes + '</div>';
+  return h;
+}
 function switchProyekTab(tab, el) {
   proyekTab = tab;
   const tabs = ['kapal','stockpile','ringkasan','analisis','kontinuitas'];
