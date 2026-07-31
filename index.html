@@ -5372,6 +5372,110 @@ async function exportProyekExcel() {
   XLSX.writeFile(wb, 'Proyek_' + proyekMonthFilter.replace('-','') + '.xlsx');
   showToast('Export berhasil!', 'success');
 }
+
+async function loadProyekAnalisis() {
+  const panel = document.getElementById('proyek-panel-analisis');
+  panel.innerHTML = '<div style="color:#64748B;padding:20px;">Memuat...</div>';
+  try {
+    const { data, error } = await sb.from('projects')
+      .select('*, project_units(*, units(code,name))')
+      .eq('type', 'kapal')
+      .eq('month_year', proyekMonthFilter);
+    if (error) throw error;
+    renderProyekAnalisis(data || []);
+  } catch(e) { panel.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
+}
+
+function renderProyekAnalisis(projects) {
+  const panel = document.getElementById('proyek-panel-analisis');
+  panel._analisisProjects = projects;
+  let filtered = projects;
+  if (proyekAnalisisFilter === 'open') filtered = projects.filter(p => !p.invoice_number);
+  if (proyekAnalisisFilter === 'closed') filtered = projects.filter(p => p.invoice_number);
+  let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">';
+  h += '<div style="font-size:15px;font-weight:700;color:#1E293B;">Analisis Biaya Kapal</div>';
+  h += '<input type="month" class="finput" style="padding:6px 10px;font-size:13px;" value="' + proyekMonthFilter + '" onchange="proyekMonthFilter=this.value;loadProyekAnalisis();">';
+  h += '</div>';
+  const pills = ['semua','open','closed'];
+  const pillLabels = { semua:'Semua', open:'Open', closed:'Closed' };
+  h += '<div style="display:flex;gap:8px;margin-bottom:16px;">';
+  pills.forEach(f => {
+    const active = proyekAnalisisFilter === f;
+    h += '<button onclick="setProyekAnalisisFilter(\'' + f + '\')" style="padding:6px 14px;border-radius:99px;border:none;cursor:pointer;font-size:13px;font-weight:700;background:' + (active ? '#1D4ED8' : '#F1F5F9') + ';color:' + (active ? '#fff' : '#64748B') + ';">' + pillLabels[f] + '</button>';
+  });
+  h += '</div>';
+  if (filtered.length === 0) {
+    h += '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Tidak ada data.</div>';
+    panel.innerHTML = h; return;
+  }
+  h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  h += '<thead><tr style="background:#F1F5F9;">';
+  ['Invoice#','Kode','Nama Kapal','Pemberi Kerja','Kade','HM Total','Income','Biaya Solar','Biaya Tenaga','Profit','Yield/HM','Status',''].forEach(col => {
+    h += '<th style="padding:8px 10px;text-align:' + (['Income','Biaya Solar','Biaya Tenaga','Profit','Yield/HM','HM Total'].includes(col) ? 'right' : 'left') + ';font-weight:700;color:#475569;white-space:nowrap;">' + col + '</th>';
+  });
+  h += '</tr></thead><tbody>';
+  let sumIncome = 0, sumFuel = 0, sumLabor = 0, sumProfit = 0, sumHM = 0;
+  filtered.forEach(p => {
+    const units = p.project_units || [];
+    const totalHM = units.reduce((s, u) => s + (u.hm_akhir - u.hm_awal), 0);
+    const rate = calcKapalRate(p.ship_number_in_month || 1);
+    const split = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
+    const income = (p.total_mt_m3 || 0) * (p.unit_price || 0);
+    const fuelCost = units.reduce((s, u) => s + calcSolarConsumed(u.solar_awal_pct, u.solar_akhir_pct, u.solar_isi_liters), 0) * (p.harga_solar_rpl || 0);
+    const laborCost = split.reduce((s, u) => s + u.allocatedMt * rate, 0);
+    const profit = income - fuelCost - laborCost;
+    const yieldPerHM = totalHM > 0 ? profit / totalHM : 0;
+    const isClosed = !!p.invoice_number;
+    sumIncome += income; sumFuel += fuelCost; sumLabor += laborCost; sumProfit += profit; sumHM += totalHM;
+    h += '<tr style="border-bottom:1px solid #F1F5F9;">';
+    h += '<td style="padding:8px 10px;font-size:11px;color:#64748B;">' + (p.invoice_number || '\u2014') + '</td>';
+    h += '<td style="padding:8px 10px;font-weight:700;color:#1D4ED8;">' + p.project_code + '</td>';
+    h += '<td style="padding:8px 10px;">' + (p.nama_kapal || '\u2014') + '</td>';
+    h += '<td style="padding:8px 10px;">' + p.pemberi_kerja + '</td>';
+    h += '<td style="padding:8px 10px;">' + (p.kade || '\u2014') + '</td>';
+    h += '<td style="padding:8px 10px;text-align:right;">' + totalHM.toFixed(1) + '</td>';
+    h += '<td style="padding:8px 10px;text-align:right;">' + fmtRp(income) + '</td>';
+    h += '<td style="padding:8px 10px;text-align:right;color:#EF4444;">' + fmtRp(fuelCost) + '</td>';
+    h += '<td style="padding:8px 10px;text-align:right;color:#F59E0B;">' + fmtRp(laborCost) + '</td>';
+    h += '<td style="padding:8px 10px;text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#EF4444') + ';">' + fmtRp(profit) + '</td>';
+    h += '<td style="padding:8px 10px;text-align:right;">' + fmtRp(yieldPerHM) + '/HM</td>';
+    h += '<td style="padding:8px 10px;"><span style="background:' + (isClosed ? '#DCFCE7' : '#FEF9C3') + ';color:' + (isClosed ? '#16A34A' : '#CA8A04') + ';font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;">' + (isClosed ? 'CLOSED' : 'OPEN') + '</span></td>';
+    h += '<td style="padding:8px 10px;">' + (isClosed ? '' : '<button onclick="openAddInvoice(\'' + p.id + '\')" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;">Add Invoice</button>') + '</td>';
+    h += '</tr>';
+    if (!isClosed) {
+      h += '<tr id="inv-input-' + p.id + '" style="display:none;background:#FFFBEB;"><td colspan="13" style="padding:8px 16px;">';
+      h += '<div style="display:flex;gap:8px;align-items:center;"><input type="text" id="inv-num-' + p.id + '" class="finput" style="max-width:260px;padding:6px 10px;font-size:13px;" placeholder="Nomor Invoice (contoh: INV-2026-08-001)"><button onclick="submitInvoiceNumber(\'' + p.id + '\')" class="btn-primary" style="padding:6px 14px;font-size:13px;">Simpan</button><button onclick="document.getElementById(\'inv-input-' + p.id + '\').style.display=\'none\';" class="btn-secondary" style="padding:6px 12px;font-size:13px;">Batal</button></div>';
+      h += '</td></tr>';
+    }
+  });
+  h += '<tr style="background:#F1F5F9;font-weight:800;"><td colspan="5" style="padding:8px 10px;">TOTAL</td><td style="padding:8px 10px;text-align:right;">' + sumHM.toFixed(1) + '</td><td style="padding:8px 10px;text-align:right;">' + fmtRp(sumIncome) + '</td><td style="padding:8px 10px;text-align:right;color:#EF4444;">' + fmtRp(sumFuel) + '</td><td style="padding:8px 10px;text-align:right;color:#F59E0B;">' + fmtRp(sumLabor) + '</td><td style="padding:8px 10px;text-align:right;color:' + (sumProfit >= 0 ? '#16A34A' : '#EF4444') + ';">' + fmtRp(sumProfit) + '</td><td style="padding:8px 10px;text-align:right;">' + fmtRp(sumHM > 0 ? sumProfit/sumHM : 0) + '/HM</td><td colspan="2"></td></tr>';
+  h += '</tbody></table></div>';
+  panel.innerHTML = h;
+}
+
+function setProyekAnalisisFilter(f) {
+  proyekAnalisisFilter = f;
+  const panel = document.getElementById('proyek-panel-analisis');
+  if (panel._analisisProjects) renderProyekAnalisis(panel._analisisProjects);
+}
+
+function openAddInvoice(projectId) {
+  const rows = document.querySelectorAll('[id^="inv-input-"]');
+  rows.forEach(r => r.style.display = 'none');
+  const row = document.getElementById('inv-input-' + projectId);
+  if (row) row.style.display = '';
+}
+
+async function submitInvoiceNumber(projectId) {
+  const invNum = document.getElementById('inv-num-' + projectId)?.value.trim();
+  if (!invNum) { showToast('Nomor invoice wajib diisi'); return; }
+  try {
+    const { error } = await sb.from('projects').update({ invoice_number: invNum }).eq('id', projectId);
+    if (error) throw error;
+    showToast('Invoice ' + invNum + ' disimpan!', 'success');
+    loadProyekAnalisis();
+  } catch(e) { showToast('Gagal simpan: ' + e.message); }
+}
 function switchProyekTab(tab, el) {
   proyekTab = tab;
   const tabs = ['kapal','stockpile','ringkasan','analisis','kontinuitas'];
