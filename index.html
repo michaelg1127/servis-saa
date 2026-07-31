@@ -890,6 +890,12 @@ let fuelRiwayatFilters = { bunker: '', unit: '', project: '' };
 let fuelTankXferData = [];
 let fuelBunkerData = [];
 let bbmLastDispenseByUnit = {};
+let proyekTab = 'kapal';
+let proyekKapalData = [];
+let proyekStockpileData = [];
+let proyekMonthFilter = new Date().toISOString().slice(0,7);
+let proyekHMUnitId = null;
+let proyekAnalisisFilter = 'semua';
 const FUEL_TANKS = [{name:'hijau',label:'Tanki Hijau',cap:8000,color:'#16A34A'},{name:'merah',label:'Tanki Merah',cap:1500,color:'#DC2626'},{name:'kuning',label:'Tanki Kuning',cap:1500,color:'#CA8A04'}];
 
 // ============================================================
@@ -4755,6 +4761,75 @@ document.addEventListener('DOMContentLoaded', () => {
 
   boot();
 });
+// ============================================================
+// PROYEK CALC HELPERS
+// ============================================================
+function calcKapalRate(shipNum) {
+  if (shipNum <= 15) return 175;
+  if (shipNum <= 30) return 200;
+  return 225;
+}
+
+function calcSolarConsumed(awalPct, akhirPct, isiLiters) {
+  return ((awalPct - akhirPct) / 100) * 320 + (isiLiters || 0);
+}
+
+function calcMedianHM(hmArray) {
+  const sorted = [...hmArray].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function calcKapalTonnageSplit(units, totalMt) {
+  const withHM = units.map(u => ({ ...u, hm: (u.hm_akhir - u.hm_awal) }));
+  const hmArr = withHM.map(u => u.hm);
+  const median = calcMedianHM(hmArr);
+  const totalHM = hmArr.reduce((s, h) => s + h, 0);
+  const allWithin = median > 0 && withHM.every(u => Math.abs(u.hm - median) / median <= 0.25);
+  return withHM.map(u => ({
+    ...u,
+    allocatedMt: allWithin
+      ? totalMt / units.length
+      : (totalHM > 0 ? totalMt * (u.hm / totalHM) : 0)
+  }));
+}
+
+async function getNextKapalShipNum(monthYear) {
+  const { count } = await sb.from('projects')
+    .select('id', { count: 'exact', head: true })
+    .eq('type', 'kapal')
+    .eq('month_year', monthYear);
+  return (count || 0) + 1;
+}
+
+function formatKapalCode(monthYear, shipNum) {
+  const mm = monthYear.slice(5, 7);
+  return 'M' + mm + '-' + String(shipNum).padStart(3, '0');
+}
+
+function formatStockpileCode(prefix, seq) {
+  return prefix.toUpperCase().trim() + '-' + String(seq).padStart(3, '0');
+}
+
+function fmtRp(n) {
+  if (n == null || isNaN(n)) return 'Rp 0';
+  return 'Rp ' + Math.round(n).toLocaleString('id-ID');
+}
+
+async function checkHMContinuity(unitId, hmAwal) {
+  const { data } = await sb.from('project_units')
+    .select('hm_akhir, project_id')
+    .eq('unit_id', unitId)
+    .lt('hm_akhir', hmAwal)
+    .order('hm_akhir', { ascending: false })
+    .limit(1);
+  if (!data || data.length === 0) return { hasGap: false };
+  const prevHmAkhir = data[0].hm_akhir;
+  const gap = hmAwal - prevHmAkhir;
+  if (gap <= 0) return { hasGap: false };
+  return { hasGap: true, gapSize: gap, prevHmAkhir };
+}
+
 // ============================================================
 // PROYEK MODULE
 // ============================================================
