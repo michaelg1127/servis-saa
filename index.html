@@ -4924,6 +4924,145 @@ function renderKapalDetailHTML(p) {
   if (p.notes) h += '<div style="margin-top:8px;font-size:12px;color:#64748B;">Catatan: ' + p.notes + '</div>';
   return h;
 }
+
+async function openAddKapalModal() {
+  const today = todayISO();
+  const monthYear = today.slice(0,7);
+  const shipNum = await getNextKapalShipNum(monthYear);
+  const previewCode = formatKapalCode(monthYear, shipNum);
+  const rate = calcKapalRate(shipNum);
+  const unitOptions = allUnits.map(u => '<option value="' + u.id + '">' + u.code + ' – ' + u.name + '</option>').join('');
+  const modalHTML = '<div style="padding:24px;max-width:680px;width:100%;max-height:80vh;overflow-y:auto;">'
+    + '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:4px;">Tambah Proyek Kapal</div>'
+    + '<div style="font-size:13px;color:#1D4ED8;font-weight:700;margin-bottom:16px;">Kode: ' + previewCode + ' &nbsp;|&nbsp; Rate: Rp ' + rate + '/MT (Kapal #' + shipNum + ' bulan ini)</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Nama Kapal *</label><input type="text" id="kapal-add-namakapal" class="finput" placeholder="MV Sumber Jaya"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Pemberi Kerja *</label><input type="text" id="kapal-add-pemberi" class="finput" placeholder="KCN"></div>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Kade</label><input type="text" id="kapal-add-kade" class="finput" placeholder="Kade 3"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jenis Kargo</label><input type="text" id="kapal-add-cargo" class="finput" placeholder="Batubara"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Total MT/M3 *</label><input type="number" id="kapal-add-mt" class="finput" placeholder="5000" min="0" step="0.01"></div>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Harga (Rp/MT) *</label><input type="number" id="kapal-add-unitprice" class="finput" placeholder="Revenue/MT" min="0"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Harga Solar (Rp/L)</label><input type="number" id="kapal-add-solarprice" class="finput" placeholder="10000" min="0"></div>'
+    + '<div></div>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Mulai *</label><input type="date" id="kapal-add-start" class="finput" value="' + today + '"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Selesai *</label><input type="date" id="kapal-add-end" class="finput" value="' + today + '"></div>'
+    + '</div>'
+    + '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Unit yang Mengerjakan</div>'
+    + '<div id="kapal-unit-rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>'
+    + '<button onclick="addKapalUnitRow()" style="background:#EFF6FF;border:1.5px dashed #93C5FD;color:#1D4ED8;font-size:13px;font-weight:700;padding:8px 16px;border-radius:8px;cursor:pointer;width:100%;margin-bottom:16px;">+ Tambah Unit</button>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Catatan</label><textarea id="kapal-add-notes" class="finput" rows="2" placeholder="Opsional"></textarea></div>'
+    + '<div style="display:flex;gap:12px;margin-top:16px;">'
+    + '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>'
+    + '<button onclick="submitAddKapal(' + shipNum + ',\'' + monthYear + '\')" class="btn-primary" style="flex:2;">Simpan Proyek</button>'
+    + '</div></div>';
+  document.getElementById('modal-box').innerHTML = modalHTML;
+  document.getElementById('modal-overlay').style.display = 'flex';
+  addKapalUnitRow();
+}
+
+let _kapalUnitRowId = 0;
+function addKapalUnitRow() {
+  const rowId = ++_kapalUnitRowId;
+  const unitOptions = allUnits.map(u => '<option value="' + u.id + '">' + u.code + '</option>').join('');
+  const container = document.getElementById('kapal-unit-rows');
+  const div = document.createElement('div');
+  div.id = 'kapal-urow-' + rowId;
+  div.style.cssText = 'background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;';
+  div.innerHTML = '<div style="display:grid;grid-template-columns:1fr 80px 80px 60px 60px 80px 24px;gap:8px;align-items:end;">'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Unit</label><select class="finput" id="ku-unit-' + rowId + '" style="font-size:12px;padding:6px 8px;"><option value="">Pilih</option>' + unitOptions + '</select></div>'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Awal</label><input type="number" id="ku-hmawal-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="0" onblur="onKapalHMAwalChange(this,' + rowId + ')"></div>'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Akhir</label><input type="number" id="ku-hmakhir-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="0"></div>'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Awal%</label><input type="number" id="ku-sawal-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="80" min="0" max="100"></div>'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Akhir%</label><input type="number" id="ku-sakhir-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="20" min="0" max="100"></div>'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Isi(L)</label><input type="number" id="ku-sisi-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="0" min="0"></div>'
+    + '<div style="padding-bottom:2px;"><button onclick="removeKapalUnitRow(' + rowId + ')" style="background:none;border:none;cursor:pointer;color:#EF4444;font-size:18px;line-height:1;">×</button></div>'
+    + '</div>'
+    + '<div id="ku-gap-' + rowId + '" style="display:none;margin-top:8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 12px;font-size:12px;color:#DC2626;">'
+    + '<strong>GAP HM terdeteksi!</strong> <span id="ku-gap-msg-' + rowId + '"></span>'
+    + '<div style="margin-top:6px;"><label style="font-size:11px;font-weight:600;">Alasan gap (wajib diisi): </label><input type="text" id="ku-gap-reason-' + rowId + '" class="finput" style="font-size:12px;padding:5px 8px;margin-top:4px;" placeholder="Contoh: unit diparkir, perawatan, dll."></div>'
+    + '</div>';
+  container.appendChild(div);
+}
+
+function removeKapalUnitRow(rowId) {
+  const el = document.getElementById('kapal-urow-' + rowId);
+  if (el) el.remove();
+}
+
+async function onKapalHMAwalChange(input, rowId) {
+  const unitId = document.getElementById('ku-unit-' + rowId)?.value;
+  const hmAwal = parseFloat(input.value);
+  const gapDiv = document.getElementById('ku-gap-' + rowId);
+  if (!unitId || !hmAwal || !gapDiv) return;
+  const result = await checkHMContinuity(unitId, hmAwal);
+  if (result.hasGap) {
+    document.getElementById('ku-gap-msg-' + rowId).textContent =
+      'HM ' + result.prevHmAkhir + ' → ' + hmAwal + ' (gap ' + result.gapSize.toFixed(1) + ' HM tidak terbilang).';
+    gapDiv.style.display = '';
+  } else {
+    gapDiv.style.display = 'none';
+  }
+}
+
+async function submitAddKapal(shipNum, monthYear) {
+  const namaKapal = document.getElementById('kapal-add-namakapal')?.value.trim();
+  const pemberiKerja = document.getElementById('kapal-add-pemberi')?.value.trim();
+  const kade = document.getElementById('kapal-add-kade')?.value.trim();
+  const cargo = document.getElementById('kapal-add-cargo')?.value.trim();
+  const totalMt = parseFloat(document.getElementById('kapal-add-mt')?.value);
+  const unitPrice = parseFloat(document.getElementById('kapal-add-unitprice')?.value);
+  const solarPrice = parseFloat(document.getElementById('kapal-add-solarprice')?.value) || null;
+  const startDate = document.getElementById('kapal-add-start')?.value;
+  const endDate = document.getElementById('kapal-add-end')?.value;
+  const notes = document.getElementById('kapal-add-notes')?.value.trim();
+  if (!pemberiKerja) { showToast('Pemberi kerja wajib diisi'); return; }
+  if (!totalMt || totalMt <= 0) { showToast('Total MT/M3 wajib diisi'); return; }
+  if (!unitPrice || unitPrice <= 0) { showToast('Harga per MT wajib diisi'); return; }
+  if (!startDate || !endDate) { showToast('Tanggal wajib diisi'); return; }
+  const rows = document.querySelectorAll('#kapal-unit-rows > div[id^="kapal-urow-"]');
+  if (rows.length === 0) { showToast('Tambahkan minimal 1 unit'); return; }
+  const unitRows = [];
+  for (const row of rows) {
+    const rowId = row.id.replace('kapal-urow-','');
+    const unitId = document.getElementById('ku-unit-' + rowId)?.value;
+    const hmAwal = parseFloat(document.getElementById('ku-hmawal-' + rowId)?.value);
+    const hmAkhir = parseFloat(document.getElementById('ku-hmakhir-' + rowId)?.value);
+    const sAwal = parseInt(document.getElementById('ku-sawal-' + rowId)?.value);
+    const sAkhir = parseInt(document.getElementById('ku-sakhir-' + rowId)?.value);
+    const sIsi = parseFloat(document.getElementById('ku-sisi-' + rowId)?.value) || 0;
+    const gapDiv = document.getElementById('ku-gap-' + rowId);
+    const gapVisible = gapDiv && gapDiv.style.display !== 'none';
+    const gapReason = gapVisible ? document.getElementById('ku-gap-reason-' + rowId)?.value.trim() : null;
+    if (!unitId) { showToast('Pilih unit untuk semua baris'); return; }
+    if (isNaN(hmAwal) || isNaN(hmAkhir) || hmAkhir <= hmAwal) { showToast('HM Akhir harus lebih besar dari HM Awal'); return; }
+    if (isNaN(sAwal) || isNaN(sAkhir)) { showToast('Solar gauge wajib diisi'); return; }
+    if (gapVisible && !gapReason) { showToast('Alasan gap HM wajib diisi'); return; }
+    unitRows.push({ unit_id: unitId, hm_awal: hmAwal, hm_akhir: hmAkhir, solar_awal_pct: sAwal, solar_akhir_pct: sAkhir, solar_isi_liters: sIsi, hm_gap_reason: gapReason || null });
+  }
+  const projectCode = formatKapalCode(monthYear, shipNum);
+  try {
+    const { data: proj, error: pe } = await sb.from('projects').insert({
+      project_code: projectCode, type: 'kapal', nama_kapal: namaKapal || null,
+      pemberi_kerja: pemberiKerja, kade: kade || null, start_date: startDate,
+      end_date: endDate, month_year: monthYear, ship_number_in_month: shipNum,
+      cargo_type: cargo || null, total_mt_m3: totalMt, unit_price: unitPrice,
+      harga_solar_rpl: solarPrice, notes: notes || null
+    }).select().single();
+    if (pe) throw pe;
+    const unitInserts = unitRows.map(u => ({ ...u, project_id: proj.id }));
+    const { error: ue } = await sb.from('project_units').insert(unitInserts);
+    if (ue) throw ue;
+    closeModal();
+    showToast('Proyek ' + projectCode + ' berhasil disimpan!', 'success');
+    loadProyekKapal();
+  } catch(e) { showToast('Gagal simpan: ' + e.message); }
+}
 function switchProyekTab(tab, el) {
   proyekTab = tab;
   const tabs = ['kapal','stockpile','ringkasan','analisis','kontinuitas'];
