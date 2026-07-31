@@ -6,6 +6,7 @@
 <title>SERVIS SAA &mdash; PT Surya Alam Armada</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <style>
   html, body { margin: 0; padding: 0; overflow-x: hidden; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F1F5F9; font-size: 16px; }
@@ -546,6 +547,7 @@
     <div class="slink" onclick="switchAdmin('unit',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h5l3 5v3h-8V8zM5.5 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm11 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>Kelola Unit</div>
     <div class="slink" onclick="switchAdmin('catat',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Catat Servis</div>
     <div class="slink" onclick="switchAdmin('bbm',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z"/><line x1="7" y1="5" x2="7" y2="5"/><line x1="7" y1="12" x2="7" y2="12"/></svg>BBM</div>
+    <div class="slink" onclick="switchAdmin('proyek',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>Proyek</div>
     </div>
     <div style="flex-shrink:0;padding:12px 0 4px;">
       <button onclick="doLogout()" class="btn-secondary" style="width:100%;font-size:13px;">Keluar</button>
@@ -818,6 +820,21 @@
   </div>
   </div>
 </div>
+  <div id="admin-screen-proyek" class="dscreen">
+  <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:16px;">Proyek</div>
+  <div id="proyek-tabs" style="display:flex;gap:0;border-bottom:2px solid #E2E8F0;margin-bottom:20px;flex-wrap:wrap;">
+    <button id="proyek-tab-kapal" onclick="switchProyekTab('kapal',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#1D4ED8;border-bottom:3px solid #1D4ED8;margin-bottom:-2px;">Kapal</button>
+    <button id="proyek-tab-stockpile" onclick="switchProyekTab('stockpile',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Stockpile</button>
+    <button id="proyek-tab-ringkasan" onclick="switchProyekTab('ringkasan',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Ringkasan</button>
+    <button id="proyek-tab-analisis" onclick="switchProyekTab('analisis',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Analisis Biaya</button>
+    <button id="proyek-tab-kontinuitas" onclick="switchProyekTab('kontinuitas',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Kontinuitas HM</button>
+  </div>
+  <div id="proyek-panel-kapal"></div>
+  <div id="proyek-panel-stockpile" style="display:none;"></div>
+  <div id="proyek-panel-ringkasan" style="display:none;"></div>
+  <div id="proyek-panel-analisis" style="display:none;"></div>
+  <div id="proyek-panel-kontinuitas" style="display:none;"></div>
+  </div>
 <!-- MODAL OVERLAY -->
 <div id="modal-overlay" class="modal-overlay" style="display:none;" onclick="closeModalOnBg(event)">
   <div class="modal-box" id="modal-box"></div>
@@ -3888,7 +3905,7 @@ function switchAdmin(name, el) {
   if (screen) screen.classList.add('on');
   if (el) el.classList.add('on');
   closeAdminDrawer();
-  const labels = { dashboard:'Dashboard', jadwal:'Jadwal Maintenance', permintaan:'Permintaan Servis', riwayat:'Riwayat Per Unit', jadwalmkn:'Jadwal MKN', import:'Import Data', export:'Export Data', pengguna:'Kelola Pengguna', unit:'Kelola Unit', catat:'Catat Servis', bbm:'BBM' };
+  const labels = { dashboard:'Dashboard', jadwal:'Jadwal Maintenance', permintaan:'Permintaan Servis', riwayat:'Riwayat Per Unit', jadwalmkn:'Jadwal MKN', import:'Import Data', export:'Export Data', pengguna:'Kelola Pengguna', unit:'Kelola Unit', catat:'Catat Servis', bbm:'BBM', proyek:'Proyek' };
   const nameEl = document.getElementById('adm-mobile-screen-name');
   if (nameEl) nameEl.textContent = labels[name] || name;
   // Lazy load specific screens
@@ -3899,6 +3916,7 @@ function switchAdmin(name, el) {
   if (name === 'jadwal') renderAdminJadwal();
   if (name === 'catat') initAdminCatat();
   if (name === 'bbm') initFuelBBM();
+  if (name === 'proyek') initProyekModule();
 }
 
 function toggleAdminDrawer() {
@@ -4737,6 +4755,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   boot();
 });
+// ============================================================
+// PROYEK MODULE
+// ============================================================
+function switchProyekTab(tab, el) {
+  proyekTab = tab;
+  const tabs = ['kapal','stockpile','ringkasan','analisis','kontinuitas'];
+  tabs.forEach(t => {
+    const btn = document.getElementById('proyek-tab-' + t);
+    const panel = document.getElementById('proyek-panel-' + t);
+    const active = t === tab;
+    if (btn) { btn.style.color = active ? '#1D4ED8' : '#94A3B8'; btn.style.borderBottomColor = active ? '#1D4ED8' : 'transparent'; }
+    if (panel) panel.style.display = active ? '' : 'none';
+  });
+  if (tab === 'kapal') loadProyekKapal();
+  if (tab === 'stockpile') loadProyekStockpile();
+  if (tab === 'ringkasan') loadProyekRingkasan();
+  if (tab === 'analisis') loadProyekAnalisis();
+  if (tab === 'kontinuitas') renderProyekKontinuitas();
+}
+
+function initProyekModule() {
+  switchProyekTab('kapal', document.getElementById('proyek-tab-kapal'));
+}
+
 </script>
 </body>
 </html>
