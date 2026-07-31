@@ -5476,6 +5476,79 @@ async function submitInvoiceNumber(projectId) {
     loadProyekAnalisis();
   } catch(e) { showToast('Gagal simpan: ' + e.message); }
 }
+
+function renderProyekKontinuitas() {
+  const panel = document.getElementById('proyek-panel-kontinuitas');
+  const unitOptions = allUnits.map(u => '<option value="' + u.id + '"' + (u.id === proyekHMUnitId ? ' selected' : '') + '>' + u.code + ' – ' + u.name + '</option>').join('');
+  let h = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">';
+  h += '<div style="font-size:15px;font-weight:700;color:#1E293B;">Kontinuitas HM per Unit</div>';
+  h += '<select class="finput" style="max-width:200px;padding:6px 10px;font-size:13px;" onchange="proyekHMUnitId=this.value;loadProyekKontinuitas();"><option value="">-- Pilih Unit --</option>' + unitOptions + '</select>';
+  h += '</div>';
+  if (!proyekHMUnitId) {
+    h += '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Pilih unit untuk melihat log HM.</div>';
+    panel.innerHTML = h; return;
+  }
+  h += '<div id="kontinuitas-table-wrap"><div style="color:#64748B;">Memuat...</div></div>';
+  panel.innerHTML = h;
+  loadProyekKontinuitas();
+}
+
+async function loadProyekKontinuitas() {
+  const wrap = document.getElementById('kontinuitas-table-wrap');
+  if (!wrap || !proyekHMUnitId) return;
+  try {
+    const { data, error } = await sb.from('project_units')
+      .select('*, projects(project_code, type, start_date, end_date, pemberi_kerja)')
+      .eq('unit_id', proyekHMUnitId)
+      .order('hm_awal', { ascending: true });
+    if (error) throw error;
+    const rows = data || [];
+    if (rows.length === 0) {
+      wrap.innerHTML = '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Belum ada data proyek untuk unit ini.</div>';
+      return;
+    }
+    let billedHM = 0, gapHM = 0;
+    let tableHTML = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+    tableHTML += '<thead><tr style="background:#F1F5F9;"><th style="padding:8px 10px;text-align:left;font-weight:700;color:#475569;">Tipe</th><th style="padding:8px 10px;text-align:left;font-weight:700;color:#475569;">Proyek</th><th style="padding:8px 10px;text-align:right;font-weight:700;color:#475569;">HM Awal</th><th style="padding:8px 10px;text-align:right;font-weight:700;color:#475569;">HM Akhir</th><th style="padding:8px 10px;text-align:right;font-weight:700;color:#475569;">HM Durasi</th><th style="padding:8px 10px;text-align:left;font-weight:700;color:#475569;">Tanggal</th><th style="padding:8px 10px;text-align:left;font-weight:700;color:#475569;">Pemberi Kerja</th><th style="padding:8px 10px;text-align:left;font-weight:700;color:#475569;">Keterangan</th></tr></thead><tbody>';
+    rows.forEach((row, i) => {
+      const p = row.projects;
+      const hmDur = row.hm_akhir - row.hm_awal;
+      billedHM += hmDur;
+      if (i > 0) {
+        const prev = rows[i - 1];
+        const gap = row.hm_awal - prev.hm_akhir;
+        if (gap > 0) {
+          gapHM += gap;
+          tableHTML += '<tr style="background:#FEF2F2;">';
+          tableHTML += '<td style="padding:8px 10px;font-weight:800;color:#DC2626;">GAP</td>';
+          tableHTML += '<td style="padding:8px 10px;color:#DC2626;">—</td>';
+          tableHTML += '<td style="padding:8px 10px;text-align:right;color:#DC2626;">' + prev.hm_akhir + '</td>';
+          tableHTML += '<td style="padding:8px 10px;text-align:right;color:#DC2626;">' + row.hm_awal + '</td>';
+          tableHTML += '<td style="padding:8px 10px;text-align:right;font-weight:700;color:#DC2626;">' + gap.toFixed(1) + ' HM</td>';
+          tableHTML += '<td colspan="2" style="padding:8px 10px;"></td>';
+          tableHTML += '<td style="padding:8px 10px;font-size:11px;color:#DC2626;">' + (row.hm_gap_reason || 'Alasan tidak dicatat') + '</td>';
+          tableHTML += '</tr>';
+        }
+      }
+      tableHTML += '<tr style="border-bottom:1px solid #F1F5F9;background:#F0FDF4;">';
+      tableHTML += '<td style="padding:8px 10px;font-weight:700;color:#16A34A;">' + (p ? p.type.toUpperCase() : '?') + '</td>';
+      tableHTML += '<td style="padding:8px 10px;font-weight:700;color:#1D4ED8;">' + (p ? p.project_code : '?') + '</td>';
+      tableHTML += '<td style="padding:8px 10px;text-align:right;">' + row.hm_awal + '</td>';
+      tableHTML += '<td style="padding:8px 10px;text-align:right;">' + row.hm_akhir + '</td>';
+      tableHTML += '<td style="padding:8px 10px;text-align:right;font-weight:700;">' + hmDur.toFixed(1) + ' HM</td>';
+      tableHTML += '<td style="padding:8px 10px;white-space:nowrap;">' + (p ? formatDate(p.start_date) + ' – ' + formatDate(p.end_date) : '—') + '</td>';
+      tableHTML += '<td style="padding:8px 10px;">' + (p ? p.pemberi_kerja : '—') + '</td>';
+      tableHTML += '<td style="padding:8px 10px;font-size:11px;color:#64748B;"></td>';
+      tableHTML += '</tr>';
+    });
+    tableHTML += '</tbody></table></div>';
+    tableHTML += '<div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap;">';
+    tableHTML += '<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:10px;padding:10px 16px;"><div style="font-size:12px;color:#16A34A;font-weight:700;">Total HM Terbilang</div><div style="font-size:20px;font-weight:800;color:#15803D;">' + billedHM.toFixed(1) + ' HM</div></div>';
+    tableHTML += '<div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:10px;padding:10px 16px;"><div style="font-size:12px;color:#DC2626;font-weight:700;">Total HM Gap</div><div style="font-size:20px;font-weight:800;color:#B91C1C;">' + gapHM.toFixed(1) + ' HM</div></div>';
+    tableHTML += '</div>';
+    wrap.innerHTML = tableHTML;
+  } catch(e) { wrap.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
+}
 function switchProyekTab(tab, el) {
   proyekTab = tab;
   const tabs = ['kapal','stockpile','ringkasan','analisis','kontinuitas'];
