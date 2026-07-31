@@ -5252,6 +5252,126 @@ async function submitAddStockpile() {
     loadProyekStockpile();
   } catch(e) { showToast('Gagal simpan: ' + e.message); }
 }
+
+async function loadProyekRingkasan() {
+  const panel = document.getElementById('proyek-panel-ringkasan');
+  panel.innerHTML = '<div style="color:#64748B;padding:20px;">Memuat...</div>';
+  try {
+    const { data, error } = await sb.from('projects')
+      .select('*, project_units(*, units(code, name, operator_name))')
+      .eq('month_year', proyekMonthFilter);
+    if (error) throw error;
+    renderProyekRingkasan(data || []);
+  } catch(e) { panel.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
+}
+
+function renderProyekRingkasan(projects) {
+  const panel = document.getElementById('proyek-panel-ringkasan');
+  const operatorMap = {};
+  projects.forEach(p => {
+    const units = p.project_units || [];
+    if (p.type === 'kapal') {
+      const rate = calcKapalRate(p.ship_number_in_month || 1);
+      const split = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
+      split.forEach(u => {
+        const key = u.units ? (u.units.operator_name || u.units.code) : u.unit_id;
+        if (!operatorMap[key]) operatorMap[key] = { kapal: 0, stockpile: 0 };
+        operatorMap[key].kapal += u.allocatedMt * rate;
+      });
+    } else {
+      units.forEach(u => {
+        const key = u.units ? (u.units.operator_name || u.units.code) : u.unit_id;
+        if (!operatorMap[key]) operatorMap[key] = { kapal: 0, stockpile: 0 };
+        operatorMap[key].stockpile += (u.hm_akhir - u.hm_awal) * 35000;
+      });
+    }
+  });
+  let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">';
+  h += '<div style="font-size:15px;font-weight:700;color:#1E293B;">Ringkasan Gaji</div>';
+  h += '<div style="display:flex;gap:8px;align-items:center;">';
+  h += '<input type="month" class="finput" style="padding:6px 10px;font-size:13px;" value="' + proyekMonthFilter + '" onchange="proyekMonthFilter=this.value;loadProyekRingkasan();">';
+  h += '<button onclick="exportProyekExcel()" class="btn-primary" style="padding:8px 14px;font-size:13px;">Export Excel</button>';
+  h += '</div></div>';
+  if (Object.keys(operatorMap).length === 0) {
+    h += '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Tidak ada data untuk bulan ini.</div>';
+    panel.innerHTML = h; return;
+  }
+  h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
+  h += '<thead><tr style="background:#F1F5F9;"><th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Operator/Unit</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Kapal</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Stockpile</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Total Kerja</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Pokok</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Grand Total</th></tr></thead><tbody>';
+  let grandK = 0, grandS = 0;
+  Object.entries(operatorMap).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name, sal]) => {
+    const totalKerja = sal.kapal + sal.stockpile;
+    const grandTotal = totalKerja + 3100000;
+    grandK += sal.kapal; grandS += sal.stockpile;
+    h += '<tr style="border-bottom:1px solid #F1F5F9;">';
+    h += '<td style="padding:10px 12px;font-weight:600;">' + name + '</td>';
+    h += '<td style="padding:10px 12px;text-align:right;">' + fmtRp(sal.kapal) + '</td>';
+    h += '<td style="padding:10px 12px;text-align:right;">' + fmtRp(sal.stockpile) + '</td>';
+    h += '<td style="padding:10px 12px;text-align:right;font-weight:700;">' + fmtRp(totalKerja) + '</td>';
+    h += '<td style="padding:10px 12px;text-align:right;color:#64748B;">Rp 3.100.000</td>';
+    h += '<td style="padding:10px 12px;text-align:right;font-weight:800;color:#16A34A;">' + fmtRp(grandTotal + 3100000 - 3100000) + '</td></tr>';
+  });
+  const allTotal = grandK + grandS;
+  h += '<tr style="background:#F1F5F9;font-weight:800;"><td style="padding:10px 12px;">TOTAL</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(grandK) + '</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(grandS) + '</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(allTotal) + '</td><td style="padding:10px 12px;"></td><td style="padding:10px 12px;text-align:right;">' + fmtRp(allTotal + 3100000 * Object.keys(operatorMap).length) + '</td></tr>';
+  h += '</tbody></table></div>';
+  panel.innerHTML = h;
+  panel._ringkasanProjects = projects;
+}
+
+async function exportProyekExcel() {
+  if (typeof XLSX === 'undefined') { showToast('SheetJS tidak tersedia'); return; }
+  const panel = document.getElementById('proyek-panel-ringkasan');
+  const projects = panel._ringkasanProjects;
+  if (!projects || projects.length === 0) { showToast('Tidak ada data untuk diexport'); return; }
+  const wb = XLSX.utils.book_new();
+  // Sheet 1 - Kapal
+  const kapalRows = [['Kode','Nama Kapal','Pemberi Kerja','Kade','Kapal#','Tgl Mulai','Tgl Selesai','Kargo','Total MT/M3','Harga/MT','Unit','HM Awal','HM Akhir','HM Kerja','MT Alokasi','Rate (Rp/MT)','Salary','Solar (L)']];
+  projects.filter(p => p.type === 'kapal').forEach(p => {
+    const rate = calcKapalRate(p.ship_number_in_month || 1);
+    const split = calcKapalTonnageSplit(p.project_units || [], p.total_mt_m3 || 0);
+    split.forEach(u => {
+      const hmK = u.hm_akhir - u.hm_awal;
+      kapalRows.push([p.project_code, p.nama_kapal||'', p.pemberi_kerja, p.kade||'', p.ship_number_in_month, p.start_date, p.end_date, p.cargo_type||'', p.total_mt_m3, p.unit_price, u.units?u.units.code:'?', u.hm_awal, u.hm_akhir, hmK, +u.allocatedMt.toFixed(2), rate, Math.round(u.allocatedMt*rate), +calcSolarConsumed(u.solar_awal_pct,u.solar_akhir_pct,u.solar_isi_liters).toFixed(1)]);
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(kapalRows), 'Kapal');
+  // Sheet 2 - Stockpile
+  const stkRows = [['Kode','Pemberi Kerja','Tgl Mulai','Tgl Selesai','Unit','HM Awal','HM Akhir','HM Kerja','Salary','Solar (L)']];
+  projects.filter(p => p.type === 'stockpile').forEach(p => {
+    (p.project_units || []).forEach(u => {
+      const hmK = u.hm_akhir - u.hm_awal;
+      stkRows.push([p.project_code, p.pemberi_kerja, p.start_date, p.end_date, u.units?u.units.code:'?', u.hm_awal, u.hm_akhir, hmK, Math.round(hmK*35000), +calcSolarConsumed(u.solar_awal_pct,u.solar_akhir_pct,u.solar_isi_liters).toFixed(1)]);
+    });
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stkRows), 'Stockpile');
+  // Sheet 3 - Salary Summary
+  const salRows = [['Operator/Unit','Gaji Kapal','Gaji Stockpile','Total Kerja','Gaji Pokok','Grand Total']];
+  const opMap = {};
+  projects.forEach(p => {
+    const units = p.project_units || [];
+    if (p.type === 'kapal') {
+      const rate = calcKapalRate(p.ship_number_in_month || 1);
+      calcKapalTonnageSplit(units, p.total_mt_m3||0).forEach(u => {
+        const k = u.units?(u.units.operator_name||u.units.code):u.unit_id;
+        if (!opMap[k]) opMap[k] = { k:0, s:0 };
+        opMap[k].k += u.allocatedMt * rate;
+      });
+    } else {
+      units.forEach(u => {
+        const k = u.units?(u.units.operator_name||u.units.code):u.unit_id;
+        if (!opMap[k]) opMap[k] = { k:0, s:0 };
+        opMap[k].s += (u.hm_akhir - u.hm_awal) * 35000;
+      });
+    }
+  });
+  Object.entries(opMap).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name,sal]) => {
+    const totalKerja = sal.k + sal.s;
+    salRows.push([name, Math.round(sal.k), Math.round(sal.s), Math.round(totalKerja), 3100000, Math.round(totalKerja + 3100000)]);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(salRows), 'Ringkasan Gaji');
+  XLSX.writeFile(wb, 'Proyek_' + proyekMonthFilter.replace('-','') + '.xlsx');
+  showToast('Export berhasil!', 'success');
+}
 function switchProyekTab(tab, el) {
   proyekTab = tab;
   const tabs = ['kapal','stockpile','ringkasan','analisis','kontinuitas'];
