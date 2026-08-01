@@ -4960,7 +4960,7 @@ function renderProyekKapalList() {
   const panel = document.getElementById('proyek-panel-kapal');
   let html2 = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
   html2 += '<div style="font-size:15px;font-weight:700;color:#1E293B;">Daftar Proyek Kapal (' + proyekKapalData.length + ')</div>';
-  html2 += '<button onclick="openAddKapalModal()" class="btn-primary" style="padding:8px 16px;font-size:13px;">+ Tambah Kapal</button>';
+  html2 += '<button onclick="openAddKapalModal()" class="btn-primary" style="padding:8px 16px;font-size:13px;width:auto;">+ Tambah Kapal</button>';
   html2 += '</div>';
   if (proyekKapalData.length === 0) {
     html2 += '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Belum ada proyek kapal.</div>';
@@ -5185,7 +5185,7 @@ function renderProyekStockpileList() {
   const panel = document.getElementById('proyek-panel-stockpile');
   let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">';
   h += '<div style="font-size:15px;font-weight:700;color:#1E293B;">Daftar Proyek Stockpile (' + proyekStockpileData.length + ')</div>';
-  h += '<button onclick="openAddStockpileModal()" class="btn-primary" style="padding:8px 16px;font-size:13px;">+ Tambah Stockpile</button></div>';
+  h += '<button onclick="openAddStockpileModal()" class="btn-primary" style="padding:8px 16px;font-size:13px;width:auto;">+ Tambah Stockpile</button></div>';
   if (proyekStockpileData.length === 0) {
     h += '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Belum ada proyek stockpile.</div>';
     panel.innerHTML = h; return;
@@ -5690,14 +5690,20 @@ function renderProyekRingkasan(projects) {
       const split = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
       split.forEach(u => {
         const key = u.units ? (u.units.operator_name || u.units.code) : u.unit_id;
-        if (!operatorMap[key]) operatorMap[key] = { kapal: 0, stockpile: 0 };
-        operatorMap[key].kapal += u.allocatedMt * rate;
+        if (!operatorMap[key]) operatorMap[key] = { kapal: 0, stockpile: 0, stockpileHM: 0, unitCode: u.units ? u.units.code : '', details: [] };
+        const kamt = u.allocatedMt * rate;
+        operatorMap[key].kapal += kamt;
+        operatorMap[key].details.push({ code: p.project_code, type: 'Kapal', amount: kamt });
       });
     } else {
       units.forEach(u => {
         const key = u.units ? (u.units.operator_name || u.units.code) : u.unit_id;
-        if (!operatorMap[key]) operatorMap[key] = { kapal: 0, stockpile: 0 };
-        operatorMap[key].stockpile += (u.hm_akhir != null ? (u.hm_akhir - u.hm_awal) * 35000 : 0);
+        if (!operatorMap[key]) operatorMap[key] = { kapal: 0, stockpile: 0, stockpileHM: 0, unitCode: u.units ? u.units.code : '', details: [] };
+        const sHM = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0;
+        const samt = sHM * 35000;
+        operatorMap[key].stockpile += samt;
+        operatorMap[key].stockpileHM += sHM;
+        operatorMap[key].details.push({ code: p.project_code, type: 'STK', amount: samt, hm: sHM });
       });
     }
   });
@@ -5712,22 +5718,28 @@ function renderProyekRingkasan(projects) {
     panel.innerHTML = h; return;
   }
   h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
-  h += '<thead><tr style="background:#F1F5F9;"><th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Operator/Unit</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Kapal</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Stockpile</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Total Kerja</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Pokok</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Grand Total</th></tr></thead><tbody>';
-  let grandK = 0, grandS = 0;
+  h += '<thead><tr style="background:#F1F5F9;"><th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Unit / Operator</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Kapal</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Stockpile</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">HM Stockpile</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Total Kerja</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Pokok</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Grand Total</th></tr></thead><tbody>';
+  let grandK = 0, grandS = 0, grandSTKHM = 0;
   Object.entries(operatorMap).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name, sal]) => {
     const totalKerja = sal.kapal + sal.stockpile;
     const grandTotal = totalKerja + 3100000;
-    grandK += sal.kapal; grandS += sal.stockpile;
+    grandK += sal.kapal; grandS += sal.stockpile; grandSTKHM += sal.stockpileHM;
+    const unitLabel = sal.unitCode ? sal.unitCode + ' / ' + name : name;
     h += '<tr style="border-bottom:1px solid #F1F5F9;">';
-    h += '<td style="padding:10px 12px;font-weight:600;">' + name + '</td>';
+    h += '<td style="padding:10px 12px;font-weight:600;">' + unitLabel + '</td>';
     h += '<td style="padding:10px 12px;text-align:right;">' + fmtRp(sal.kapal) + '</td>';
     h += '<td style="padding:10px 12px;text-align:right;">' + fmtRp(sal.stockpile) + '</td>';
+    h += '<td style="padding:10px 12px;text-align:right;">' + (sal.stockpileHM > 0 ? sal.stockpileHM.toFixed(1) + ' HM' : '-') + '</td>';
     h += '<td style="padding:10px 12px;text-align:right;font-weight:700;">' + fmtRp(totalKerja) + '</td>';
     h += '<td style="padding:10px 12px;text-align:right;color:#64748B;">Rp 3.100.000</td>';
-    h += '<td style="padding:10px 12px;text-align:right;font-weight:800;color:#16A34A;">' + fmtRp(grandTotal + 3100000 - 3100000) + '</td></tr>';
+    h += '<td style="padding:10px 12px;text-align:right;font-weight:800;color:#16A34A;">' + fmtRp(grandTotal) + '</td></tr>';
+    if (sal.details.length > 0) {
+      const detailText = sal.details.map(function(d) { return d.code + ' (' + d.type + (d.hm != null ? ' ' + d.hm.toFixed(1) + 'HM' : '') + '): ' + fmtRp(d.amount); }).join(' | ');
+      h += '<tr style="background:#F8FAFC;"><td colspan="7" style="padding:3px 12px 6px 20px;font-size:11px;color:#64748B;">' + detailText + '</td></tr>';
+    }
   });
   const allTotal = grandK + grandS;
-  h += '<tr style="background:#F1F5F9;font-weight:800;"><td style="padding:10px 12px;">TOTAL</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(grandK) + '</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(grandS) + '</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(allTotal) + '</td><td style="padding:10px 12px;"></td><td style="padding:10px 12px;text-align:right;">' + fmtRp(allTotal + 3100000 * Object.keys(operatorMap).length) + '</td></tr>';
+  h += '<tr style="background:#F1F5F9;font-weight:800;"><td style="padding:10px 12px;">TOTAL</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(grandK) + '</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(grandS) + '</td><td style="padding:10px 12px;text-align:right;">' + grandSTKHM.toFixed(1) + ' HM</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(allTotal) + '</td><td style="padding:10px 12px;"></td><td style="padding:10px 12px;text-align:right;">' + fmtRp(allTotal + 3100000 * Object.keys(operatorMap).length) + '</td></tr>';
   h += '</tbody></table></div>';
   panel.innerHTML = h;
   panel._ringkasanProjects = projects;
@@ -5763,7 +5775,7 @@ async function exportProyekExcel() {
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stkRows), 'Stockpile');
   // Sheet 3 - Salary Summary
-  const salRows = [['Operator/Unit','Gaji Kapal','Gaji Stockpile','Total Kerja','Gaji Pokok','Grand Total']];
+  const salRows = [['Unit','Operator','Gaji Kapal','Gaji Stockpile','HM Stockpile','Total Kerja','Gaji Pokok','Grand Total']];
   const opMap = {};
   projects.forEach(p => {
     const units = p.project_units || [];
@@ -5771,20 +5783,22 @@ async function exportProyekExcel() {
       const rate = calcKapalRate(p.ship_number_in_month || 1);
       calcKapalTonnageSplit(units, p.total_mt_m3||0).forEach(u => {
         const k = u.units?(u.units.operator_name||u.units.code):u.unit_id;
-        if (!opMap[k]) opMap[k] = { k:0, s:0 };
+        if (!opMap[k]) opMap[k] = { k:0, s:0, sHM:0, unitCode: u.units?u.units.code:'' };
         opMap[k].k += u.allocatedMt * rate;
       });
     } else {
       units.forEach(u => {
         const k = u.units?(u.units.operator_name||u.units.code):u.unit_id;
-        if (!opMap[k]) opMap[k] = { k:0, s:0 };
-        opMap[k].s += (u.hm_akhir - u.hm_awal) * 35000;
+        if (!opMap[k]) opMap[k] = { k:0, s:0, sHM:0, unitCode: u.units?u.units.code:'' };
+        const hm = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0;
+        opMap[k].s += hm * 35000;
+        opMap[k].sHM += hm;
       });
     }
   });
   Object.entries(opMap).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name,sal]) => {
     const totalKerja = sal.k + sal.s;
-    salRows.push([name, Math.round(sal.k), Math.round(sal.s), Math.round(totalKerja), 3100000, Math.round(totalKerja + 3100000)]);
+    salRows.push([sal.unitCode||'', name, Math.round(sal.k), Math.round(sal.s), +sal.sHM.toFixed(1), Math.round(totalKerja), 3100000, Math.round(totalKerja + 3100000)]);
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(salRows), 'Ringkasan Gaji');
   XLSX.writeFile(wb, 'Proyek_' + proyekMonthFilter.replace('-','') + '.xlsx');
@@ -5860,7 +5874,9 @@ function renderProyekAnalisis(projects, fillMap) {
       return s + isi + tankDiff;
     }, 0);
     const fuelCost = usedSolarL * (p.harga_solar_rpl || 0);
-    const laborCost = split.reduce((s, u) => s + u.allocatedMt * rate, 0);
+    const operatorPay = split.reduce((s, u) => s + u.allocatedMt * rate, 0);
+    const basicSalaryAlloc = Math.round(income * 0.05);
+    const laborCost = operatorPay + basicSalaryAlloc;
     const profit = income - fuelCost - laborCost;
     const yieldPerHM = totalHM > 0 ? profit / totalHM : 0;
     const isClosed = !!p.invoice_number;
@@ -5874,7 +5890,7 @@ function renderProyekAnalisis(projects, fillMap) {
     h += '<td style="padding:8px 10px;text-align:right;">' + totalHM.toFixed(1) + '</td>';
     h += '<td style="padding:8px 10px;text-align:right;">' + fmtRp(income) + '</td>';
     h += '<td style="padding:8px 10px;text-align:right;color:#EF4444;">' + fmtRp(fuelCost) + (p.harga_solar_rpl ? '<br><span style="font-size:10px;color:#94A3B8;">' + Math.round(usedSolarL) + 'L (isi+tangki)</span>' : '') + '</td>';
-    h += '<td style="padding:8px 10px;text-align:right;color:#F59E0B;">' + fmtRp(laborCost) + '</td>';
+    h += '<td style="padding:8px 10px;text-align:right;color:#F59E0B;">' + fmtRp(laborCost) + '<br><span style="font-size:10px;color:#94A3B8;">' + fmtRp(operatorPay) + '+5%</span></td>';
     h += '<td style="padding:8px 10px;text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#EF4444') + ';">' + fmtRp(profit) + '</td>';
     h += '<td style="padding:8px 10px;text-align:right;">' + fmtRp(yieldPerHM) + '/HM</td>';
     h += '<td style="padding:8px 10px;"><span style="background:' + (isClosed ? '#DCFCE7' : '#FEF9C3') + ';color:' + (isClosed ? '#16A34A' : '#CA8A04') + ';font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;">' + (isClosed ? 'CLOSED' : 'OPEN') + '</span></td>';
