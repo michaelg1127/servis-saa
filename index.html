@@ -897,6 +897,8 @@ let proyekTab = 'kapal';
 let proyekKapalData = [];
 let proyekStockpileData = [];
 let proyekMonthFilter = new Date().toISOString().slice(0,7);
+let _proyekKapalCache = {};
+let _proyekStockpileCache = {};
 let proyekHMUnitId = null;
 let proyekAnalisisFilter = 'semua';
 const FUEL_TANKS = [{name:'hijau',label:'Tanki Hijau',cap:8000,color:'#16A34A'},{name:'merah',label:'Tanki Merah',cap:1500,color:'#DC2626'},{name:'kuning',label:'Tanki Kuning',cap:1500,color:'#CA8A04'}];
@@ -4865,6 +4867,20 @@ async function checkHMContinuity(unitId, hmAwal) {
 // PROYEK MODULE
 // ============================================================
 
+async function fetchFillMap(projectIds) {
+  if (!projectIds || projectIds.length === 0) return {};
+  const { data } = await sb.from('fuel_dispenses')
+    .select('project_id, unit_id, liters_dispensed')
+    .in('project_id', projectIds);
+  const map = {};
+  (data || []).forEach(function(d) {
+    if (!d.project_id) return;
+    if (!map[d.project_id]) map[d.project_id] = {};
+    map[d.project_id][d.unit_id] = (map[d.project_id][d.unit_id] || 0) + (d.liters_dispensed || 0);
+  });
+  return map;
+}
+
 async function loadProyekKapal() {
   const panel = document.getElementById('proyek-panel-kapal');
   panel.innerHTML = '<div style="color:#64748B;padding:20px;">Memuat data...</div>';
@@ -4917,20 +4933,31 @@ function renderProyekKapalList() {
     html2 += '<td style="padding:10px 12px;"><svg style="width:14px;height:14px;" fill="none" stroke="#94A3B8" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></td>';
     html2 += '</tr>';
     html2 += '<tr id="kapal-detail-' + p.id + '" style="display:none;background:#F8FAFC;">';
-    html2 += '<td colspan="11" style="padding:12px 16px;">';
-    html2 += renderKapalDetailHTML(p);
-    html2 += '</td></tr>';
+    _proyekKapalCache[p.id] = p;
+    html2 += '<td colspan="11" style="padding:8px;color:#64748B;font-size:12px;">Klik untuk memuat detail...</td></tr>';
   });
   html2 += '</tbody></table></div>';
   panel.innerHTML = html2;
 }
 
-function toggleKapalDetail(id) {
+async function toggleKapalDetail(id) {
   const row = document.getElementById('kapal-detail-' + id);
-  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+  if (!row) return;
+  if (row.style.display !== 'none') { row.style.display = 'none'; return; }
+  row.style.display = '';
+  if (row.dataset.rendered === 'true') return;
+  const td = row.querySelector('td');
+  if (td) td.textContent = 'Memuat...';
+  const fillMap = await fetchFillMap([id]);
+  const unitFillMap = fillMap[id] || {};
+  const p = _proyekKapalCache[id];
+  if (!p) { if (td) td.textContent = 'Data tidak ditemukan.'; return; }
+  row.innerHTML = '<td colspan="11" style="padding:12px 16px;">' + renderKapalDetailHTML(p, unitFillMap) + '</td>';
+  row.dataset.rendered = 'true';
 }
 
-function renderKapalDetailHTML(p) {
+function renderKapalDetailHTML(p, fillMap) {
+  fillMap = fillMap || {};
   const units = p.project_units || [];
   const rate = calcKapalRate(p.ship_number_in_month || 1);
   const split = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
@@ -4938,7 +4965,9 @@ function renderKapalDetailHTML(p) {
   h += '<tr style="background:#E2E8F0;"><th style="padding:6px 10px;text-align:left;">Unit</th><th style="padding:6px 10px;text-align:right;">HM Awal</th><th style="padding:6px 10px;text-align:right;">HM Akhir</th><th style="padding:6px 10px;text-align:right;">HM Kerja</th><th style="padding:6px 10px;text-align:right;">MT Alokasi</th><th style="padding:6px 10px;text-align:right;">Rate</th><th style="padding:6px 10px;text-align:right;">Salary</th><th style="padding:6px 10px;text-align:right;">Solar (L)</th></tr>';
   split.forEach(u => {
     const hmKerja = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : null;
-    const solar = calcSolarConsumed(u.solar_awal_pct, u.solar_akhir_pct, u.solar_isi_liters);
+    const fillLiters = fillMap[u.unit_id] != null ? fillMap[u.unit_id] : (u.solar_isi_liters || 0);
+    const solarLabel = fillMap[u.unit_id] != null ? ' (aktual)' : (u.solar_isi_liters ? ' (manual)' : '');
+    const solar = calcSolarConsumed(u.solar_awal_pct, u.solar_akhir_pct, fillLiters);
     const salary = u.allocatedMt * rate;
     const unitCode = u.units ? u.units.code : '?';
     h += '<tr style="border-bottom:1px solid #E2E8F0;">';
@@ -4949,7 +4978,7 @@ function renderKapalDetailHTML(p) {
     h += '<td style="padding:6px 10px;text-align:right;">' + u.allocatedMt.toFixed(2) + '</td>';
     h += '<td style="padding:6px 10px;text-align:right;">Rp ' + rate + '/MT</td>';
     h += '<td style="padding:6px 10px;text-align:right;font-weight:700;color:#16A34A;">' + fmtRp(salary) + '</td>';
-    h += '<td style="padding:6px 10px;text-align:right;">' + solar.toFixed(1) + ' L</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + solar.toFixed(1) + ' L<span style="font-size:10px;color:#94A3B8;">' + solarLabel + '</span></td>';
     h += '</tr>';
   });
   h += '</table>';
@@ -4975,20 +5004,11 @@ async function openAddKapalModal() {
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Nama Kapal *</label><input type="text" id="kapal-add-namakapal" class="finput" placeholder="MV Sumber Jaya"></div>'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Pemberi Kerja</label><input type="text" id="kapal-add-pemberi" class="finput" placeholder="KCN"></div>'
     + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Kade</label><input type="text" id="kapal-add-kade" class="finput" placeholder="Kade 3"></div>'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jenis Kargo</label><input type="text" id="kapal-add-cargo" class="finput" placeholder="Batubara"></div>'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Total MT/M3 *</label><input type="number" id="kapal-add-mt" class="finput" placeholder="5000" min="0" step="0.01"></div>'
     + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Harga (Rp/MT)</label><input type="number" id="kapal-add-unitprice" class="finput" placeholder="Revenue/MT" min="0"></div>'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Harga Solar (Rp/L)</label><input type="number" id="kapal-add-solarprice" class="finput" placeholder="10000" min="0"></div>'
-    + '<div></div>'
-    + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Mulai *</label><input type="date" id="kapal-add-start" class="finput" value="' + today + '"></div>'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Selesai *</label><input type="date" id="kapal-add-end" class="finput" value="' + today + '"></div>'
-    + '</div>'
+    + '<div style="margin-bottom:16px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Mulai *</label><input type="date" id="kapal-add-start" class="finput" value="' + today + '"></div>'
     + '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Unit yang Mengerjakan</div>'
     + '<div id="kapal-unit-rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>'
     + '<button onclick="addKapalUnitRow()" style="background:#EFF6FF;border:1.5px dashed #93C5FD;color:#1D4ED8;font-size:13px;font-weight:700;padding:8px 16px;border-radius:8px;cursor:pointer;width:100%;margin-bottom:16px;">+ Tambah Unit</button>'
@@ -5010,13 +5030,10 @@ function addKapalUnitRow() {
   const div = document.createElement('div');
   div.id = 'kapal-urow-' + rowId;
   div.style.cssText = 'background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;';
-  div.innerHTML = '<div style="display:grid;grid-template-columns:1fr 80px 80px 60px 60px 80px 24px;gap:8px;align-items:end;">'
+  div.innerHTML = '<div style="display:grid;grid-template-columns:1fr 80px 60px 24px;gap:8px;align-items:end;">'
     + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Unit</label><select class="finput" id="ku-unit-' + rowId + '" style="font-size:12px;padding:6px 8px;"><option value="">Pilih</option>' + unitOptions + '</select></div>'
     + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Awal</label><input type="number" id="ku-hmawal-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="0" onblur="onKapalHMAwalChange(this,' + rowId + ')"></div>'
-    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Akhir</label><input type="number" id="ku-hmakhir-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="Opsional"></div>'
     + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Awal%</label><input type="number" id="ku-sawal-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="80" min="0" max="100"></div>'
-    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Akhir%</label><input type="number" id="ku-sakhir-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="20" min="0" max="100"></div>'
-    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Isi(L)</label><input type="number" id="ku-sisi-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="0" min="0"></div>'
     + '<div style="padding-bottom:2px;"><button onclick="removeKapalUnitRow(' + rowId + ')" style="background:none;border:none;cursor:pointer;color:#EF4444;font-size:18px;line-height:1;">×</button></div>'
     + '</div>'
     + '<div id="ku-gap-' + rowId + '" style="display:none;margin-top:8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 12px;font-size:12px;color:#DC2626;">'
@@ -5051,14 +5068,9 @@ async function submitAddKapal(shipNum, monthYear) {
   const pemberiKerja = document.getElementById('kapal-add-pemberi')?.value.trim();
   const kade = document.getElementById('kapal-add-kade')?.value.trim();
   const cargo = document.getElementById('kapal-add-cargo')?.value.trim();
-  const totalMt = parseFloat(document.getElementById('kapal-add-mt')?.value);
-  const unitPrice = parseFloat(document.getElementById('kapal-add-unitprice')?.value);
-  const solarPrice = parseFloat(document.getElementById('kapal-add-solarprice')?.value) || null;
   const startDate = document.getElementById('kapal-add-start')?.value;
-  const endDate = document.getElementById('kapal-add-end')?.value;
   const notes = document.getElementById('kapal-add-notes')?.value.trim();
-  if (!totalMt || totalMt <= 0) { showToast('Total MT/M3 wajib diisi'); return; }
-  if (!startDate || !endDate) { showToast('Tanggal wajib diisi'); return; }
+  if (!startDate) { showToast('Tanggal Mulai wajib diisi'); return; }
   const rows = document.querySelectorAll('#kapal-unit-rows > div[id^="kapal-urow-"]');
   if (rows.length === 0) { showToast('Tambahkan minimal 1 unit'); return; }
   const unitRows = [];
@@ -5066,28 +5078,23 @@ async function submitAddKapal(shipNum, monthYear) {
     const rowId = row.id.replace('kapal-urow-','');
     const unitId = document.getElementById('ku-unit-' + rowId)?.value;
     const hmAwal = parseFloat(document.getElementById('ku-hmawal-' + rowId)?.value);
-    const hmAkhir = parseFloat(document.getElementById('ku-hmakhir-' + rowId)?.value);
     const sAwal = parseInt(document.getElementById('ku-sawal-' + rowId)?.value);
-    const sAkhir = parseInt(document.getElementById('ku-sakhir-' + rowId)?.value);
-    const sIsi = parseFloat(document.getElementById('ku-sisi-' + rowId)?.value) || 0;
     const gapDiv = document.getElementById('ku-gap-' + rowId);
     const gapVisible = gapDiv && gapDiv.style.display !== 'none';
     const gapReason = gapVisible ? document.getElementById('ku-gap-reason-' + rowId)?.value.trim() : null;
     if (!unitId) { showToast('Pilih unit untuk semua baris'); return; }
     if (isNaN(hmAwal)) { showToast('HM Awal wajib diisi'); return; }
-    if (!isNaN(hmAkhir) && hmAkhir <= hmAwal) { showToast('HM Akhir harus lebih besar dari HM Awal'); return; }
-    if (isNaN(sAwal) || isNaN(sAkhir)) { showToast('Solar gauge wajib diisi'); return; }
+    if (isNaN(sAwal) || sAwal < 0 || sAwal > 100) { showToast('Solar Awal% wajib diisi (0-100)'); return; }
     if (gapVisible && !gapReason) { showToast('Alasan gap HM wajib diisi'); return; }
-    unitRows.push({ unit_id: unitId, hm_awal: hmAwal, hm_akhir: isNaN(hmAkhir) ? null : hmAkhir, solar_awal_pct: sAwal, solar_akhir_pct: sAkhir, solar_isi_liters: sIsi, hm_gap_reason: gapReason || null });
+    unitRows.push({ unit_id: unitId, hm_awal: hmAwal, hm_akhir: null, solar_awal_pct: sAwal, solar_akhir_pct: null, solar_isi_liters: 0, hm_gap_reason: gapReason || null });
   }
   const projectCode = formatKapalCode(monthYear, shipNum);
   try {
     const { data: proj, error: pe } = await sb.from('projects').insert({
       project_code: projectCode, type: 'kapal', nama_kapal: namaKapal || null,
       pemberi_kerja: pemberiKerja || null, kade: kade || null, start_date: startDate,
-      end_date: endDate, month_year: monthYear, ship_number_in_month: shipNum,
-      cargo_type: cargo || null, total_mt_m3: totalMt, unit_price: unitPrice || null,
-      harga_solar_rpl: solarPrice, notes: notes || null
+      month_year: monthYear, ship_number_in_month: shipNum,
+      cargo_type: cargo || null, notes: notes || null
     }).select().single();
     if (pe) throw pe;
     const unitInserts = unitRows.map(u => ({ ...u, project_id: proj.id }));
@@ -5141,33 +5148,47 @@ function renderProyekStockpileList() {
     h += '<td style="padding:10px 12px;text-align:right;">' + totalHM.toFixed(1) + '</td>';
     h += '<td style="padding:10px 12px;text-align:right;font-weight:700;color:#16A34A;">' + fmtRp(totalSalary) + '</td>';
     h += '<td style="padding:10px 12px;"><svg style="width:14px;height:14px;" fill="none" stroke="#94A3B8" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></td></tr>';
-    h += '<tr id="stk-detail-' + p.id + '" style="display:none;background:#F8FAFC;"><td colspan="7" style="padding:12px 16px;">';
-    h += renderStockpileDetailHTML(p) + '</td></tr>';
+    _proyekStockpileCache[p.id] = p;
+    h += '<tr id="stk-detail-' + p.id + '" style="display:none;background:#F8FAFC;"><td colspan="7" style="padding:8px;color:#64748B;font-size:12px;">Klik untuk memuat detail...</td></tr>';
   });
   h += '</tbody></table></div>';
   panel.innerHTML = h;
 }
 
-function toggleStockpileDetail(id) {
+async function toggleStockpileDetail(id) {
   const row = document.getElementById('stk-detail-' + id);
-  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+  if (!row) return;
+  if (row.style.display !== 'none') { row.style.display = 'none'; return; }
+  row.style.display = '';
+  if (row.dataset.rendered === 'true') return;
+  const td = row.querySelector('td');
+  if (td) td.textContent = 'Memuat...';
+  const fillMap = await fetchFillMap([id]);
+  const unitFillMap = fillMap[id] || {};
+  const p = _proyekStockpileCache[id];
+  if (!p) { if (td) td.textContent = 'Data tidak ditemukan.'; return; }
+  row.innerHTML = '<td colspan="7" style="padding:12px 16px;">' + renderStockpileDetailHTML(p, unitFillMap) + '</td>';
+  row.dataset.rendered = 'true';
 }
 
-function renderStockpileDetailHTML(p) {
+function renderStockpileDetailHTML(p, fillMap) {
+  fillMap = fillMap || {};
   const units = p.project_units || [];
   let h = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
   h += '<tr style="background:#E2E8F0;"><th style="padding:6px 10px;text-align:left;">Unit</th><th style="padding:6px 10px;text-align:right;">HM Awal</th><th style="padding:6px 10px;text-align:right;">HM Akhir</th><th style="padding:6px 10px;text-align:right;">HM Kerja</th><th style="padding:6px 10px;text-align:right;">Salary</th><th style="padding:6px 10px;text-align:right;">Solar (L)</th></tr>';
   units.forEach(u => {
     const hmKerja = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : null;
     const salary = hmKerja != null ? hmKerja * 35000 : null;
-    const solar = calcSolarConsumed(u.solar_awal_pct, u.solar_akhir_pct, u.solar_isi_liters);
+    const fillLiters = fillMap[u.unit_id] != null ? fillMap[u.unit_id] : (u.solar_isi_liters || 0);
+    const solarLabel = fillMap[u.unit_id] != null ? ' (aktual)' : (u.solar_isi_liters ? ' (manual)' : '');
+    const solar = calcSolarConsumed(u.solar_awal_pct, u.solar_akhir_pct, fillLiters);
     h += '<tr style="border-bottom:1px solid #E2E8F0;">';
     h += '<td style="padding:6px 10px;font-weight:700;">' + (u.units ? u.units.code : '?') + '</td>';
     h += '<td style="padding:6px 10px;text-align:right;">' + u.hm_awal + '</td>';
     h += '<td style="padding:6px 10px;text-align:right;">' + (u.hm_akhir != null ? u.hm_akhir : '<span style="color:#F59E0B;font-weight:700;">Ongoing</span>') + '</td>';
     h += '<td style="padding:6px 10px;text-align:right;">' + (hmKerja != null ? hmKerja.toFixed(1) : '—') + '</td>';
     h += '<td style="padding:6px 10px;text-align:right;font-weight:700;color:#16A34A;">' + (salary != null ? fmtRp(salary) : '—') + '</td>';
-    h += '<td style="padding:6px 10px;text-align:right;">' + solar.toFixed(1) + ' L</td></tr>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + solar.toFixed(1) + ' L<span style="font-size:10px;color:#94A3B8;">' + solarLabel + '</span></td></tr>';
   });
   h += '</table>';
   h += '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">';
@@ -5187,10 +5208,7 @@ function openAddStockpileModal() {
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Prefix Kode *</label><input type="text" id="stk-add-prefix" class="finput" placeholder="KCN" maxlength="6" oninput="this.value=this.value.toUpperCase()"></div>'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Nomor Urut *</label><input type="number" id="stk-add-seq" class="finput" placeholder="1" min="1" step="1"></div>'
     + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Mulai *</label><input type="date" id="stk-add-start" class="finput" value="' + today + '"></div>'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Selesai *</label><input type="date" id="stk-add-end" class="finput" value="' + today + '"></div>'
-    + '</div>'
+    + '<div style="margin-bottom:16px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Mulai *</label><input type="date" id="stk-add-start" class="finput" value="' + today + '"></div>'
     + '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Unit yang Mengerjakan</div>'
     + '<div id="stk-unit-rows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>'
     + '<button onclick="addStockpileUnitRow()" style="background:#EFF6FF;border:1.5px dashed #93C5FD;color:#1D4ED8;font-size:13px;font-weight:700;padding:8px 16px;border-radius:8px;cursor:pointer;width:100%;margin-bottom:16px;">+ Tambah Unit</button>'
@@ -5211,13 +5229,10 @@ function addStockpileUnitRow() {
   const div = document.createElement('div');
   div.id = 'stk-urow-' + rowId;
   div.style.cssText = 'background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;';
-  div.innerHTML = '<div style="display:grid;grid-template-columns:1fr 80px 80px 60px 60px 80px 24px;gap:8px;align-items:end;">'
+  div.innerHTML = '<div style="display:grid;grid-template-columns:1fr 80px 60px 24px;gap:8px;align-items:end;">'
     + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Unit</label><select class="finput" id="su-unit-' + rowId + '" style="font-size:12px;padding:6px 8px;"><option value="">Pilih</option>' + unitOptions + '</select></div>'
     + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Awal</label><input type="number" id="su-hmawal-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="0" onblur="onStockpileHMAwalChange(this,' + rowId + ')"></div>'
-    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Akhir</label><input type="number" id="su-hmakhir-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="Opsional"></div>'
     + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Awal%</label><input type="number" id="su-sawal-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="80" min="0" max="100"></div>'
-    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Akhir%</label><input type="number" id="su-sakhir-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="20" min="0" max="100"></div>'
-    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Isi(L)</label><input type="number" id="su-sisi-' + rowId + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="0" min="0"></div>'
     + '<div style="padding-bottom:2px;"><button onclick="removeStockpileUnitRow(' + rowId + ')" style="background:none;border:none;cursor:pointer;color:#EF4444;font-size:18px;line-height:1;">×</button></div>'
     + '</div>'
     + '<div id="su-gap-' + rowId + '" style="display:none;margin-top:8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 12px;font-size:12px;color:#DC2626;">'
@@ -5252,9 +5267,8 @@ async function submitAddStockpile() {
   const prefix = document.getElementById('stk-add-prefix')?.value.trim().toUpperCase();
   const seq = parseInt(document.getElementById('stk-add-seq')?.value);
   const startDate = document.getElementById('stk-add-start')?.value;
-  const endDate = document.getElementById('stk-add-end')?.value;
   if (!prefix || !seq || seq < 1) { showToast('Prefix dan nomor urut wajib diisi'); return; }
-  if (!startDate || !endDate) { showToast('Tanggal wajib diisi'); return; }
+  if (!startDate) { showToast('Tanggal Mulai wajib diisi'); return; }
   const projectCode = formatStockpileCode(prefix, seq);
   const monthYear = startDate.slice(0,7);
   const rows = document.querySelectorAll('#stk-unit-rows > div[id^="stk-urow-"]');
@@ -5264,24 +5278,20 @@ async function submitAddStockpile() {
     const rowId = row.id.replace('stk-urow-','');
     const unitId = document.getElementById('su-unit-' + rowId)?.value;
     const hmAwal = parseFloat(document.getElementById('su-hmawal-' + rowId)?.value);
-    const hmAkhir = parseFloat(document.getElementById('su-hmakhir-' + rowId)?.value);
     const sAwal = parseInt(document.getElementById('su-sawal-' + rowId)?.value);
-    const sAkhir = parseInt(document.getElementById('su-sakhir-' + rowId)?.value);
-    const sIsi = parseFloat(document.getElementById('su-sisi-' + rowId)?.value) || 0;
     const gapDiv = document.getElementById('su-gap-' + rowId);
     const gapVisible = gapDiv && gapDiv.style.display !== 'none';
     const gapReason = gapVisible ? document.getElementById('su-gap-reason-' + rowId)?.value.trim() : null;
     if (!unitId) { showToast('Pilih unit untuk semua baris'); return; }
     if (isNaN(hmAwal)) { showToast('HM Awal wajib diisi'); return; }
-    if (!isNaN(hmAkhir) && hmAkhir <= hmAwal) { showToast('HM Akhir harus lebih besar dari HM Awal'); return; }
-    if (isNaN(sAwal) || isNaN(sAkhir)) { showToast('Solar gauge wajib diisi'); return; }
+    if (isNaN(sAwal) || sAwal < 0 || sAwal > 100) { showToast('Solar Awal% wajib diisi (0-100)'); return; }
     if (gapVisible && !gapReason) { showToast('Alasan gap HM wajib diisi'); return; }
-    unitRows.push({ unit_id: unitId, hm_awal: hmAwal, hm_akhir: isNaN(hmAkhir) ? null : hmAkhir, solar_awal_pct: sAwal, solar_akhir_pct: sAkhir, solar_isi_liters: sIsi, hm_gap_reason: gapReason || null });
+    unitRows.push({ unit_id: unitId, hm_awal: hmAwal, hm_akhir: null, solar_awal_pct: sAwal, solar_akhir_pct: null, solar_isi_liters: 0, hm_gap_reason: gapReason || null });
   }
   try {
     const { data: proj, error: pe } = await sb.from('projects').insert({
       project_code: projectCode, type: 'stockpile',
-      pemberi_kerja: pemberiKerja || null, start_date: startDate, end_date: endDate,
+      pemberi_kerja: pemberiKerja || null, start_date: startDate,
       month_year: monthYear, code_prefix: prefix, code_seq: seq
     }).select().single();
     if (pe) throw pe;
@@ -5330,7 +5340,7 @@ async function openEditKapalModal(id) {
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Akhir</label><input type="number" id="kapal-eu-hmakhir-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + (u.hm_akhir != null ? u.hm_akhir : '') + '" placeholder="Opsional"></div>';
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Awal%</label><input type="number" id="kapal-eu-sawal-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + u.solar_awal_pct + '"></div>';
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Akhir%</label><input type="number" id="kapal-eu-sakhir-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + u.solar_akhir_pct + '"></div>';
-    unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Isi(L)</label><input type="number" id="kapal-eu-sisi-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + (u.solar_isi_liters || 0) + '"></div>';
+    unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Isi</label><div id="kapal-eu-sisi-display-' + i + '" style="font-size:12px;padding:6px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;color:#64748B;">Memuat...</div></div>';
     unitRowsHTML += '</div></div>';
   });
   const modalHTML = '<div style="padding:24px;max-width:680px;width:100%;max-height:80vh;overflow-y:auto;">'
@@ -5364,6 +5374,15 @@ async function openEditKapalModal(id) {
     + '</div></div>';
   document.getElementById('modal-box').innerHTML = modalHTML;
   document.getElementById('modal-overlay').style.display = 'flex';
+  fetchFillMap([id]).then(function(fm) {
+    const ufm = fm[id] || {};
+    units.forEach(function(u, i) {
+      const el = document.getElementById('kapal-eu-sisi-display-' + i);
+      if (!el) return;
+      const liters = ufm[u.unit_id];
+      el.textContent = liters != null ? liters.toFixed(1) + ' L (aktual)' : ((u.solar_isi_liters || 0) + ' L (manual)');
+    });
+  });
 }
 
 async function submitEditKapal(projId) {
@@ -5389,10 +5408,9 @@ async function submitEditKapal(projId) {
     const hmAkhir = parseFloat(document.getElementById('kapal-eu-hmakhir-' + i)?.value);
     const sAwal = parseInt(document.getElementById('kapal-eu-sawal-' + i)?.value);
     const sAkhir = parseInt(document.getElementById('kapal-eu-sakhir-' + i)?.value);
-    const sIsi = parseFloat(document.getElementById('kapal-eu-sisi-' + i)?.value) || 0;
     if (isNaN(hmAwal)) { showToast('HM Awal wajib diisi'); return; }
     if (!isNaN(hmAkhir) && hmAkhir <= hmAwal) { showToast('HM Akhir harus lebih besar dari HM Awal'); return; }
-    unitUpdates.push({ unit_id: existingUnits[i].unit_id, hm_awal: hmAwal, hm_akhir: isNaN(hmAkhir) ? null : hmAkhir, solar_awal_pct: isNaN(sAwal) ? 0 : sAwal, solar_akhir_pct: isNaN(sAkhir) ? 0 : sAkhir, solar_isi_liters: sIsi, hm_gap_reason: existingUnits[i].hm_gap_reason || null });
+    unitUpdates.push({ unit_id: existingUnits[i].unit_id, hm_awal: hmAwal, hm_akhir: isNaN(hmAkhir) ? null : hmAkhir, solar_awal_pct: isNaN(sAwal) ? 0 : sAwal, solar_akhir_pct: isNaN(sAkhir) ? 0 : sAkhir, hm_gap_reason: existingUnits[i].hm_gap_reason || null });
   }
   try {
     const { error: pe } = await sb.from('projects').update({
@@ -5425,7 +5443,7 @@ function openEditStockpileModal(id) {
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Akhir</label><input type="number" id="stk-eu-hmakhir-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + (u.hm_akhir != null ? u.hm_akhir : '') + '" placeholder="Opsional"></div>';
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Awal%</label><input type="number" id="stk-eu-sawal-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + u.solar_awal_pct + '"></div>';
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Akhir%</label><input type="number" id="stk-eu-sakhir-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + u.solar_akhir_pct + '"></div>';
-    unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Isi(L)</label><input type="number" id="stk-eu-sisi-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + (u.solar_isi_liters || 0) + '"></div>';
+    unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Isi</label><div id="stk-eu-sisi-display-' + i + '" style="font-size:12px;padding:6px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;color:#64748B;">Memuat...</div></div>';
     unitRowsHTML += '</div></div>';
   });
   const modalHTML = '<div style="padding:24px;max-width:640px;width:100%;max-height:80vh;overflow-y:auto;">'
@@ -5447,6 +5465,15 @@ function openEditStockpileModal(id) {
     + '</div></div>';
   document.getElementById('modal-box').innerHTML = modalHTML;
   document.getElementById('modal-overlay').style.display = 'flex';
+  fetchFillMap([id]).then(function(fm) {
+    const ufm = fm[id] || {};
+    units.forEach(function(u, i) {
+      const el = document.getElementById('stk-eu-sisi-display-' + i);
+      if (!el) return;
+      const liters = ufm[u.unit_id];
+      el.textContent = liters != null ? liters.toFixed(1) + ' L (aktual)' : ((u.solar_isi_liters || 0) + ' L (manual)');
+    });
+  });
 }
 
 async function submitEditStockpile(projId) {
@@ -5464,10 +5491,9 @@ async function submitEditStockpile(projId) {
     const hmAkhir = parseFloat(document.getElementById('stk-eu-hmakhir-' + i)?.value);
     const sAwal = parseInt(document.getElementById('stk-eu-sawal-' + i)?.value);
     const sAkhir = parseInt(document.getElementById('stk-eu-sakhir-' + i)?.value);
-    const sIsi = parseFloat(document.getElementById('stk-eu-sisi-' + i)?.value) || 0;
     if (isNaN(hmAwal)) { showToast('HM Awal wajib diisi'); return; }
     if (!isNaN(hmAkhir) && hmAkhir <= hmAwal) { showToast('HM Akhir harus lebih besar dari HM Awal'); return; }
-    unitUpdates.push({ unit_id: existingUnits[i].unit_id, hm_awal: hmAwal, hm_akhir: isNaN(hmAkhir) ? null : hmAkhir, solar_awal_pct: isNaN(sAwal) ? 0 : sAwal, solar_akhir_pct: isNaN(sAkhir) ? 0 : sAkhir, solar_isi_liters: sIsi });
+    unitUpdates.push({ unit_id: existingUnits[i].unit_id, hm_awal: hmAwal, hm_akhir: isNaN(hmAkhir) ? null : hmAkhir, solar_awal_pct: isNaN(sAwal) ? 0 : sAwal, solar_akhir_pct: isNaN(sAkhir) ? 0 : sAkhir });
   }
   try {
     const { error: pe } = await sb.from('projects').update({
@@ -5567,6 +5593,7 @@ async function exportProyekExcel() {
   const panel = document.getElementById('proyek-panel-ringkasan');
   const projects = panel._ringkasanProjects;
   if (!projects || projects.length === 0) { showToast('Tidak ada data untuk diexport'); return; }
+  const fillMap = await fetchFillMap(projects.map(function(p) { return p.id; }));
   const wb = XLSX.utils.book_new();
   // Sheet 1 - Kapal
   const kapalRows = [['Kode','Nama Kapal','Pemberi Kerja','Kade','Kapal#','Tgl Mulai','Tgl Selesai','Kargo','Total MT/M3','Harga/MT','Unit','HM Awal','HM Akhir','HM Kerja','MT Alokasi','Rate (Rp/MT)','Salary','Solar (L)']];
@@ -5575,7 +5602,8 @@ async function exportProyekExcel() {
     const split = calcKapalTonnageSplit(p.project_units || [], p.total_mt_m3 || 0);
     split.forEach(u => {
       const hmK = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : null;
-      kapalRows.push([p.project_code, p.nama_kapal||'', p.pemberi_kerja, p.kade||'', p.ship_number_in_month, p.start_date, p.end_date, p.cargo_type||'', p.total_mt_m3, p.unit_price, u.units?u.units.code:'?', u.hm_awal, u.hm_akhir, hmK, +u.allocatedMt.toFixed(2), rate, Math.round(u.allocatedMt*rate), +calcSolarConsumed(u.solar_awal_pct,u.solar_akhir_pct,u.solar_isi_liters).toFixed(1)]);
+      const kapalSolarIsi = (fillMap[p.id] && fillMap[p.id][u.unit_id] != null) ? fillMap[p.id][u.unit_id] : (u.solar_isi_liters || 0);
+      kapalRows.push([p.project_code, p.nama_kapal||'', p.pemberi_kerja, p.kade||'', p.ship_number_in_month, p.start_date, p.end_date, p.cargo_type||'', p.total_mt_m3, p.unit_price, u.units?u.units.code:'?', u.hm_awal, u.hm_akhir, hmK, +u.allocatedMt.toFixed(2), rate, Math.round(u.allocatedMt*rate), +calcSolarConsumed(u.solar_awal_pct,u.solar_akhir_pct,kapalSolarIsi).toFixed(1)]);
     });
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(kapalRows), 'Kapal');
@@ -5584,7 +5612,8 @@ async function exportProyekExcel() {
   projects.filter(p => p.type === 'stockpile').forEach(p => {
     (p.project_units || []).forEach(u => {
       const hmK = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : null;
-      stkRows.push([p.project_code, p.pemberi_kerja, p.start_date, p.end_date, u.units?u.units.code:'?', u.hm_awal, u.hm_akhir, hmK, Math.round(hmK*35000), +calcSolarConsumed(u.solar_awal_pct,u.solar_akhir_pct,u.solar_isi_liters).toFixed(1)]);
+      const stkSolarIsi = (fillMap[p.id] && fillMap[p.id][u.unit_id] != null) ? fillMap[p.id][u.unit_id] : (u.solar_isi_liters || 0);
+      stkRows.push([p.project_code, p.pemberi_kerja, p.start_date, p.end_date, u.units?u.units.code:'?', u.hm_awal, u.hm_akhir, hmK, Math.round(hmK*35000), +calcSolarConsumed(u.solar_awal_pct,u.solar_akhir_pct,stkSolarIsi).toFixed(1)]);
     });
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stkRows), 'Stockpile');
