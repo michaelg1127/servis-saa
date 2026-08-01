@@ -4551,6 +4551,62 @@ async function submitPengisian() {
   } catch(e) { showToast('Gagal: ' + e.message); }
 }
 
+async function openEditPengisian(id) {
+  const { data: r, error } = await sb.from('fuel_dispenses')
+    .select('*, units(code), fuel_transfers(id, transfer_code, volume_liters), projects(project_code, nama_kapal)')
+    .eq('id', id).single();
+  if (error || !r) { showToast('Gagal memuat data'); return; }
+  const tc = r.fuel_transfers ? r.fuel_transfers.transfer_code : '—';
+  const unitCode = r.units ? r.units.code : '—';
+  const projVal = (r.project_id && r.projects ? r.projects.project_code : null) || r.project || '';
+  const tfId = r.fuel_transfers ? r.fuel_transfers.id : '';
+  const modalHTML = '<div style="padding:24px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;">'
+    + '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:4px;">Edit Pengisian</div>'
+    + '<div style="font-size:13px;color:#64748B;margin-bottom:16px;">' + tc + ' — ' + unitCode + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tanggal</label><input type="date" id="ep-date" class="finput" value="' + (r.dispense_date || '') + '"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jam</label><input type="time" id="ep-time" class="finput" value="' + (r.dispense_time ? r.dispense_time.substring(0,5) : '') + '"></div>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM saat Isi</label><input type="number" id="ep-hm" class="finput" value="' + (r.hm_at_fill || '') + '"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Volume (L)</label><input type="number" id="ep-vol" class="finput" value="' + (r.liters_dispensed || '') + '"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Gauge (%)</label><input type="number" id="ep-gauge" class="finput" min="0" max="100" value="' + (r.gauge_pct != null ? r.gauge_pct : '') + '"></div>'
+    + '</div>'
+    + '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Project</label><input type="text" id="ep-project" class="finput" value="' + projVal + '" placeholder="Kode atau nama proyek"></div>'
+    + '<div style="margin-bottom:16px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Catatan</label><textarea id="ep-notes" class="finput" rows="2">' + (r.notes || '') + '</textarea></div>'
+    + '<div style="display:flex;gap:12px;">'
+    + '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>'
+    + '<button onclick="submitEditPengisian(\'' + id + '\',\'' + tfId + '\')" class="btn-primary" style="flex:2;">Simpan</button>'
+    + '</div></div>';
+  document.getElementById('modal-box').innerHTML = modalHTML;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+async function submitEditPengisian(dispId, transferId) {
+  const date = document.getElementById('ep-date')?.value;
+  const time = document.getElementById('ep-time')?.value || null;
+  const hm = parseFloat(document.getElementById('ep-hm')?.value);
+  const vol = parseFloat(document.getElementById('ep-vol')?.value);
+  const gaugeRaw = parseInt(document.getElementById('ep-gauge')?.value || '');
+  const gaugePct = !isNaN(gaugeRaw) && gaugeRaw >= 0 && gaugeRaw <= 100 ? gaugeRaw : null;
+  const project = document.getElementById('ep-project')?.value.trim() || null;
+  const notes = document.getElementById('ep-notes')?.value.trim() || null;
+  if (!date || isNaN(hm) || isNaN(vol)) { showToast('Tanggal, HM, dan Volume wajib diisi'); return; }
+  try {
+    const { error: e1 } = await sb.from('fuel_dispenses').update({
+      dispense_date: date, dispense_time: time, hm_at_fill: hm,
+      liters_dispensed: vol, gauge_pct: gaugePct, project: project, notes: notes
+    }).eq('id', dispId);
+    if (e1) throw e1;
+    if (transferId) {
+      const { error: e2 } = await sb.from('fuel_transfers').update({ volume_liters: vol }).eq('id', transferId);
+      if (e2) throw e2;
+    }
+    closeModal();
+    showToast('Pengisian berhasil diperbarui!', 'success');
+    loadFuelRiwayat();
+  } catch(e) { showToast('Gagal simpan: ' + e.message); }
+}
+
 async function deletePengisian(dispenseId, transferId) {
   if (!confirm('Hapus catatan pengisian ini? Tindakan ini tidak bisa dibatalkan.')) return;
   try {
@@ -4679,7 +4735,7 @@ function renderFuelRiwayat() {
       '<td>' + r.liters_dispensed + 'L</td>' +
       '<td>' + gaugeCell + '</td>' +
       '<td style="color:' + (r.l_per_hr ? '#16A34A' : '#94A3B8') + ';font-weight:700;">' + lhr + '</td>' +
-      '<td><button onclick="deletePengisian(this.dataset.did,this.dataset.tid)" data-did="' + r.id + '" data-tid="' + (r.fuel_transfers ? r.fuel_transfers.id : '') + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;">Hapus</button></td>' +
+      '<td style="white-space:nowrap;"><button onclick="openEditPengisian(this.dataset.id)" data-id="' + r.id + '" style="background:#EFF6FF;color:#1D4ED8;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;margin-right:4px;">Edit</button><button onclick="deletePengisian(this.dataset.did,this.dataset.tid)" data-did="' + r.id + '" data-tid="' + (r.fuel_transfers ? r.fuel_transfers.id : '') + '" style="background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;font-weight:700;">Hapus</button></td>' +
       '</tr>';
   };
   const xferRow = (r) => {
@@ -5745,25 +5801,27 @@ async function loadProyekAnalisis() {
       .eq('month_year', proyekMonthFilter);
     if (error) throw error;
     const projects = data || [];
-    const solarActualMap = {};
+    const fillMap = {};
     if (projects.length > 0) {
       const ids = projects.map(function(p) { return p.id; });
       const { data: dispenses } = await sb.from('fuel_dispenses')
-        .select('project_id, liters_dispensed')
+        .select('project_id, unit_id, liters_dispensed')
         .in('project_id', ids);
       (dispenses || []).forEach(function(d) {
-        if (d.project_id) solarActualMap[d.project_id] = (solarActualMap[d.project_id] || 0) + (d.liters_dispensed || 0);
+        if (!d.project_id) return;
+        if (!fillMap[d.project_id]) fillMap[d.project_id] = {};
+        fillMap[d.project_id][d.unit_id] = (fillMap[d.project_id][d.unit_id] || 0) + (d.liters_dispensed || 0);
       });
     }
-    renderProyekAnalisis(projects, solarActualMap);
+    renderProyekAnalisis(projects, fillMap);
   } catch(e) { panel.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
 }
 
-function renderProyekAnalisis(projects, solarActualMap) {
+function renderProyekAnalisis(projects, fillMap) {
   const panel = document.getElementById('proyek-panel-analisis');
   panel._analisisProjects = projects;
-  panel._solarActualMap = solarActualMap || {};
-  const actMap = solarActualMap || {};
+  panel._fillMap = fillMap || {};
+  const fMap = fillMap || {};
   let filtered = projects;
   if (proyekAnalisisFilter === 'open') filtered = projects.filter(p => !p.invoice_number);
   if (proyekAnalisisFilter === 'closed') filtered = projects.filter(p => p.invoice_number);
@@ -5796,9 +5854,11 @@ function renderProyekAnalisis(projects, solarActualMap) {
     const rate = calcKapalRate(p.ship_number_in_month || 1);
     const split = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
     const income = (p.total_mt_m3 || 0) * (p.unit_price || 0);
-    const formulaSolarL = units.reduce((s, u) => s + calcSolarConsumed(u.solar_awal_pct, u.solar_akhir_pct, u.solar_isi_liters), 0);
-    const actualSolarL = actMap[p.id] != null ? actMap[p.id] : null;
-    const usedSolarL = actualSolarL !== null ? actualSolarL : formulaSolarL;
+    const usedSolarL = units.reduce(function(s, u) {
+      const isi = (fMap[p.id] && fMap[p.id][u.unit_id] != null) ? fMap[p.id][u.unit_id] : (u.solar_isi_liters || 0);
+      const tankDiff = (u.solar_akhir_pct != null && u.solar_awal_pct != null) ? ((u.solar_awal_pct - u.solar_akhir_pct) / 100) * 320 : 0;
+      return s + isi + tankDiff;
+    }, 0);
     const fuelCost = usedSolarL * (p.harga_solar_rpl || 0);
     const laborCost = split.reduce((s, u) => s + u.allocatedMt * rate, 0);
     const profit = income - fuelCost - laborCost;
@@ -5813,7 +5873,7 @@ function renderProyekAnalisis(projects, solarActualMap) {
     h += '<td style="padding:8px 10px;">' + (p.kade || '\u2014') + '</td>';
     h += '<td style="padding:8px 10px;text-align:right;">' + totalHM.toFixed(1) + '</td>';
     h += '<td style="padding:8px 10px;text-align:right;">' + fmtRp(income) + '</td>';
-    h += '<td style="padding:8px 10px;text-align:right;color:#EF4444;">' + fmtRp(fuelCost) + (p.harga_solar_rpl ? '<br><span style="font-size:10px;color:#94A3B8;">' + Math.round(usedSolarL) + 'L ' + (actualSolarL !== null ? '(aktual)' : '(formula)') + '</span>' : '') + '</td>';
+    h += '<td style="padding:8px 10px;text-align:right;color:#EF4444;">' + fmtRp(fuelCost) + (p.harga_solar_rpl ? '<br><span style="font-size:10px;color:#94A3B8;">' + Math.round(usedSolarL) + 'L (isi+tangki)</span>' : '') + '</td>';
     h += '<td style="padding:8px 10px;text-align:right;color:#F59E0B;">' + fmtRp(laborCost) + '</td>';
     h += '<td style="padding:8px 10px;text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#EF4444') + ';">' + fmtRp(profit) + '</td>';
     h += '<td style="padding:8px 10px;text-align:right;">' + fmtRp(yieldPerHM) + '/HM</td>';
@@ -5834,7 +5894,7 @@ function renderProyekAnalisis(projects, solarActualMap) {
 function setProyekAnalisisFilter(f) {
   proyekAnalisisFilter = f;
   const panel = document.getElementById('proyek-panel-analisis');
-  if (panel._analisisProjects) renderProyekAnalisis(panel._analisisProjects, panel._solarActualMap || {});
+  if (panel._analisisProjects) renderProyekAnalisis(panel._analisisProjects, panel._fillMap || {});
 }
 
 function openAddInvoice(projectId) {
