@@ -4438,9 +4438,8 @@ async function loadBBMProjectsForUnit(unitId) {
   if (!sel) return;
   sel.innerHTML = '<option value="">-- Pilih Project (opsional) --</option>';
   const { data } = await sb.from('projects')
-    .select('id, project_code, nama_kapal, type')
-    .is('end_date', null)
-    .order('start_date', { ascending: false })
+    .select('id, project_code, nama_kapal, type, end_date')
+    .order('created_at', { ascending: false })
     .limit(100);
   if (!data || data.length === 0) return;
   let unitProjId = null;
@@ -4453,7 +4452,7 @@ async function loadBBMProjectsForUnit(unitId) {
     const opt = document.createElement('option');
     opt.value = p.id;
     opt.dataset.code = p.project_code;
-    opt.textContent = p.project_code + (p.nama_kapal ? ' – ' + p.nama_kapal : '') + (p.type === 'stockpile' ? ' [STK]' : '');
+    opt.textContent = p.project_code + (p.nama_kapal ? ' – ' + p.nama_kapal : '') + (p.type === 'stockpile' ? ' [STK]' : '') + (p.end_date ? ' ✓' : '');
     sel.appendChild(opt);
   });
   if (unitProjId) sel.value = unitProjId;
