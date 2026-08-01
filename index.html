@@ -808,7 +808,7 @@
       <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Gauge Tangki (%) <span style="color:#64748B;font-size:11px;font-weight:400;">sebelum isi</span></label><div style="display:flex;align-items:center;gap:12px;"><input type="number" id="bbm-peng-gauge" class="finput" min="0" max="100" placeholder="0-100" style="width:80px;" oninput="onGaugeInput(this.value)"><div style="flex:1;background:#F1F5F9;border-radius:99px;height:14px;overflow:hidden;border:1px solid #E2E8F0;"><div id="bbm-peng-gauge-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#EF4444 0%,#F59E0B 50%,#22C55E 100%);border-radius:99px;transition:width 0.2s;"></div></div><span id="bbm-peng-gauge-label" style="font-size:14px;font-weight:800;color:#374151;min-width:40px;">—</span></div></div>
       <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Unit <span style="color:#EF4444;">*</span></label><select id="bbm-peng-unit" class="finput" onchange="onPengisianUnitChange(this.value)"><option value="">-- Pilih Unit --</option></select></div>
       <div id="bbm-peng-last-info" style="display:none;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#475569;"></div>
-      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Project</label><select id="bbm-peng-project" class="finput"><option value="">-- Pilih Project (opsional) --</option></select></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Project <span style="font-size:11px;font-weight:400;color:#94A3B8;">(pilih dari sistem atau ketik manual)</span></label><select id="bbm-peng-project" class="finput"><option value="">-- Pilih Project Sistem (Agustus+) --</option></select><input type="text" id="bbm-peng-project-text" class="finput" style="margin-top:6px;font-size:13px;" placeholder="Proyek lama / Juli (ketik bebas, mis. M07-001)"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
         <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Isi <span style="color:#EF4444;">*</span></label><input type="number" id="bbm-peng-hm" class="finput" placeholder="HM" oninput="onPengisianHMChange()"></div>
         <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal <span style="color:#EF4444;">*</span></label><input type="date" id="bbm-peng-date" class="finput"></div>
@@ -4503,7 +4503,8 @@ async function submitPengisian() {
   const projSel = document.getElementById('bbm-peng-project');
   const projectId = projSel && projSel.value ? projSel.value : null;
   const projOpt = projSel && projSel.selectedOptions[0];
-  const project = projOpt && projOpt.dataset.code ? projOpt.dataset.code : null;
+  const projTextEl = document.getElementById('bbm-peng-project-text');
+  const project = (projOpt && projOpt.dataset.code ? projOpt.dataset.code : null) || (projTextEl ? projTextEl.value.trim() : null) || null;
   const hm = parseFloat(document.getElementById('bbm-peng-hm').value);
   const date = document.getElementById('bbm-peng-date').value;
   const time = document.getElementById('bbm-peng-time').value || null;
@@ -4532,6 +4533,7 @@ async function submitPengisian() {
     document.getElementById('bbm-peng-vol').value = '200';
     document.getElementById('bbm-peng-unit').value = '';
     document.getElementById('bbm-peng-project').value = '';
+    document.getElementById('bbm-peng-project-text').value = '';
     document.getElementById('bbm-peng-hm').value = '';
     document.getElementById('bbm-peng-date').value = todayISO();
     document.getElementById('bbm-peng-time').value = '';
