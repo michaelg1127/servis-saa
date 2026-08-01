@@ -808,7 +808,7 @@
       <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Gauge Tangki (%) <span style="color:#64748B;font-size:11px;font-weight:400;">sebelum isi</span></label><div style="display:flex;align-items:center;gap:12px;"><input type="number" id="bbm-peng-gauge" class="finput" min="0" max="100" placeholder="0-100" style="width:80px;" oninput="onGaugeInput(this.value)"><div style="flex:1;background:#F1F5F9;border-radius:99px;height:14px;overflow:hidden;border:1px solid #E2E8F0;"><div id="bbm-peng-gauge-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#EF4444 0%,#F59E0B 50%,#22C55E 100%);border-radius:99px;transition:width 0.2s;"></div></div><span id="bbm-peng-gauge-label" style="font-size:14px;font-weight:800;color:#374151;min-width:40px;">—</span></div></div>
       <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Unit <span style="color:#EF4444;">*</span></label><select id="bbm-peng-unit" class="finput" onchange="onPengisianUnitChange(this.value)"><option value="">-- Pilih Unit --</option></select></div>
       <div id="bbm-peng-last-info" style="display:none;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#475569;"></div>
-      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Project</label><input type="text" id="bbm-peng-project" class="finput" placeholder="Nama project (opsional)"></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Project</label><select id="bbm-peng-project" class="finput"><option value="">-- Pilih Project (opsional) --</option></select></div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
         <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM saat Isi <span style="color:#EF4444;">*</span></label><input type="number" id="bbm-peng-hm" class="finput" placeholder="HM" oninput="onPengisianHMChange()"></div>
         <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal <span style="color:#EF4444;">*</span></label><input type="date" id="bbm-peng-date" class="finput"></div>
@@ -4417,9 +4417,9 @@ async function onPengisianBunkerChange() {
 async function onPengisianUnitChange(unitId) {
   const info = document.getElementById('bbm-peng-last-info');
   if (!info) return;
-  if (!unitId) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; onPengisianHMChange(); return; }
+  if (!unitId) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; onPengisianHMChange(); loadBBMProjectsForUnit(''); return; }
   const { data } = await sb.from('fuel_dispenses').select('hm_at_fill, dispense_date, liters_dispensed, l_per_hr, gauge_pct').eq('unit_id', unitId).order('hm_at_fill', { ascending: false }).limit(1);
-  if (!data || data.length === 0) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; onPengisianHMChange(); return; }
+  if (!data || data.length === 0) { info.style.display = 'none'; bbmLastDispenseByUnit = {}; onPengisianHMChange(); await loadBBMProjectsForUnit(unitId); return; }
   const last = data[0];
   bbmLastDispenseByUnit = last;
   info.style.display = '';
@@ -4427,6 +4427,30 @@ async function onPengisianUnitChange(unitId) {
     (last.l_per_hr ? ' — L/Hr: <strong>' + Number(last.l_per_hr).toFixed(2) + '</strong>' : '') +
     (last.gauge_pct != null ? ' — Gauge: <strong>' + last.gauge_pct + '%</strong>' : '');
   onPengisianHMChange();
+  await loadBBMProjectsForUnit(unitId);
+}
+
+async function loadBBMProjectsForUnit(unitId) {
+  const sel = document.getElementById('bbm-peng-project');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Pilih Project (opsional) --</option>';
+  if (!unitId) return;
+  const { data } = await sb.from('project_units')
+    .select('project_id, hm_awal, hm_akhir, projects(id, project_code, nama_kapal, type)')
+    .eq('unit_id', unitId);
+  if (!data || data.length === 0) return;
+  const active = data.filter(function(pu) { return pu.projects; });
+  active.sort(function(a,b) { return (a.hm_awal||0) - (b.hm_awal||0); });
+  active.forEach(function(pu) {
+    const p = pu.projects;
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.dataset.code = p.project_code;
+    const status = pu.hm_akhir == null ? ' [Ongoing]' : ' [HM ' + pu.hm_awal + '–' + pu.hm_akhir + ']';
+    opt.textContent = p.project_code + (p.nama_kapal ? ' – ' + p.nama_kapal : '') + status;
+    sel.appendChild(opt);
+  });
+  if (active.length === 1) sel.value = active[0].projects.id;
 }
 
 function onPengisianHMChange() {
@@ -4470,7 +4494,10 @@ async function submitPengisian() {
   const drumName = document.getElementById('bbm-peng-drum').value.trim();
   const vol = parseFloat(document.getElementById('bbm-peng-vol').value);
   const unitId = document.getElementById('bbm-peng-unit').value;
-  const project = document.getElementById('bbm-peng-project').value.trim() || null;
+  const projSel = document.getElementById('bbm-peng-project');
+  const projectId = projSel && projSel.value ? projSel.value : null;
+  const projOpt = projSel && projSel.selectedOptions[0];
+  const project = projOpt && projOpt.dataset.code ? projOpt.dataset.code : null;
   const hm = parseFloat(document.getElementById('bbm-peng-hm').value);
   const date = document.getElementById('bbm-peng-date').value;
   const time = document.getElementById('bbm-peng-time').value || null;
@@ -4491,7 +4518,7 @@ async function submitPengisian() {
     if (e1) throw e1;
     const lhr = await calcLPerHr(unitId, hm, vol, gaugePct);
     const { error: e2 } = await sb.from('fuel_dispenses')
-      .insert({ transfer_id: tData.id, unit_id: unitId, hm_at_fill: hm, dispense_date: date, dispense_time: time, liters_dispensed: vol, l_per_hr: lhr, gauge_pct: gaugePct, project, notes });
+      .insert({ transfer_id: tData.id, unit_id: unitId, hm_at_fill: hm, dispense_date: date, dispense_time: time, liters_dispensed: vol, l_per_hr: lhr, gauge_pct: gaugePct, project_id: projectId, project, notes });
     if (e2) throw e2;
     showToast('Pengisian ' + transferCode + ' berhasil dicatat!', 'success');
     document.getElementById('bbm-peng-bunker').value = '';
