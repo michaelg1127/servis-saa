@@ -5482,7 +5482,7 @@ function renderProyekKontinuitas() {
   const unitOptions = allUnits.map(u => '<option value="' + u.id + '"' + (u.id === proyekHMUnitId ? ' selected' : '') + '>' + u.code + ' – ' + u.name + '</option>').join('');
   let h = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">';
   h += '<div style="font-size:15px;font-weight:700;color:#1E293B;">Kontinuitas HM per Unit</div>';
-  h += '<select class="finput" style="max-width:200px;padding:6px 10px;font-size:13px;" onchange="proyekHMUnitId=this.value;loadProyekKontinuitas();"><option value="">-- Pilih Unit --</option>' + unitOptions + '</select>';
+  h += '<select class="finput" style="max-width:200px;padding:6px 10px;font-size:13px;" onchange="proyekHMUnitId=this.value;renderProyekKontinuitas();"><option value="">-- Pilih Unit --</option>' + unitOptions + '</select>';
   h += '</div>';
   if (!proyekHMUnitId) {
     h += '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Pilih unit untuk melihat log HM.</div>';
