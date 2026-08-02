@@ -2503,7 +2503,8 @@ function openChangeOperatorModal(unitId, currentOpId) {
 async function saveOperatorAssignment(unitId) {
   const opId = document.getElementById('modal-op-select').value;
   try {
-    const { error } = await sb.from('units').update({ assigned_operator_id: opId || null }).eq('id', unitId);
+    const opProf = allOperatorProfiles.find(op => op.id === opId);
+    const { error } = await sb.from('units').update({ assigned_operator_id: opId || null, operator_name: opProf ? opProf.name : null }).eq('id', unitId);
     if (error) throw error;
     closeModal(); showToast('Operator berhasil diubah!', 'success');
     await loadSPVPenugasan();
@@ -3860,7 +3861,8 @@ async function saveUnit() {
   if (!code || !name) { showToast('Kode dan nama wajib diisi.'); return; }
   try {
     if (editId) {
-      const { error } = await sb.from('units').update({ code, name, model, current_hm: hm, assigned_operator_id: opId || null }).eq('id', editId);
+      const opProfile = allOperatorProfiles.find(op => op.id === opId);
+      const { error } = await sb.from('units').update({ code, name, model, current_hm: hm, assigned_operator_id: opId || null, operator_name: opProfile ? opProfile.name : null }).eq('id', editId);
       if (error) throw error;
       showToast('Unit berhasil diupdate!', 'success');
     } else {
