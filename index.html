@@ -4574,7 +4574,7 @@ async function openEditPengisian(id) {
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Volume (L)</label><input type="number" id="ep-vol" class="finput" value="' + (r.liters_dispensed || '') + '"></div>'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Gauge (%)</label><input type="number" id="ep-gauge" class="finput" min="0" max="100" value="' + (r.gauge_pct != null ? r.gauge_pct : '') + '"></div>'
     + '</div>'
-    + '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Project</label><input type="text" id="ep-project" class="finput" value="' + projVal + '" placeholder="Kode atau nama proyek"></div>'
+    + '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Project <span style="font-size:11px;font-weight:400;color:#94A3B8;">(pilih sistem atau ketik manual)</span></label><select id="ep-project-sel" class="finput"><option value="">-- Pilih Project Sistem --</option></select><input type="text" id="ep-project" class="finput" style="margin-top:6px;font-size:13px;" value="' + (r.project || '') + '" placeholder="Proyek lama / ketik manual"></div>'
     + '<div style="margin-bottom:16px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Catatan</label><textarea id="ep-notes" class="finput" rows="2">' + (r.notes || '') + '</textarea></div>'
     + '<div style="display:flex;gap:12px;">'
     + '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>'
@@ -4582,6 +4582,19 @@ async function openEditPengisian(id) {
     + '</div></div>';
   document.getElementById('modal-box').innerHTML = modalHTML;
   document.getElementById('modal-overlay').style.display = 'flex';
+  (async function() {
+    const { data: projs } = await sb.from('projects').select('id, project_code, nama_kapal, type, end_date').order('created_at', { ascending: false }).limit(100);
+    const sel = document.getElementById('ep-project-sel');
+    if (!sel) return;
+    (projs || []).forEach(function(p) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.dataset.code = p.project_code;
+      opt.textContent = p.project_code + (p.nama_kapal ? ' – ' + p.nama_kapal : '') + (p.type === 'stockpile' ? ' [STK]' : '') + (p.end_date ? ' ✓' : '');
+      if (p.id === r.project_id) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  })();
 }
 async function submitEditPengisian(dispId, transferId) {
   const date = document.getElementById('ep-date')?.value;
@@ -4590,13 +4603,16 @@ async function submitEditPengisian(dispId, transferId) {
   const vol = parseFloat(document.getElementById('ep-vol')?.value);
   const gaugeRaw = parseInt(document.getElementById('ep-gauge')?.value || '');
   const gaugePct = !isNaN(gaugeRaw) && gaugeRaw >= 0 && gaugeRaw <= 100 ? gaugeRaw : null;
-  const project = document.getElementById('ep-project')?.value.trim() || null;
+  const epSel = document.getElementById('ep-project-sel');
+  const projectId = epSel && epSel.value ? epSel.value : null;
+  const projOpt = epSel && epSel.selectedOptions[0];
+  const project = (projOpt && projOpt.dataset.code ? projOpt.dataset.code : null) || document.getElementById('ep-project')?.value.trim() || null;
   const notes = document.getElementById('ep-notes')?.value.trim() || null;
   if (!date || isNaN(hm) || isNaN(vol)) { showToast('Tanggal, HM, dan Volume wajib diisi'); return; }
   try {
     const { error: e1 } = await sb.from('fuel_dispenses').update({
       dispense_date: date, dispense_time: time, hm_at_fill: hm,
-      liters_dispensed: vol, gauge_pct: gaugePct, project: project, notes: notes
+      liters_dispensed: vol, gauge_pct: gaugePct, project_id: projectId, project: project, notes: notes
     }).eq('id', dispId);
     if (e1) throw e1;
     if (transferId) {
