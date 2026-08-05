@@ -4565,6 +4565,7 @@ async function openEditPengisian(id) {
   const modalHTML = '<div style="padding:24px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;">'
     + '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:4px;">Edit Pengisian</div>'
     + '<div style="font-size:13px;color:#64748B;margin-bottom:16px;">' + tc + ' — ' + unitCode + '</div>'
+    + '<input type="hidden" id="ep-unit-id" value="' + (r.unit_id || '') + '">' 
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tanggal</label><input type="date" id="ep-date" class="finput" value="' + (r.dispense_date || '') + '"></div>'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jam</label><input type="time" id="ep-time" class="finput" value="' + (r.dispense_time ? r.dispense_time.substring(0,5) : '') + '"></div>'
@@ -4609,10 +4610,29 @@ async function submitEditPengisian(dispId, transferId) {
   const project = (projOpt && projOpt.dataset.code ? projOpt.dataset.code : null) || document.getElementById('ep-project')?.value.trim() || null;
   const notes = document.getElementById('ep-notes')?.value.trim() || null;
   if (!date || isNaN(hm) || isNaN(vol)) { showToast('Tanggal, HM, dan Volume wajib diisi'); return; }
+  const epUnitId = document.getElementById('ep-unit-id')?.value || null;
+  let newLhr = null;
+  if (epUnitId) {
+    const { data: prevFills } = await sb.from('fuel_dispenses')
+      .select('hm_at_fill, gauge_pct, liters_dispensed')
+      .eq('unit_id', epUnitId).lt('hm_at_fill', hm).neq('id', dispId)
+      .order('hm_at_fill', { ascending: false }).limit(1);
+    if (prevFills && prevFills.length > 0) {
+      const prevF = prevFills[0];
+      const diffF = hm - Number(prevF.hm_at_fill);
+      if (diffF > 0) {
+        if (gaugePct != null && prevF.gauge_pct != null) {
+          const consumedF = Number(prevF.gauge_pct) + Number(prevF.liters_dispensed) - gaugePct;
+          if (consumedF > 0) newLhr = Math.round((consumedF / diffF) * 100) / 100;
+        }
+        if (newLhr === null) newLhr = Math.round((vol / diffF) * 100) / 100;
+      }
+    }
+  }
   try {
     const { error: e1 } = await sb.from('fuel_dispenses').update({
       dispense_date: date, dispense_time: time, hm_at_fill: hm,
-      liters_dispensed: vol, gauge_pct: gaugePct, project_id: projectId, project: project, notes: notes
+      liters_dispensed: vol, gauge_pct: gaugePct, l_per_hr: newLhr, project_id: projectId, project: project, notes: notes
     }).eq('id', dispId);
     if (e1) throw e1;
     if (transferId) {
@@ -4649,7 +4669,7 @@ async function deleteTankTransfer(id) {
 }
 
 async function calcLPerHr(unitId, hm, liters, gaugeNow) {
-  const { data } = await sb.from('fuel_dispenses').select('hm_at_fill, gauge_pct, liters_dispensed').eq('unit_id', unitId).order('hm_at_fill', { ascending: false }).limit(1);
+  const { data } = await sb.from('fuel_dispenses').select('hm_at_fill, gauge_pct, liters_dispensed').eq('unit_id', unitId).lt('hm_at_fill', hm).order('hm_at_fill', { ascending: false }).limit(1);
   if (!data || data.length === 0) return null;
   const prev = data[0];
   const diff = hm - Number(prev.hm_at_fill);
