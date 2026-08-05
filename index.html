@@ -3316,11 +3316,15 @@ async function adminDeleteJO(joId, joNum) {
 
 async function doAdminDeleteJO(joId) {
   try {
+    const { data: joInfo } = await sb.from('job_orders').select('linked_sr_id').eq('id', joId).single();
     // Null out service_log job_order_id before deleting (FK NO ACTION)
     await sb.from('service_log').update({ job_order_id: null }).eq('job_order_id', joId);
     const { data, error } = await sb.from('job_orders').delete().eq('id', joId).select();
     if (error) throw error;
     if (!data || data.length === 0) throw new Error('Akses ditolak (RLS). Hubungi admin.');
+    if (joInfo?.linked_sr_id) {
+      await sb.from('service_requests').update({ status: 'pending_spv', assigned_mkn_id: null }).eq('id', joInfo.linked_sr_id);
+    }
     closeModal();
     showToast('JO berhasil dihapus.', 'info');
     await loadAdminJadwalMKN();
