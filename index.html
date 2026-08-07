@@ -4291,11 +4291,25 @@ async function submitTankTransfer() {
   } catch(e) { showToast('Gagal: ' + e.message); }
 }
 
-async function getNextBunkerCode() {
-  const { data } = await sb.from('fuel_bunkers').select('bunker_code').like('bunker_code', 'X%').order('created_at', { ascending: false }).limit(1);
+async function getNextBunkerCode(tank) {
+  if (tank === 'merah') {
+    const { data } = await sb.from('fuel_bunkers').select('bunker_code').eq('tank_name', 'merah').like('bunker_code', 'M-%').order('created_at', { ascending: false }).limit(1);
+    if (!data || data.length === 0) return 'M-1';
+    const last = data[0].bunker_code;
+    const num = parseInt(last.replace('M-', ''), 10);
+    return isNaN(num) ? 'M-1' : 'M-' + (num + 1);
+  }
+  if (tank === 'kuning') {
+    const { data } = await sb.from('fuel_bunkers').select('bunker_code').eq('tank_name', 'kuning').like('bunker_code', 'K-%').order('created_at', { ascending: false }).limit(1);
+    if (!data || data.length === 0) return 'K-1';
+    const last = data[0].bunker_code;
+    const num = parseInt(last.replace('K-', ''), 10);
+    return isNaN(num) ? 'K-1' : 'K-' + (num + 1);
+  }
+  const { data } = await sb.from('fuel_bunkers').select('bunker_code').eq('tank_name', 'hijau').like('bunker_code', 'X%').order('created_at', { ascending: false }).limit(1);
   if (!data || data.length === 0) return 'X24';
   const last = data[0].bunker_code;
-  const num = parseInt(last.replace('X',''), 10);
+  const num = parseInt(last.replace('X', ''), 10);
   return isNaN(num) ? 'X24' : 'X' + (num + 1);
 }
 
@@ -4310,16 +4324,13 @@ async function onTerimaChange() {
   const prev = document.getElementById('bbm-terima-preview');
   if (!prev) return;
   const tank = document.getElementById('bbm-terima-tank').value;
-  const code = await getNextBunkerCode();
-  let msg = 'Kode Bunker: <strong>' + code + '</strong>';
-  if (tank) {
-    const levels = await calcTankLevels();
-    const cap = FUEL_TANKS.find(t => t.name === tank);
-    const rem = cap ? cap.cap - (levels[tank] || 0) : 0;
-    const label = cap ? cap.label : tank;
-    msg += ' &nbsp;|&nbsp; Kapasitas sisa ' + label + ': <strong>' + Math.max(0,rem).toLocaleString('id') + ' L</strong>';
-  }
-  prev.innerHTML = msg;
+  if (!tank) { prev.innerHTML = 'Pilih tanki untuk melihat kode bunker.'; return; }
+  const code = await getNextBunkerCode(tank);
+  const levels = await calcTankLevels();
+  const cap = FUEL_TANKS.find(t => t.name === tank);
+  const rem = cap ? cap.cap - (levels[tank] || 0) : 0;
+  const label = cap ? cap.label : tank;
+  prev.innerHTML = 'Kode Bunker: <strong>' + code + '</strong> &nbsp;|&nbsp; Kapasitas sisa ' + label + ': <strong>' + Math.max(0,rem).toLocaleString('id') + ' L</strong>';
 }
 
 async function submitFuelBunker() {
@@ -4329,7 +4340,7 @@ async function submitFuelBunker() {
   const notes = document.getElementById('bbm-terima-notes').value.trim();
   if (!date || !tank || !vol) { showToast('Tanggal, Tanki, dan Volume wajib diisi.'); return; }
   try {
-    const code = await getNextBunkerCode();
+    const code = await getNextBunkerCode(tank);
     const { error } = await sb.from('fuel_bunkers').insert({ bunker_code: code, delivery_date: date, tank_name: tank, total_liters: vol, notes: notes || null });
     if (error) throw error;
     showToast('Bunker ' + code + ' berhasil disimpan!', 'success');
