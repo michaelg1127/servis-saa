@@ -1733,7 +1733,7 @@ async function loadHMMissing() {
   cutoff.setDate(cutoff.getDate() - 2);
   const cutoffISO = cutoff.toISOString().split('T')[0];
   const [{ data: units }, { data: hmRecent }] = await Promise.all([
-    sb.from('units').select('id, code, operator_name').order('code'),
+    sb.from('units').select('id, code, operator_name').not('operator_name', 'is', null).order('code'),
     sb.from('hm_updates').select('unit_id').gte('recorded_at', cutoffISO + 'T00:00:00'),
   ]);
   if (!units) return [];
