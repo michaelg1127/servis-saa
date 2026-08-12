@@ -5883,7 +5883,8 @@ async function loadProyekAnalisis() {
     const { data, error } = await sb.from('projects')
       .select('*, project_units(*, units(code,name))')
       .eq('type', 'kapal')
-      .eq('month_year', proyekMonthFilter);
+      .eq('month_year', proyekMonthFilter)
+      .order('project_code', { ascending: true });
     if (error) throw error;
     const projects = data || [];
     const fillMap = {};
@@ -6658,7 +6659,7 @@ async function loadWoodlogAnalisis() {
     const { data: projects, error } = await sb.from('projects')
       .select('*, project_units(unit_id, hm_awal, hm_akhir, solar_awal_pct, solar_akhir_pct)')
       .eq('type', 'woodlog_kapal').not('end_date', 'is', null)
-      .order('end_date', { ascending: false });
+      .order('project_code', { ascending: false });
     if (error) throw error;
     if (!projects || projects.length === 0) {
       el.innerHTML = '<div style="color:#94A3B8;padding:20px;">Belum ada proyek kapal woodlog yang selesai.</div>'; return;
