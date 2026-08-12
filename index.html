@@ -5020,7 +5020,7 @@ async function loadProyekKapal() {
     const { data, error } = await sb.from('projects')
       .select('*, project_units(*, units(code,name))')
       .eq('type', 'kapal')
-      .order('created_at', { ascending: false });
+      .order('project_code', { ascending: false });
     if (error) throw error;
     proyekKapalData = data || [];
     renderProyekKapalList();
@@ -5245,7 +5245,7 @@ async function loadProyekStockpile() {
     const { data, error } = await sb.from('projects')
       .select('*, project_units(*, units(code,name))')
       .eq('type', 'stockpile')
-      .order('created_at', { ascending: false });
+      .order('project_code', { ascending: false });
     if (error) throw error;
     proyekStockpileData = data || [];
     renderProyekStockpileList();
@@ -6141,7 +6141,7 @@ async function loadWoodlogKapal() {
   try {
     const { data: projects, error } = await sb.from('projects')
       .select('*, project_units(*, units(code, name, operator_name))')
-      .eq('type', 'woodlog_kapal').order('start_date', { ascending: false });
+      .eq('type', 'woodlog_kapal').order('project_code', { ascending: false });
     if (error) throw error;
     const ids = (projects || []).map(p => p.id);
     let salaryMap = {};
@@ -6399,7 +6399,7 @@ async function loadWoodlogHourly() {
   try {
     const { data: projects, error } = await sb.from('projects')
       .select('*, project_units(*, units(code, name))')
-      .eq('type', 'woodlog_hourly').order('start_date', { ascending: false });
+      .eq('type', 'woodlog_hourly').order('project_code', { ascending: false });
     if (error) throw error;
     const ids = (projects || []).map(p => p.id);
     let salaryMap = {};
