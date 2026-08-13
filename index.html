@@ -5743,77 +5743,152 @@ async function loadProyekRingkasan() {
   const panel = document.getElementById('proyek-panel-ringkasan');
   panel.innerHTML = '<div style="color:#64748B;padding:20px;">Memuat...</div>';
   try {
-    const { data, error } = await sb.from('projects')
-      .select('*, project_units(*, units(code, name, operator_name))')
-      .eq('month_year', proyekMonthFilter);
-    if (error) throw error;
-    renderProyekRingkasan(data || []);
+    const monthYear = proyekMonthFilter;
+    const y = parseInt(monthYear.slice(0, 4), 10);
+    const m = parseInt(monthYear.slice(5, 7), 10);
+    const firstDay = monthYear + '-01';
+    const tmpDate = new Date(y, m, 0);
+    const lastDay = tmpDate.getFullYear() + '-' + String(tmpDate.getMonth() + 1).padStart(2, '0') + '-' + String(tmpDate.getDate()).padStart(2, '0');
+    const [projRes, unitRes, kasbonRes] = await Promise.all([
+      sb.from('projects')
+        .select('*, project_units(*, units(code, name, operator_name))')
+        .in('type', ['kapal', 'stockpile'])
+        .gte('end_date', firstDay)
+        .lte('end_date', lastDay),
+      sb.from('units').select('code, operator_name'),
+      sb.from('proyek_kasbon').select('*').eq('month_year', monthYear)
+    ]);
+    if (projRes.error) throw projRes.error;
+    renderProyekRingkasan(projRes.data || [], unitRes.data || [], kasbonRes.data || [], monthYear);
   } catch(e) { panel.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
 }
 
-function renderProyekRingkasan(projects) {
+function renderProyekRingkasan(projects, allUnits, kasbons, monthYear) {
   const panel = document.getElementById('proyek-panel-ringkasan');
-  const operatorMap = {};
-  projects.forEach(p => {
-    const units = p.project_units || [];
-    if (p.type === 'kapal') {
-      const rate = calcKapalRate(p.ship_number_in_month || 1);
-      const split = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
-      split.forEach(u => {
-        const key = u.units ? (u.units.operator_name || u.units.code) : u.unit_id;
-        if (!operatorMap[key]) operatorMap[key] = { kapal: 0, stockpile: 0, stockpileHM: 0, unitCode: u.units ? u.units.code : '', details: [] };
-        const kamt = u.allocatedMt * rate;
-        operatorMap[key].kapal += kamt;
-        operatorMap[key].details.push({ code: p.project_code, type: 'Kapal', amount: kamt });
-      });
-    } else {
-      units.forEach(u => {
-        const key = u.units ? (u.units.operator_name || u.units.code) : u.unit_id;
-        if (!operatorMap[key]) operatorMap[key] = { kapal: 0, stockpile: 0, stockpileHM: 0, unitCode: u.units ? u.units.code : '', details: [] };
-        const sHM = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0;
-        const samt = sHM * 35000;
-        operatorMap[key].stockpile += samt;
-        operatorMap[key].stockpileHM += sHM;
-        operatorMap[key].details.push({ code: p.project_code, type: 'STK', amount: samt, hm: sHM });
-      });
-    }
-  });
+  panel._ringkasanProjects = projects;
+  const proyekOps = (allUnits || []).filter(function(u) { return !WL_ALL_CODES.includes(u.code); });
+  const opNames = [];
+  proyekOps.forEach(function(u) { if (u.operator_name && opNames.indexOf(u.operator_name) < 0) opNames.push(u.operator_name); });
+  opNames.sort();
+  const kasbonMap = {};
+  (kasbons || []).forEach(function(k) { kasbonMap[k.operator_name] = { amount: Number(k.amount), id: k.id }; });
+  function dayOf(d) { return d ? parseInt(d.slice(8, 10), 10) : 0; }
+  function isCarryover(p) { return p.month_year && p.end_date && p.month_year.slice(0, 7) !== p.end_date.slice(0, 7); }
+  const unpaid = projects.filter(function(p) { return !p.paid_batch; });
+  const batch16 = unpaid.filter(function(p) { return p.type === 'kapal' && dayOf(p.end_date) <= 15; });
+  const batch31Kapal = unpaid.filter(function(p) { return p.type === 'kapal' && dayOf(p.end_date) > 15; });
+  const batch31Stk = unpaid.filter(function(p) { return p.type === 'stockpile'; });
+  panel._batch16Ids = batch16.map(function(p) { return p.id; });
+  panel._batch31Ids = batch31Kapal.concat(batch31Stk).map(function(p) { return p.id; });
+  panel._monthYear = monthYear;
+  function buildOpMap(projs) {
+    const opMap = {};
+    projs.forEach(function(p) {
+      if (p.type === 'kapal') {
+        const rate = isCarryover(p) ? 175 : calcKapalRate(p.ship_number_in_month || 1);
+        const split = calcKapalTonnageSplit(p.project_units || [], p.total_mt_m3 || 0);
+        split.forEach(function(u) {
+          const key = u.units ? (u.units.operator_name || u.units.code) : u.unit_id;
+          if (!opMap[key]) opMap[key] = { total: 0, rows: [] };
+          const amt = u.allocatedMt * rate;
+          opMap[key].total += amt;
+          opMap[key].rows.push(p.project_code + (isCarryover(p) ? ' [CO]' : '') + ' @' + rate + '/MT: ' + fmtRp(amt));
+        });
+      } else {
+        (p.project_units || []).forEach(function(u) {
+          const key = u.units ? (u.units.operator_name || u.units.code) : u.unit_id;
+          if (!opMap[key]) opMap[key] = { total: 0, rows: [] };
+          const hm = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0;
+          const amt = hm * 35000;
+          opMap[key].total += amt;
+          opMap[key].rows.push(p.project_code + ' STK ' + hm.toFixed(1) + 'HM: ' + fmtRp(amt));
+        });
+      }
+    });
+    return opMap;
+  }
+  const opMap16 = buildOpMap(batch16);
+  const opMap31 = buildOpMap(batch31Kapal.concat(batch31Stk));
   let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">';
   h += '<div style="font-size:15px;font-weight:700;color:#1E293B;">Ringkasan Gaji</div>';
   h += '<div style="display:flex;gap:8px;align-items:center;">';
-  h += '<input type="month" class="finput" style="padding:6px 10px;font-size:13px;" value="' + proyekMonthFilter + '" onchange="proyekMonthFilter=this.value;loadProyekRingkasan();">';
+  h += '<input type="month" id="proy-ring-month" class="finput" style="padding:6px 10px;font-size:13px;" value="' + monthYear + '" onchange="proyekMonthFilter=this.value;loadProyekRingkasan();">';
   h += '<button onclick="exportProyekExcel()" class="btn-primary" style="padding:8px 14px;font-size:13px;">Export Excel</button>';
   h += '</div></div>';
-  if (Object.keys(operatorMap).length === 0) {
-    h += '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Tidak ada data untuk bulan ini.</div>';
-    panel.innerHTML = h; return;
+  h += '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:16px;margin-bottom:20px;">';
+  h += '<div style="font-size:14px;font-weight:800;color:#1D4ED8;margin-bottom:12px;">Batch 16 - Kapal Selesai Tgl 1-15</div>';
+  if (batch16.length === 0) {
+    h += '<div style="color:#64748B;font-size:13px;">Tidak ada kapal selesai tgl 1-15 bulan ini.</div>';
+  } else {
+    h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#DBEAFE;"><th style="padding:8px 10px;text-align:left;">Operator</th><th style="padding:8px 10px;text-align:left;">Detail Proyek</th><th style="padding:8px 10px;text-align:right;">Total Gaji</th></tr></thead><tbody>';
+    Object.entries(opMap16).sort(function(a, b) { return a[0].localeCompare(b[0]); }).forEach(function(entry) {
+      const name = entry[0]; const s = entry[1];
+      h += '<tr style="border-bottom:1px solid #BFDBFE;"><td style="padding:8px 10px;font-weight:600;">' + name + '</td>';
+      h += '<td style="padding:8px 10px;font-size:11px;color:#64748B;">' + s.rows.join('<br>') + '</td>';
+      h += '<td style="padding:8px 10px;text-align:right;font-weight:700;">' + fmtRp(s.total) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<div style="margin-top:12px;"><button onclick="markProyekPaid(\'mid_month\')" class="btn-primary" style="background:#1D4ED8;">Tandai Lunas Batch 16</button></div>';
   }
-  h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
-  h += '<thead><tr style="background:#F1F5F9;"><th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;">Unit / Operator</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Kapal</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Stockpile</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">HM Stockpile</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Total Kerja</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Gaji Pokok</th><th style="padding:10px 12px;text-align:right;font-weight:700;color:#475569;">Grand Total</th></tr></thead><tbody>';
-  let grandK = 0, grandS = 0, grandSTKHM = 0;
-  Object.entries(operatorMap).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name, sal]) => {
-    const totalKerja = sal.kapal + sal.stockpile;
-    const grandTotal = totalKerja + 3100000;
-    grandK += sal.kapal; grandS += sal.stockpile; grandSTKHM += sal.stockpileHM;
-    const unitLabel = sal.unitCode ? sal.unitCode + ' / ' + name : name;
-    h += '<tr style="border-bottom:1px solid #F1F5F9;">';
-    h += '<td style="padding:10px 12px;font-weight:600;">' + unitLabel + '</td>';
-    h += '<td style="padding:10px 12px;text-align:right;">' + fmtRp(sal.kapal) + '</td>';
-    h += '<td style="padding:10px 12px;text-align:right;">' + fmtRp(sal.stockpile) + '</td>';
-    h += '<td style="padding:10px 12px;text-align:right;">' + (sal.stockpileHM > 0 ? sal.stockpileHM.toFixed(1) + ' HM' : '-') + '</td>';
-    h += '<td style="padding:10px 12px;text-align:right;font-weight:700;">' + fmtRp(totalKerja) + '</td>';
-    h += '<td style="padding:10px 12px;text-align:right;color:#64748B;">Rp 3.100.000</td>';
-    h += '<td style="padding:10px 12px;text-align:right;font-weight:800;color:#16A34A;">' + fmtRp(grandTotal) + '</td></tr>';
-    if (sal.details.length > 0) {
-      const detailText = sal.details.map(function(d) { return d.code + ' (' + d.type + (d.hm != null ? ' ' + d.hm.toFixed(1) + 'HM' : '') + '): ' + fmtRp(d.amount); }).join(' | ');
-      h += '<tr style="background:#F8FAFC;"><td colspan="7" style="padding:3px 12px 6px 20px;font-size:11px;color:#64748B;">' + detailText + '</td></tr>';
-    }
-  });
-  const allTotal = grandK + grandS;
-  h += '<tr style="background:#F1F5F9;font-weight:800;"><td style="padding:10px 12px;">TOTAL</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(grandK) + '</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(grandS) + '</td><td style="padding:10px 12px;text-align:right;">' + grandSTKHM.toFixed(1) + ' HM</td><td style="padding:10px 12px;text-align:right;">' + fmtRp(allTotal) + '</td><td style="padding:10px 12px;"></td><td style="padding:10px 12px;text-align:right;">' + fmtRp(allTotal + 3100000 * Object.keys(operatorMap).length) + '</td></tr>';
-  h += '</tbody></table></div>';
+  h += '</div>';
+  h += '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:16px;">';
+  h += '<div style="font-size:14px;font-weight:800;color:#16A34A;margin-bottom:12px;">Batch 31 - Kapal Tgl 16-31 + Semua Stockpile + Gaji Pokok</div>';
+  if (batch31Kapal.length === 0 && batch31Stk.length === 0 && opNames.length === 0) {
+    h += '<div style="color:#64748B;font-size:13px;">Tidak ada proyek selesai untuk batch akhir bulan.</div>';
+  } else {
+    h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px;"><thead><tr style="background:#DCFCE7;"><th style="padding:8px 10px;text-align:left;">Operator</th><th style="padding:8px 10px;text-align:right;">Gaji Proyek</th><th style="padding:8px 10px;text-align:right;">Gaji Pokok</th><th style="padding:8px 10px;text-align:center;">Kasbon</th><th style="padding:8px 10px;text-align:right;">Grand Total</th></tr></thead><tbody>';
+    opNames.forEach(function(name) {
+      const s = opMap31[name] || { total: 0, rows: [] };
+      const kasbon = kasbonMap[name] ? kasbonMap[name].amount : 0;
+      const grandTotal = s.total + 3100000 - kasbon;
+      const safeId = name.replace(/\s+/g, '_');
+      h += '<tr style="border-bottom:1px solid #BBF7D0;"><td style="padding:8px 10px;font-weight:600;">' + name + '</td>';
+      h += '<td style="padding:8px 10px;text-align:right;">';
+      if (s.rows.length > 0) h += '<span style="font-size:11px;color:#64748B;">' + s.rows.join('<br>') + '</span><br>';
+      h += '<strong>' + fmtRp(s.total) + '</strong></td>';
+      h += '<td style="padding:8px 10px;text-align:right;color:#64748B;">Rp 3.100.000</td>';
+      h += '<td style="padding:8px 10px;text-align:center;"><input id="proy-kasbon-' + safeId + '" data-op="' + name + '" type="number" class="finput" style="width:110px;text-align:right;" value="' + kasbon + '" placeholder="0"></td>';
+      h += '<td style="padding:8px 10px;text-align:right;font-weight:800;color:#16A34A;">' + fmtRp(grandTotal) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<div style="margin-top:12px;"><button onclick="markProyekPaid(\'end_of_month\')" class="btn-primary" style="background:#16A34A;">Tandai Lunas Batch 31</button></div>';
+  }
+  h += '</div>';
   panel.innerHTML = h;
-  panel._ringkasanProjects = projects;
+}
+
+async function markProyekPaid(paymentType) {
+  try {
+    const panel = document.getElementById('proyek-panel-ringkasan');
+    const monthYear = panel._monthYear;
+    const ids = paymentType === 'mid_month' ? (panel._batch16Ids || []) : (panel._batch31Ids || []);
+    if (ids.length === 0) { showToast('Tidak ada proyek untuk ditandai.'); return; }
+    if (paymentType === 'end_of_month') await saveProyekKasbon(monthYear);
+    const label = paymentType === 'mid_month' ? 'Batch 16' : 'Batch 31';
+    if (!confirm('Tandai ' + ids.length + ' proyek sebagai dibayar (' + label + ')?')) return;
+    const { error } = await sb.from('projects').update({ paid_batch: paymentType }).in('id', ids);
+    if (error) throw error;
+    showToast(ids.length + ' proyek ditandai sebagai dibayar.', 'success');
+    await loadProyekRingkasan();
+  } catch(e) { showToast('Gagal: ' + e.message); }
+}
+
+async function saveProyekKasbon(monthYear) {
+  const panel = document.getElementById('proyek-panel-ringkasan');
+  const inputs = panel.querySelectorAll('[id^="proy-kasbon-"]');
+  const { data: existing } = await sb.from('proyek_kasbon').select('id, operator_name').eq('month_year', monthYear);
+  const existMap = {};
+  (existing || []).forEach(function(k) { existMap[k.operator_name] = k.id; });
+  await Promise.all(Array.from(inputs).map(async function(input) {
+    const op = input.dataset.op;
+    if (!op) return;
+    const amount = parseFloat(input.value) || 0;
+    if (existMap[op]) {
+      await sb.from('proyek_kasbon').update({ amount: amount }).eq('id', existMap[op]);
+    } else if (amount > 0) {
+      await sb.from('proyek_kasbon').insert({ month_year: monthYear, operator_name: op, amount: amount });
+    }
+  }));
 }
 
 async function exportProyekExcel() {
