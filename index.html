@@ -827,7 +827,7 @@
   <div id="proyek-tabs" style="display:flex;gap:0;border-bottom:2px solid #E2E8F0;margin-bottom:20px;flex-wrap:wrap;">
     <button id="proyek-tab-kapal" onclick="switchProyekTab('kapal',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#1D4ED8;border-bottom:3px solid #1D4ED8;margin-bottom:-2px;">Kapal</button>
     <button id="proyek-tab-stockpile" onclick="switchProyekTab('stockpile',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Stockpile</button>
-    <button id="proyek-tab-ringkasan" onclick="switchProyekTab('ringkasan',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Ringkasan</button>
+    <button id="proyek-tab-ringkasan" onclick="switchProyekTab('ringkasan',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Ringkasan Gaji</button>
     <button id="proyek-tab-analisis" onclick="switchProyekTab('analisis',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Analisis Biaya</button>
     <button id="proyek-tab-kontinuitas" onclick="switchProyekTab('kontinuitas',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Kontinuitas HM</button>
   </div>
@@ -5792,7 +5792,7 @@ function renderProyekRingkasan(projects, allUnits, kasbons, monthYear) {
           if (!opMap[key]) opMap[key] = { total: 0, rows: [] };
           const amt = u.allocatedMt * rate;
           opMap[key].total += amt;
-          opMap[key].rows.push(p.project_code + (isCarryover(p) ? ' [CO]' : '') + ' @' + rate + '/MT: ' + fmtRp(amt));
+          opMap[key].rows.push(p.project_code + ' ' + (p.end_date || '') + (p.nama_kapal ? ' ' + p.nama_kapal : '') + (isCarryover(p) ? ' [CO]' : '') + ' @' + rate + '/MT: ' + fmtRp(amt));
         });
       } else {
         (p.project_units || []).forEach(function(u) {
@@ -5801,10 +5801,11 @@ function renderProyekRingkasan(projects, allUnits, kasbons, monthYear) {
           const hm = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0;
           const amt = hm * 35000;
           opMap[key].total += amt;
-          opMap[key].rows.push(p.project_code + ' STK ' + hm.toFixed(1) + 'HM: ' + fmtRp(amt));
+          opMap[key].rows.push(p.project_code + ' ' + (p.end_date || '') + ' STK ' + hm.toFixed(1) + 'HM: ' + fmtRp(amt));
         });
       }
     });
+    Object.values(opMap).forEach(function(s) { s.rows.sort(); });
     return opMap;
   }
   const opMap16 = buildOpMap(batch16);
