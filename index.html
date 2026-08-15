@@ -6391,16 +6391,15 @@ async function openAddWoodlogKapalModal() {
     '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">BL Tonnage (MT)</label><input type="number" id="wladd-bl" class="finput" min="0" oninput="wlUpdateSalaryPreview()"></div>' +
     '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Rate/MT (Rp)</label><input type="number" id="wladd-rate" class="finput" min="0"></div>' +
     '</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">' +
+    '<div style="display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:16px;">' +
     '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Harga Solar (Rp/L)</label><input type="number" id="wladd-solar" class="finput" min="0"></div>' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">No. Invoice</label><input type="text" id="wladd-inv" class="finput"></div>' +
     '</div>' +
     '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Unit yang Mengerjakan</div>' +
     '<div style="margin-bottom:16px;">' + unitCheckboxes + '</div>' +
     '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Salary Bangau (J02/J03) — auto</div>' +
     '<div style="background:#EFF6FF;border-radius:10px;padding:12px;margin-bottom:16px;">' + bangauOpRows + '</div>' +
-    '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Salary STD (J45–J48) — input manual tonnage</div>' +
-    '<div style="background:#F0FDF4;border-radius:10px;padding:12px;margin-bottom:16px;">' + stdOpRows + '</div>' +
+    '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Salary STD (J45–J48)</div>' +
+    '<div style="background:#F0FDF4;border-radius:10px;padding:12px;margin-bottom:16px;color:#64748B;font-size:13px;">Tonnage STD akan diisi saat Edit proyek setelah selesai bongkar.</div>' +
     '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Catatan</label><textarea id="wladd-notes" class="finput" rows="2"></textarea></div>' +
     '<div style="display:flex;gap:12px;margin-top:16px;">' +
     '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>' +
@@ -6432,7 +6431,6 @@ async function submitAddWoodlogKapal(shipNum, monthYear) {
   const bl = parseFloat((document.getElementById('wladd-bl') || {}).value) || null;
   const rate = parseFloat((document.getElementById('wladd-rate') || {}).value) || null;
   const solar = parseFloat((document.getElementById('wladd-solar') || {}).value) || null;
-  const inv = (document.getElementById('wladd-inv') || {}).value ? document.getElementById('wladd-inv').value.trim() : null;
   const notes = (document.getElementById('wladd-notes') || {}).value ? document.getElementById('wladd-notes').value.trim() : null;
   if (!namaKapal || !start) { showToast('Nama Kapal dan Tgl Mulai wajib diisi.'); return; }
   const mm = monthYear.slice(5, 7);
@@ -6442,7 +6440,7 @@ async function submitAddWoodlogKapal(shipNum, monthYear) {
       type: 'woodlog_kapal', project_code: projectCode, ship_number_in_month: shipNum,
       month_year: monthYear, nama_kapal: namaKapal, pemberi_kerja: pemberi,
       start_date: start, total_mt_m3: bl, unit_price: rate,
-      harga_solar_rpl: solar, invoice_number: inv, notes: notes
+      harga_solar_rpl: solar, notes: notes
     }).select().single();
     if (e1) throw e1;
     const wlUnits = (allUnits || []).filter(function(u) { return WL_ALL_CODES.includes(u.code); });
@@ -6459,21 +6457,13 @@ async function submitAddWoodlogKapal(shipNum, monthYear) {
       const { error: e2 } = await sb.from('project_units').insert(puRows);
       if (e2) throw e2;
     }
-    const salaryInserts = [];
     if (bl) {
       const bangauSal = Math.round(bl * 0.9 / 4 * 800);
       const bl4 = bl * 0.9 / 4;
-      WL_BANGAU_OPS.forEach(function(op) {
-        salaryInserts.push({ project_id: proj.id, operator_name: op, unit_type: 'bangau', tonnage_mt: bl4, salary_amount: bangauSal });
+      const bangauRows = WL_BANGAU_OPS.map(function(op) {
+        return { project_id: proj.id, operator_name: op, unit_type: 'bangau', tonnage_mt: bl4, salary_amount: bangauSal };
       });
-    }
-    WL_STD_OPS.forEach(function(op) {
-      const inp = document.getElementById('wl-std-ton-' + op);
-      const ton = parseFloat(inp ? inp.value : '') || 0;
-      if (ton > 0) salaryInserts.push({ project_id: proj.id, operator_name: op, unit_type: 'std', tonnage_mt: ton, salary_amount: Math.round(ton * 750) });
-    });
-    if (salaryInserts.length > 0) {
-      const { error: e3 } = await sb.from('woodlog_operator_salary').insert(salaryInserts);
+      const { error: e3 } = await sb.from('woodlog_operator_salary').insert(bangauRows);
       if (e3) throw e3;
     }
     closeModal();
