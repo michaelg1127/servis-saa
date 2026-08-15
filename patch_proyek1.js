@@ -1,62 +1,104 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
-const filePath = path.join(__dirname, 'index.html');
-let html = fs.readFileSync(filePath, 'utf8');
-let changes = 0;
 
-function replaceExact(from, to, desc) {
-  const count = html.split(from).length - 1;
-  if (count === 0) { console.error('MISS: ' + desc); process.exit(1); }
-  if (count > 1) { console.error('AMBIGUOUS (' + count + '): ' + desc); process.exit(1); }
-  html = html.replace(from, to);
-  changes++;
-  console.log('OK: ' + desc);
+const file = path.join(__dirname, 'index.html');
+let html = fs.readFileSync(file, 'utf8');
+let changed = 0;
+
+function replaceFn(name, isAsync, newBody) {
+  const prefix = (isAsync ? 'async ' : '') + 'function ' + name + '(';
+  const start = html.indexOf(prefix);
+  if (start < 0) { console.error('MISS fn: ' + name); process.exit(1); }
+  let braceStart = html.indexOf('{', start);
+  let depth = 0, i = braceStart;
+  while (i < html.length) {
+    if (html[i] === '{') depth++;
+    else if (html[i] === '}') { depth--; if (depth === 0) break; }
+    i++;
+  }
+  html = html.slice(0, start) + newBody + html.slice(i + 1);
+  changed++;
+  console.log('OK fn: ' + name);
 }
 
-// 1. Add SheetJS CDN after supabase script tag
-replaceExact(
-  '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>',
-  '<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>\r\n<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>',
-  'add SheetJS CDN'
-);
+// ── calcKapalTonnageSplit ────────────────────────────────────────────────────
+// Old: allWithin-25% → equal, else fully proportional.
+// New: Rule 1 (de minimis <5% totalHM → excluded), Rule 2 (outliers >30% from
+//      median among included → proportional; non-outliers split remainder equally).
+replaceFn('calcKapalTonnageSplit', false, `function calcKapalTonnageSplit(units, totalMt) {
+  const withHM = units.map(function(u) {
+    return Object.assign({}, u, { hm: u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0 });
+  });
+  // Rule 1: de minimis — use pre-exclusion total as threshold denominator
+  const totalHMAll = withHM.reduce(function(s, u) { return s + u.hm; }, 0);
+  const threshold = totalHMAll * 0.05;
+  const tagged = withHM.map(function(u) {
+    return Object.assign({}, u, { excluded: u.hm < threshold });
+  });
+  // Included units only
+  const included = tagged.filter(function(u) { return !u.excluded; });
+  const totalHMIncluded = included.reduce(function(s, u) { return s + u.hm; }, 0);
+  // Rule 2: median among included, then outlier = >30% deviation
+  const incHMs = included.map(function(u) { return u.hm; });
+  const median = calcMedianHM(incHMs.length > 0 ? incHMs : [0]);
+  const outlierAllocTotal = included.reduce(function(s, u) {
+    const isOut = median > 0 && Math.abs(u.hm - median) / median > 0.30;
+    return s + (isOut && totalHMIncluded > 0 ? totalMt * u.hm / totalHMIncluded : 0);
+  }, 0);
+  const nonOutliers = included.filter(function(u) {
+    return !(median > 0 && Math.abs(u.hm - median) / median > 0.30);
+  });
+  const remainingMt = totalMt - outlierAllocTotal;
+  const equalShare = nonOutliers.length > 0 ? remainingMt / nonOutliers.length : 0;
+  return tagged.map(function(u) {
+    if (u.excluded) return Object.assign({}, u, { allocatedMt: 0, isExcluded: true, isOutlier: false });
+    const isOut = median > 0 && Math.abs(u.hm - median) / median > 0.30;
+    const allocatedMt = isOut && totalHMIncluded > 0
+      ? totalMt * u.hm / totalHMIncluded
+      : equalShare;
+    return Object.assign({}, u, { allocatedMt: allocatedMt, isExcluded: false, isOutlier: isOut });
+  });
+}`);
 
-// 2. Add Proyek nav slink after BBM slink
-replaceExact(
-  '    <div class="slink" onclick="switchAdmin(\'bbm\',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z"/><line x1="7" y1="5" x2="7" y2="5"/><line x1="7" y1="12" x2="7" y2="12"/></svg>BBM</div>\r\n    </div>',
-  '    <div class="slink" onclick="switchAdmin(\'bbm\',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z"/><line x1="7" y1="5" x2="7" y2="5"/><line x1="7" y1="12" x2="7" y2="12"/></svg>BBM</div>\r\n    <div class="slink" onclick="switchAdmin(\'proyek\',this)"><svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>Proyek</div>\r\n    </div>',
-  'add Proyek nav slink'
-);
+// ── renderKapalDetailHTML ────────────────────────────────────────────────────
+// Add (excluded) / (prop.) badges to the MT Alokasi column so the user can
+// see which units are affected by which rule.
+replaceFn('renderKapalDetailHTML', false, `function renderKapalDetailHTML(p, fillMap) {
+  fillMap = fillMap || {};
+  const units = p.project_units || [];
+  const rate = calcKapalRate(p.ship_number_in_month || 1);
+  const split = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:4px;">';
+  h += '<tr style="background:#E2E8F0;"><th style="padding:6px 10px;text-align:left;">Unit</th><th style="padding:6px 10px;text-align:right;">HM Awal</th><th style="padding:6px 10px;text-align:right;">HM Akhir</th><th style="padding:6px 10px;text-align:right;">HM Kerja</th><th style="padding:6px 10px;text-align:right;">MT Alokasi</th><th style="padding:6px 10px;text-align:right;">Rate</th><th style="padding:6px 10px;text-align:right;">Salary</th><th style="padding:6px 10px;text-align:right;">Solar (L)</th></tr>';
+  split.forEach(function(u) {
+    const hmKerja = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : null;
+    const fillLiters = fillMap[u.unit_id] != null ? fillMap[u.unit_id] : (u.solar_isi_liters || 0);
+    const solarLabel = fillMap[u.unit_id] != null ? ' (aktual)' : (u.solar_isi_liters ? ' (manual)' : '');
+    const solar = calcSolarConsumed(u.solar_awal_pct, u.solar_akhir_pct, fillLiters);
+    const salary = u.allocatedMt * rate;
+    const unitCode = u.units ? u.units.code : '?';
+    let mtBadge = '';
+    if (u.isExcluded) mtBadge = ' <span style="font-size:10px;color:#EF4444;font-weight:700;">(excluded)</span>';
+    else if (u.isOutlier) mtBadge = ' <span style="font-size:10px;color:#F59E0B;font-weight:700;">(prop.)</span>';
+    h += '<tr style="border-bottom:1px solid #E2E8F0;">';
+    h += '<td style="padding:6px 10px;font-weight:700;">' + unitCode + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + u.hm_awal + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + (u.hm_akhir != null ? u.hm_akhir : '<span style="color:#F59E0B;font-weight:700;">Ongoing</span>') + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + (hmKerja != null ? hmKerja.toFixed(1) : '—') + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + u.allocatedMt.toFixed(2) + mtBadge + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">Rp ' + rate + '/MT</td>';
+    h += '<td style="padding:6px 10px;text-align:right;font-weight:700;color:#16A34A;">' + fmtRp(salary) + '</td>';
+    h += '<td style="padding:6px 10px;text-align:right;">' + solar.toFixed(1) + ' L<span style="font-size:10px;color:#94A3B8;">' + solarLabel + '</span></td>';
+    h += '</tr>';
+  });
+  h += '</table>';
+  if (p.notes) h += '<div style="margin-top:8px;font-size:12px;color:#64748B;">Catatan: ' + p.notes + '</div>';
+  h += '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">';
+  h += '<button onclick="event.stopPropagation();openEditKapalModal(\'' + p.id + '\')" style="background:#EFF6FF;border:1.5px solid #93C5FD;color:#1D4ED8;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;">Edit</button>';
+  h += '<button onclick="event.stopPropagation();deleteKapalProject(\'' + p.id + '\',\'' + p.project_code + '\')" style="background:#FEF2F2;border:1.5px solid #FECACA;color:#EF4444;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;">Hapus</button>';
+  h += '</div>';
+  return h;
+}`);
 
-// 3. Add admin-screen-proyek HTML before closing desk-content
-const screenHTML = `  <div id="admin-screen-proyek" class="dscreen">\r\n  <div style="font-size:22px;font-weight:800;color:#1E293B;margin-bottom:16px;">Proyek</div>\r\n  <div id="proyek-tabs" style="display:flex;gap:0;border-bottom:2px solid #E2E8F0;margin-bottom:20px;flex-wrap:wrap;">\r\n    <button id="proyek-tab-kapal" onclick="switchProyekTab(\'kapal\',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#1D4ED8;border-bottom:3px solid #1D4ED8;margin-bottom:-2px;">Kapal</button>\r\n    <button id="proyek-tab-stockpile" onclick="switchProyekTab(\'stockpile\',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Stockpile</button>\r\n    <button id="proyek-tab-ringkasan" onclick="switchProyekTab(\'ringkasan\',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Ringkasan</button>\r\n    <button id="proyek-tab-analisis" onclick="switchProyekTab(\'analisis\',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Analisis Biaya</button>\r\n    <button id="proyek-tab-kontinuitas" onclick="switchProyekTab(\'kontinuitas\',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Kontinuitas HM</button>\r\n  </div>\r\n  <div id="proyek-panel-kapal"></div>\r\n  <div id="proyek-panel-stockpile" style="display:none;"></div>\r\n  <div id="proyek-panel-ringkasan" style="display:none;"></div>\r\n  <div id="proyek-panel-analisis" style="display:none;"></div>\r\n  <div id="proyek-panel-kontinuitas" style="display:none;"></div>\r\n  </div>\r\n`;
-
-replaceExact(
-  '<!-- MODAL OVERLAY -->',
-  screenHTML + '<!-- MODAL OVERLAY -->',
-  'add admin-screen-proyek HTML'
-);
-
-// 4. Wire up switchAdmin: add 'proyek' to labels + lazy init
-replaceExact(
-  "const labels = { dashboard:'Dashboard', jadwal:'Jadwal Maintenance', permintaan:'Permintaan Servis', riwayat:'Riwayat Per Unit', jadwalmkn:'Jadwal MKN', import:'Import Data', export:'Export Data', pengguna:'Kelola Pengguna', unit:'Kelola Unit', catat:'Catat Servis', bbm:'BBM' };",
-  "const labels = { dashboard:'Dashboard', jadwal:'Jadwal Maintenance', permintaan:'Permintaan Servis', riwayat:'Riwayat Per Unit', jadwalmkn:'Jadwal MKN', import:'Import Data', export:'Export Data', pengguna:'Kelola Pengguna', unit:'Kelola Unit', catat:'Catat Servis', bbm:'BBM', proyek:'Proyek' };",
-  'add proyek to labels'
-);
-
-replaceExact(
-  "  if (name === 'bbm') initFuelBBM();\r\n}",
-  "  if (name === 'bbm') initFuelBBM();\r\n  if (name === 'proyek') initProyekModule();\r\n}",
-  'add proyek lazy init to switchAdmin'
-);
-
-// 5. Add switchProyekTab + initProyekModule functions (append before closing script tag)
-const newFunctions = `\r\n// ============================================================\r\n// PROYEK MODULE\r\n// ============================================================\r\nfunction switchProyekTab(tab, el) {\r\n  proyekTab = tab;\r\n  const tabs = ['kapal','stockpile','ringkasan','analisis','kontinuitas'];\r\n  tabs.forEach(t => {\r\n    const btn = document.getElementById('proyek-tab-' + t);\r\n    const panel = document.getElementById('proyek-panel-' + t);\r\n    const active = t === tab;\r\n    if (btn) { btn.style.color = active ? '#1D4ED8' : '#94A3B8'; btn.style.borderBottomColor = active ? '#1D4ED8' : 'transparent'; }\r\n    if (panel) panel.style.display = active ? '' : 'none';\r\n  });\r\n  if (tab === 'kapal') loadProyekKapal();\r\n  if (tab === 'stockpile') loadProyekStockpile();\r\n  if (tab === 'ringkasan') loadProyekRingkasan();\r\n  if (tab === 'analisis') loadProyekAnalisis();\r\n  if (tab === 'kontinuitas') renderProyekKontinuitas();\r\n}\r\n\r\nfunction initProyekModule() {\r\n  switchProyekTab('kapal', document.getElementById('proyek-tab-kapal'));\r\n}\r\n`;
-
-replaceExact(
-  '\r\n</script>\r\n</body>',
-  newFunctions + '\r\n</script>\r\n</body>',
-  'add switchProyekTab + initProyekModule'
-);
-
-fs.writeFileSync(filePath, html, 'utf8');
-console.log('patch_proyek1.js: ' + changes + ' changes applied.');
+fs.writeFileSync(file, html, 'utf8');
+console.log('\nDone. ' + changed + ' replacements made.');
