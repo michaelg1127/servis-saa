@@ -6929,7 +6929,7 @@ async function loadWoodlogAnalisis() {
   el.innerHTML = '<div style="color:#94A3B8;padding:20px;">Memuat...</div>';
   try {
     const { data: projects, error } = await sb.from('projects')
-      .select('*, project_units(unit_id, hm_awal, hm_akhir, solar_awal_pct, solar_akhir_pct)')
+      .select('*, project_units(unit_id, hm_awal, hm_akhir, solar_awal_pct, solar_akhir_pct, units(code))')
       .eq('type', 'woodlog_kapal').not('end_date', 'is', null)
       .order('project_code', { ascending: false });
     if (error) throw error;
@@ -6937,40 +6937,34 @@ async function loadWoodlogAnalisis() {
       el.innerHTML = '<div style="color:#94A3B8;padding:20px;">Belum ada proyek kapal woodlog yang selesai.</div>'; return;
     }
     const ids = projects.map(p => p.id);
-    const allUnitIds = [];
-    projects.forEach(function(p) { (p.project_units || []).forEach(function(pu) { if (allUnitIds.indexOf(pu.unit_id) < 0) allUnitIds.push(pu.unit_id); }); });
     const [salRes, fillRes] = await Promise.all([
       sb.from('woodlog_operator_salary').select('project_id, salary_amount').in('project_id', ids),
-      allUnitIds.length > 0
-        ? sb.from('fuel_dispenses').select('unit_id, liters_dispensed, dispense_date').in('unit_id', allUnitIds)
-        : Promise.resolve({ data: [] })
+      fetchFillMap(ids)
     ]);
     const salMap = {};
     (salRes.data || []).forEach(s => { salMap[s.project_id] = (salMap[s.project_id] || 0) + Number(s.salary_amount); });
-    const allFills = fillRes.data || [];
-    renderWoodlogAnalisis(projects, salMap, allFills);
+    renderWoodlogAnalisis(projects, salMap, fillRes);
   } catch(e) { el.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
 }
 
-function renderWoodlogAnalisis(projects, salMap, allFills) {
+function renderWoodlogAnalisis(projects, salMap, fillMap) {
   const el = document.getElementById('wl-panel-analisis');
   if (!el) return;
   const rows = projects.map(function(p) {
     const income = (p.total_mt_m3 && p.unit_price) ? Number(p.total_mt_m3) * Number(p.unit_price) : 0;
     const pus = p.project_units || [];
-    const tankFuel = pus.reduce(function(a, pu) {
-      if (pu.solar_awal_pct != null && pu.solar_akhir_pct != null) {
-        return a + (Number(pu.solar_awal_pct) - Number(pu.solar_akhir_pct)) / 100 * 320;
-      }
-      return a;
-    }, 0);
-    const projectUnitIds = pus.map(pu => pu.unit_id);
-    const fillLiters = allFills.filter(function(f) {
-      return projectUnitIds.indexOf(f.unit_id) >= 0 &&
-        f.dispense_date >= p.start_date &&
-        (!p.end_date || f.dispense_date <= p.end_date);
-    }).reduce(function(a, f) { return a + Number(f.liters_dispensed || 0); }, 0);
-    const fuelCost = (tankFuel + fillLiters) * Number(p.harga_solar_rpl || 0);
+    const projectFills = (fillMap && fillMap[p.id]) ? fillMap[p.id] : {};
+    // BBM: per unit with correct tank size
+    let totalBBM = 0;
+    pus.forEach(function(pu) {
+      const unitCode = (pu.units && pu.units.code) ? pu.units.code : '';
+      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 450 : 320;
+      const hasSolar = pu.solar_awal_pct != null && pu.solar_akhir_pct != null;
+      const tankDiff = hasSolar ? (Number(pu.solar_awal_pct) - Number(pu.solar_akhir_pct)) / 100 * tankSize : 0;
+      const fills = projectFills[pu.unit_id] || 0;
+      totalBBM += tankDiff + fills;
+    });
+    const fuelCost = totalBBM * Number(p.harga_solar_rpl || 0);
     const laborBase = salMap[p.id] || 0;
     const laborCost = laborBase * 1.05;
     const profit = income - fuelCost - laborCost;
@@ -6984,13 +6978,14 @@ function renderWoodlogAnalisis(projects, salMap, allFills) {
       '<td>' + (p.nama_kapal || '—') + '</td>' +
       '<td>' + formatDate(p.end_date) + '</td>' +
       '<td style="text-align:right;">' + fmtRp(income) + '</td>' +
-      '<td style="text-align:right;color:#D97706;">' + fmtRp(fuelCost) + '</td>' +
+      '<td style="text-align:right;color:#D97706;">' + (Math.round(totalBBM).toLocaleString('id') + ' L · ' + fmtRp(fuelCost)) + '</td>' +
       '<td style="text-align:right;color:#7C3AED;">' + fmtRp(laborCost) + '</td>' +
       '<td style="text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#DC2626') + ';">' + fmtRp(profit) + '</td>' +
       '<td style="text-align:right;font-size:12px;">' + Math.round(yieldHM).toLocaleString('id') + '/HM</td>' +
+      '<td style="text-align:right;color:#64748B;">' + (p.invoice_amount ? fmtRp(p.invoice_amount) : '—') + '</td>' +
       '</tr>';
   }).join('');
-  el.innerHTML = '<div class="table-wrap"><table class="dt"><thead><tr><th>Kode</th><th>Kapal</th><th>Selesai</th><th style="text-align:right;">Income</th><th style="text-align:right;">Fuel Cost</th><th style="text-align:right;">Labor (+5%)</th><th style="text-align:right;">Profit</th><th style="text-align:right;">Yield/HM</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  el.innerHTML = '<div class="table-wrap"><table class="dt"><thead><tr><th>Kode</th><th>Kapal</th><th>Selesai</th><th style="text-align:right;">Income</th><th style="text-align:right;">BBM (L · Cost)</th><th style="text-align:right;">Labor (+5%)</th><th style="text-align:right;">Profit</th><th style="text-align:right;">Yield/HM</th><th style="text-align:right;">Invoice</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
 
 function renderWoodlogKontinuitas() {
