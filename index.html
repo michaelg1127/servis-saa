@@ -6637,45 +6637,28 @@ async function submitEditWoodlogKapal(id) {
 function openCloseWoodlogKapalModal(id) {
   const p = _wlKapalCache[id];
   if (!p) return;
-  const units = p.project_units || [];
-  const unitRows = units.map(function(pu) {
-    return '<div style="margin-bottom:8px;padding:10px;background:#F8FAFC;border-radius:8px;">' +
-      '<div style="font-weight:700;color:#1D4ED8;margin-bottom:6px;">' + (pu.units ? pu.units.code : '?') + '</div>' +
-      '<div style="display:flex;gap:10px;">' +
-      '<input type="number" id="wlclose-hm-' + pu.unit_id + '" class="finput" style="flex:1;font-size:13px;" placeholder="HM Akhir" step="0.1" value="' + (pu.hm_akhir != null ? pu.hm_akhir : '') + '">' +
-      '<input type="number" id="wlclose-sol-' + pu.unit_id + '" class="finput" style="width:90px;font-size:13px;" placeholder="Solar Akhir %" min="0" max="100" value="' + (pu.solar_akhir_pct != null ? pu.solar_akhir_pct : '') + '">' +
-      '</div></div>';
-  }).join('');
-  const modalHTML = '<div style="padding:24px;max-width:500px;width:100%;">' +
+  const modalHTML = '<div style="padding:24px;max-width:460px;width:100%;">' +
     '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:4px;">Tutup Proyek ' + p.project_code + '</div>' +
-    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tanggal Selesai *</label><input type="date" id="wlclose-end" class="finput" value="' + todayISO() + '"></div>' +
-    '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">HM Akhir & Solar Akhir per Unit</div>' +
-    unitRows +
-    '<div style="display:flex;gap:12px;margin-top:16px;">' +
+    '<div style="font-size:13px;color:#64748B;margin-bottom:20px;">' + (p.nama_kapal || '') + ' · ' + formatDate(p.end_date) + '</div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">No. Invoice *</label><input type="text" id="wlclose-inv" class="finput" value="' + (p.invoice_number || '') + '" placeholder="Nomor invoice dari klien"></div>' +
+    '<div style="margin-bottom:20px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Nilai Invoice (Rp) *</label><input type="number" id="wlclose-invamt" class="finput" value="' + (p.invoice_amount || '') + '" min="0" placeholder="0"></div>' +
+    '<div style="display:flex;gap:12px;">' +
     '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>' +
-    '<button onclick="submitCloseWoodlogKapal(\'' + id + '\')" class="btn-primary" style="flex:2;">Simpan</button>' +
+    '<button onclick="submitCloseWoodlogKapal('' + id + '')" class="btn-primary" style="flex:2;">Tutup Proyek</button>' +
     '</div></div>';
   document.getElementById('modal-box').innerHTML = modalHTML;
   document.getElementById('modal-overlay').style.display = 'flex';
 }
 
 async function submitCloseWoodlogKapal(id) {
-  const endDate = (document.getElementById('wlclose-end') || {}).value || '';
-  if (!endDate) { showToast('Tanggal Selesai wajib diisi.'); return; }
-  const p = _wlKapalCache[id];
-  if (!p) return;
+  const inv = (document.getElementById('wlclose-inv') || {}).value ? document.getElementById('wlclose-inv').value.trim() : '';
+  const invAmt = parseFloat((document.getElementById('wlclose-invamt') || {}).value) || null;
+  if (!inv) { showToast('No. Invoice wajib diisi.'); return; }
   try {
-    const { error: e1 } = await sb.from('projects').update({ end_date: endDate }).eq('id', id);
-    if (e1) throw e1;
-    const units = p.project_units || [];
-    await Promise.all(units.map(function(pu) {
-      const inp = document.getElementById('wlclose-hm-' + pu.unit_id);
-      const sinp = document.getElementById('wlclose-sol-' + pu.unit_id);
-      const hm = parseFloat(inp ? inp.value : '') || null;
-      const sol = parseFloat(sinp ? sinp.value : '');
-      return sb.from('project_units').update({ hm_akhir: hm, solar_akhir_pct: isNaN(sol) ? null : sol })
-        .eq('project_id', id).eq('unit_id', pu.unit_id);
-    }));
+    const { error } = await sb.from('projects').update({ invoice_number: inv, invoice_amount: invAmt }).eq('id', id);
+    if (error) throw error;
+    const detailRow = document.getElementById('wl-kapal-detail-' + id);
+    if (detailRow) detailRow.dataset.rendered = '';
     closeModal();
     showToast('Proyek berhasil ditutup.', 'success');
     await loadWoodlogKapal();
