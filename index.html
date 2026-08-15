@@ -6181,6 +6181,7 @@ const WL_BANGAU_CODES = ['J02', 'J03'];
 const WL_STD_CODES = ['J45', 'J46', 'J47', 'J48'];
 const WL_ALL_CODES = ['J02', 'J03', 'J45', 'J46', 'J47', 'J48'];
 let _wlKapalCache = {};
+let _wlKapalFillMap = {};
 let _wlHourlyCache = {};
 let _wlKontinuitasUnitId = null;
 
@@ -6223,8 +6224,14 @@ async function loadWoodlogKapal() {
     const ids = (projects || []).map(p => p.id);
     let salaryMap = {};
     if (ids.length > 0) {
-      const { data: sals } = await sb.from('woodlog_operator_salary').select('*').in('project_id', ids);
-      (sals || []).forEach(s => { if (!salaryMap[s.project_id]) salaryMap[s.project_id] = []; salaryMap[s.project_id].push(s); });
+      const [salRes, fillRes] = await Promise.all([
+        sb.from('woodlog_operator_salary').select('*').in('project_id', ids),
+        fetchFillMap(ids)
+      ]);
+      (salRes.data || []).forEach(s => { if (!salaryMap[s.project_id]) salaryMap[s.project_id] = []; salaryMap[s.project_id].push(s); });
+      _wlKapalFillMap = fillRes;
+    } else {
+      _wlKapalFillMap = {};
     }
     projects.forEach(p => { _wlKapalCache[p.id] = p; });
     renderWoodlogKapalList(projects || [], salaryMap);
