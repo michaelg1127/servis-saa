@@ -5961,7 +5961,8 @@ async function exportBatchExcel(batchType) {
     const pUnits = p.project_units || [];
     let projSubtotal = 0;
     if (!isStk) {
-      const rate = calcKapalRate(p.ship_number_in_month || 1);
+      const isCarryoverP = p.month_year && p.end_date && p.month_year.slice(0, 7) !== p.end_date.slice(0, 7);
+      const rate = isCarryoverP ? 175 : calcKapalRate(p.ship_number_in_month || 1);
       const split = calcKapalTonnageSplit(pUnits, p.total_mt_m3 || 0);
       const blTotal = Math.round((p.total_mt_m3 || 0) * (p.unit_price || 0));
       split.forEach(function(u) {
