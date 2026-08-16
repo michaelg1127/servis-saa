@@ -1,0 +1,3 @@
+ALTER TABLE units
+  ADD COLUMN IF NOT EXISTS bank_name TEXT,
+  ADD COLUMN IF NOT EXISTS bank_account_number TEXT;
