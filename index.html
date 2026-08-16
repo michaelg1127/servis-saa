@@ -6005,7 +6005,7 @@ async function exportBatchExcel(batchType) {
     let unitTotal = 0;
     unitSheetData[code].forEach(function(r) { rows.push(r); unitTotal += (typeof r[11] === 'number' ? r[11] : 0); });
     rows.push(['', '', '', '', '', '', 'TOTAL', '', '', '', '', unitTotal]);
-    const safeName = code.replace(/[:\/?*[]]/g, '_').slice(0, 31);
+    const safeName = code.replace(/[:\\/\?*\[\]]/g, '_').slice(0, 31);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), safeName);
   });
   // TRANSFER sheet
