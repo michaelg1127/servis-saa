@@ -4963,10 +4963,25 @@ function calcKapalTonnageSplit(units, totalMt) {
   const withHM = units.map(function(u) {
     return Object.assign({}, u, { hm: u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0 });
   });
-  const count = withHM.length;
-  const share = count > 0 ? totalMt / count : 0;
-  return withHM.map(function(u) {
-    return Object.assign({}, u, { allocatedMt: share, isExcluded: false, isOutlier: false });
+  const totalHMAll = withHM.reduce(function(s, u) { return s + u.hm; }, 0);
+  const threshold = totalHMAll * 0.05;
+  const tagged = withHM.map(function(u) {
+    return Object.assign({}, u, { excluded: u.hm < threshold });
+  });
+  const included = tagged.filter(function(u) { return !u.excluded; });
+  const totalHMIncluded = included.reduce(function(s, u) { return s + u.hm; }, 0);
+  const incHMs = included.map(function(u) { return u.hm; });
+  const sortedHMs = incHMs.slice().sort(function(a, b) { return a - b; });
+  const mid = Math.floor(sortedHMs.length / 2);
+  const median = sortedHMs.length % 2 !== 0 ? sortedHMs[mid] : (sortedHMs[mid - 1] + sortedHMs[mid]) / 2;
+  const hasHighOutlier = included.some(function(u) { return median > 0 && u.hm > median * 1.3; });
+  const count = included.length;
+  return tagged.map(function(u) {
+    if (u.excluded) return Object.assign({}, u, { allocatedMt: 0, isExcluded: true, isOutlier: false });
+    var allocatedMt = hasHighOutlier
+      ? (totalHMIncluded > 0 ? totalMt * u.hm / totalHMIncluded : 0)
+      : (count > 0 ? totalMt / count : 0);
+    return Object.assign({}, u, { allocatedMt: allocatedMt, isExcluded: false, isOutlier: false });
   });
 }
 
