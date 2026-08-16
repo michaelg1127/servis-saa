@@ -5813,9 +5813,10 @@ function renderProyekRingkasan(projects, allUnits, kasbons, monthYear) {
   function dayOf(d) { return d ? parseInt(d.slice(8, 10), 10) : 0; }
   function isCarryover(p) { return p.month_year && p.end_date && p.month_year.slice(0, 7) !== p.end_date.slice(0, 7); }
   const unpaid = projects.filter(function(p) { return !p.paid_batch; });
-  const batch16 = unpaid.filter(function(p) { return p.type === 'kapal' && dayOf(p.end_date) <= 15; });
-  const batch31Kapal = unpaid.filter(function(p) { return p.type === 'kapal' && dayOf(p.end_date) > 15; });
-  const batch31Stk = unpaid.filter(function(p) { return p.type === 'stockpile'; });
+  function isNSE(p) { return p.type === 'stockpile' && p.code_prefix === 'NSE'; }
+  const batch16 = unpaid.filter(function(p) { return (p.type === 'kapal' || isNSE(p)) && dayOf(p.end_date) <= 15; });
+  const batch31Kapal = unpaid.filter(function(p) { return (p.type === 'kapal' || isNSE(p)) && dayOf(p.end_date) > 15; });
+  const batch31Stk = unpaid.filter(function(p) { return p.type === 'stockpile' && !isNSE(p); });
   panel._batch16Ids = batch16.map(function(p) { return p.id; });
   panel._batch31Ids = batch31Kapal.concat(batch31Stk).map(function(p) { return p.id; });
   panel._monthYear = monthYear;
