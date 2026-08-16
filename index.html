@@ -4963,34 +4963,10 @@ function calcKapalTonnageSplit(units, totalMt) {
   const withHM = units.map(function(u) {
     return Object.assign({}, u, { hm: u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0 });
   });
-  // Rule 1: de minimis — use pre-exclusion total as threshold denominator
-  const totalHMAll = withHM.reduce(function(s, u) { return s + u.hm; }, 0);
-  const threshold = totalHMAll * 0.05;
-  const tagged = withHM.map(function(u) {
-    return Object.assign({}, u, { excluded: u.hm < threshold });
-  });
-  // Included units only
-  const included = tagged.filter(function(u) { return !u.excluded; });
-  const totalHMIncluded = included.reduce(function(s, u) { return s + u.hm; }, 0);
-  // Rule 2: median among included, then outlier = >30% deviation
-  const incHMs = included.map(function(u) { return u.hm; });
-  const median = calcMedianHM(incHMs.length > 0 ? incHMs : [0]);
-  const outlierAllocTotal = included.reduce(function(s, u) {
-    const isOut = median > 0 && Math.abs(u.hm - median) / median > 0.30;
-    return s + (isOut && totalHMIncluded > 0 ? totalMt * u.hm / totalHMIncluded : 0);
-  }, 0);
-  const nonOutliers = included.filter(function(u) {
-    return !(median > 0 && Math.abs(u.hm - median) / median > 0.30);
-  });
-  const remainingMt = totalMt - outlierAllocTotal;
-  const equalShare = nonOutliers.length > 0 ? remainingMt / nonOutliers.length : 0;
-  return tagged.map(function(u) {
-    if (u.excluded) return Object.assign({}, u, { allocatedMt: 0, isExcluded: true, isOutlier: false });
-    const isOut = median > 0 && Math.abs(u.hm - median) / median > 0.30;
-    const allocatedMt = isOut && totalHMIncluded > 0
-      ? totalMt * u.hm / totalHMIncluded
-      : equalShare;
-    return Object.assign({}, u, { allocatedMt: allocatedMt, isExcluded: false, isOutlier: isOut });
+  const count = withHM.length;
+  const share = count > 0 ? totalMt / count : 0;
+  return withHM.map(function(u) {
+    return Object.assign({}, u, { allocatedMt: share, isExcluded: false, isOutlier: false });
   });
 }
 
