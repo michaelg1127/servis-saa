@@ -6027,18 +6027,21 @@ async function exportBatchExcel(batchType) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(slipRows), 'SLIP GAJI');
   // TRANSFER sheet
   const gajiPokok = batchType === 'end_of_month' ? 3100000 : 0;
-  const transferRows = [['No','Nama OP','Unit','Total Kerja','Gaji Pokok','Grand Total','Bank','No. Rekening']];
+  const transferRows = [['No','Nama OP','Unit','Total Kerja','Gaji Pokok','Grand Total','Admin Fee','Net Transfer','Bank','No. Rekening','Nama Rekening']];
   let no = 1;
-  let transferGrand = 0;
+  let trTotKerja = 0, trTotPokok = 0, trTotGrand = 0, trTotFee = 0, trTotNet = 0;
   Object.keys(opTotals).sort().forEach(function(name) {
     const s = opTotals[name];
     const kasbon = kasbonMap[name] || 0;
     const grand = s.total + gajiPokok - kasbon;
     const bInfo = bankMap[s.unitCode] || {};
-    transferRows.push([no++, name, s.unitCode, s.total, gajiPokok, grand, bInfo.bank_name || '---', bInfo.bank_account_number || '---']);
-    transferGrand += grand;
+    const isBCA = (bInfo.bank_name || '').toUpperCase().includes('BCA');
+    const adminFee = isBCA ? 0 : 2500;
+    const netTransfer = grand - adminFee;
+    transferRows.push([no++, name, s.unitCode, s.total, gajiPokok, grand, adminFee, netTransfer, bInfo.bank_name || '---', bInfo.bank_account_number || '---', bInfo.bank_account_name || '---']);
+    trTotKerja += s.total; trTotPokok += gajiPokok; trTotGrand += grand; trTotFee += adminFee; trTotNet += netTransfer;
   });
-  transferRows.push(['', 'TOTAL', '', '', '', transferGrand, '', '']);
+  transferRows.push(['', 'TOTAL', '', trTotKerja, trTotPokok, trTotGrand, trTotFee, trTotNet, '', '', '']);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(transferRows), 'TRANSFER');
   const label = batchType === 'mid_month' ? 'Batch16' : 'Batch31';
   XLSX.writeFile(wb, label + '_' + monthYear.replace('-', '') + '.xlsx');
