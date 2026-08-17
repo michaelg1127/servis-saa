@@ -6003,15 +6003,28 @@ async function exportBatchExcel(batchType) {
   const grandKerja = Object.values(opTotals).reduce(function(s, o) { return s + o.total; }, 0);
   rekapRows.push(['', '', '', '', '', '', 'GRAND TOTAL', '', '', '', '', grandKerja]);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rekapRows), 'REKAP');
-  // Per-unit sheets
+  // SLIP GAJI — all operators in one sheet
+  var slipRows = [];
   Object.keys(unitSheetData).sort().forEach(function(code) {
-    const rows = [['Kode','Tanggal','Nama Kapal / Proyek','Kade','Alat','HM Mulai','HM Akhir','Total Jam','BL (Rp)','Persentase','Premi','TOTAL']];
-    let unitTotal = 0;
-    unitSheetData[code].forEach(function(r) { rows.push(r); unitTotal += (typeof r[11] === 'number' ? r[11] : 0); });
-    rows.push(['', '', '', '', '', '', 'TOTAL', '', '', '', '', unitTotal]);
-    const safeName = code.replace(/[:\\/\?*\[\]]/g, '_').slice(0, 31);
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), safeName);
+    var entry = unitSheetData[code];
+    slipRows.push(['Unit:', code, '', 'Nama Operator:', entry.opName || code]);
+    slipRows.push(['Periode:', periodeStr, '', '', '']);
+    slipRows.push([]);
+    slipRows.push(['Kode','Tanggal','Nama Kapal / Proyek','Kade','Alat','HM Mulai','HM Akhir','Total Jam','BL (Ton)','Persentase','Premi','Total Pendapatan']);
+    var unitTotal = 0;
+    entry.rows.forEach(function(r, i) {
+      if (typeof r[11] === 'number' && r[11] > 0) {
+        var slipRow = r.slice();
+        slipRow[8] = entry.blTons[i];
+        slipRows.push(slipRow);
+        unitTotal += r[11];
+      }
+    });
+    slipRows.push(['', '', '', '', '', '', 'Total Pendapatan', '', '', '', '', unitTotal]);
+    slipRows.push([]);
+    slipRows.push([]);
   });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(slipRows), 'SLIP GAJI');
   // TRANSFER sheet
   const gajiPokok = batchType === 'end_of_month' ? 3100000 : 0;
   const transferRows = [['No','Nama OP','Unit','Total Kerja','Gaji Pokok','Grand Total','Bank','No. Rekening']];
