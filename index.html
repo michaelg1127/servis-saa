@@ -5946,9 +5946,12 @@ async function exportBatchExcel(batchType) {
     const { data: kb } = await sb.from('proyek_kasbon').select('operator_name, amount').eq('month_year', monthYear);
     (kb || []).forEach(function(k) { kasbonMap[k.operator_name] = Number(k.amount); });
   }
-  const { data: unitsBank } = await sb.from('units').select('code, operator_name, bank_name, bank_account_number');
+  const { data: unitsBank } = await sb.from('units').select('code, operator_name, bank_name, bank_account_number, bank_account_name');
   const bankMap = {};
   (unitsBank || []).forEach(function(u) { bankMap[u.code] = u; });
+  const BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const _my = (monthYear || '').split('-');
+  const periodeStr = batchType === 'mid_month' ? '1-15 ' + (BULAN_ID[parseInt(_my[1], 10) - 1] || '') + ' ' + _my[0] : '16-31 ' + (BULAN_ID[parseInt(_my[1], 10) - 1] || '') + ' ' + _my[0];
   const wb = XLSX.utils.book_new();
   // Build REKAP rows and index data for per-unit sheets and TRANSFER
   const rekapRows = [['Kode','Tanggal','Nama Kapal / Proyek','Kade','Alat','HM Mulai','HM Akhir','Total Jam','BL (Rp)','Persentase','Premi','TOTAL']];
@@ -5971,8 +5974,9 @@ async function exportBatchExcel(batchType) {
         const opName = u.units ? (u.units.operator_name || unitCode) : unitCode;
         const row = [p.project_code, p.end_date, p.nama_kapal || '', p.kade || '', unitCode, u.hm_awal, u.hm_akhir, hmK, blTotal, pct, rate, total];
         rekapRows.push(row);
-        if (!unitSheetData[unitCode]) unitSheetData[unitCode] = [];
-        unitSheetData[unitCode].push(row);
+        if (!unitSheetData[unitCode]) unitSheetData[unitCode] = { opName: opName, rows: [], blTons: [] };
+        unitSheetData[unitCode].rows.push(row);
+        unitSheetData[unitCode].blTons.push(p.total_mt_m3 || 0);
         if (!opTotals[opName]) opTotals[opName] = { total: 0, unitCode: unitCode };
         opTotals[opName].total += total;
         projSubtotal += total;
@@ -5986,8 +5990,9 @@ async function exportBatchExcel(batchType) {
         const blStk = total;
         const row = [p.project_code, p.end_date, p.project_code, '---', unitCode, u.hm_awal, u.hm_akhir, hmK, blStk, 'STK', 35000, total];
         rekapRows.push(row);
-        if (!unitSheetData[unitCode]) unitSheetData[unitCode] = [];
-        unitSheetData[unitCode].push(row);
+        if (!unitSheetData[unitCode]) unitSheetData[unitCode] = { opName: opName, rows: [], blTons: [] };
+        unitSheetData[unitCode].rows.push(row);
+        unitSheetData[unitCode].blTons.push('—');
         if (!opTotals[opName]) opTotals[opName] = { total: 0, unitCode: unitCode };
         opTotals[opName].total += total;
         projSubtotal += total;
