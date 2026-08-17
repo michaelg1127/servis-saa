@@ -721,9 +721,13 @@
             <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Nama Bank</label>
             <input type="text" id="uf-bank-name" class="finput" style="font-size:14px;padding:10px 12px;" placeholder="BCA / BRI / Mandiri">
           </div>
-          <div style="margin-bottom:16px;">
+          <div style="margin-bottom:12px;">
             <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">No. Rekening</label>
             <input type="text" id="uf-bank-account" class="finput" style="font-size:14px;padding:10px 12px;" placeholder="Nomor rekening">
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Nama Rekening</label>
+            <input type="text" id="uf-bank-account-name" class="finput" style="font-size:14px;padding:10px 12px;" placeholder="Nama pemilik rekening">
           </div>
           <input type="hidden" id="uf-edit-id">
           <button onclick="saveUnit()" class="btn-primary" style="width:100%;" id="uf-save-btn">Tambah Unit</button>
@@ -3864,6 +3868,7 @@ function editUnit(id) {
   document.getElementById('uf-operator').value = u.assigned_operator_id || '';
   document.getElementById('uf-bank-name').value = u.bank_name || '';
   document.getElementById('uf-bank-account').value = u.bank_account_number || '';
+  document.getElementById('uf-bank-account-name').value = u.bank_account_name || '';
   document.getElementById('uf-edit-id').value = id;
   document.getElementById('unit-form-title').textContent = 'Edit Unit';
   document.getElementById('uf-save-btn').textContent = 'Simpan Perubahan';
@@ -3878,6 +3883,7 @@ function cancelUnitEdit() {
   document.getElementById('uf-operator').value = '';
   document.getElementById('uf-bank-name').value = '';
   document.getElementById('uf-bank-account').value = '';
+  document.getElementById('uf-bank-account-name').value = '';
   document.getElementById('uf-edit-id').value = '';
   document.getElementById('unit-form-title').textContent = 'Tambah Unit Baru';
   document.getElementById('uf-save-btn').textContent = 'Tambah Unit';
@@ -3897,7 +3903,8 @@ async function saveUnit() {
       const opProfile = allOperatorProfiles.find(op => op.id === opId);
       const bankName = document.getElementById('uf-bank-name').value.trim() || null;
       const bankAccount = document.getElementById('uf-bank-account').value.trim() || null;
-      const { error } = await sb.from('units').update({ code, name, model, current_hm: hm, assigned_operator_id: opId || null, operator_name: opProfile ? opProfile.name : null, bank_name: bankName, bank_account_number: bankAccount }).eq('id', editId);
+      const bankAccountName = document.getElementById('uf-bank-account-name').value.trim() || null;
+      const { error } = await sb.from('units').update({ code, name, model, current_hm: hm, assigned_operator_id: opId || null, operator_name: opProfile ? opProfile.name : null, bank_name: bankName, bank_account_number: bankAccount, bank_account_name: bankAccountName }).eq('id', editId);
       if (error) throw error;
       showToast('Unit berhasil diupdate!', 'success');
     } else {
