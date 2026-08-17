@@ -5822,7 +5822,7 @@ function renderProyekRingkasan(projects, allUnits, kasbons, monthYear) {
           if (!opMap[key]) opMap[key] = { total: 0, rows: [] };
           const amt = u.allocatedMt * rate;
           opMap[key].total += amt;
-          opMap[key].rows.push(p.project_code + ' ' + (p.end_date || '') + (p.nama_kapal ? ' ' + p.nama_kapal : '') + (isCarryover(p) ? ' [CO]' : '') + ' @' + rate + '/MT: ' + fmtRp(amt));
+          if (amt > 0) opMap[key].rows.push(p.project_code + ' ' + (p.end_date || '') + (p.nama_kapal ? ' ' + p.nama_kapal : '') + (isCarryover(p) ? ' [CO]' : '') + ' @' + rate + '/MT: ' + fmtRp(amt));
         });
       } else {
         (p.project_units || []).forEach(function(u) {
@@ -5831,7 +5831,7 @@ function renderProyekRingkasan(projects, allUnits, kasbons, monthYear) {
           const hm = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0;
           const amt = hm * 35000;
           opMap[key].total += amt;
-          opMap[key].rows.push(p.project_code + ' ' + (p.end_date || '') + ' STK ' + hm.toFixed(1) + 'HM: ' + fmtRp(amt));
+          if (amt > 0) opMap[key].rows.push(p.project_code + ' ' + (p.end_date || '') + ' STK ' + hm.toFixed(1) + 'HM: ' + fmtRp(amt));
         });
       }
     });
