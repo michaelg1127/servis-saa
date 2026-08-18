@@ -812,7 +812,9 @@
   </div>
   <div id="bbm-panel-pengisian" style="display:none;max-width:600px;">
     <div style="background:white;border-radius:16px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
-      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Bunker <span style="color:#EF4444;">*</span></label><select id="bbm-peng-bunker" class="finput" onchange="onPengisianBunkerChange()"><option value="">-- Pilih Bunker --</option></select></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanki Sumber <span style="color:#EF4444;">*</span></label><select id="bbm-peng-sumber" class="finput" onchange="onSumberChange(this.value)"><option value="hijau">Tanki Hijau</option><option value="merah">Tanki Merah</option><option value="kuning">Tanki Kuning</option></select></div>
+      <div id="bbm-peng-bunker-row" style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Pilih Bunker <span style="color:#EF4444;">*</span></label><select id="bbm-peng-bunker" class="finput" onchange="onPengisianBunkerChange()"><option value="">-- Pilih Bunker --</option></select></div>
+      <div id="bbm-peng-pool-balance" style="display:none;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#1D4ED8;font-weight:600;"></div>
       <div id="bbm-peng-bunker-preview" style="display:none;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#1D4ED8;font-weight:600;"></div>
       <div style="display:grid;grid-template-columns:1fr 100px;gap:12px;margin-bottom:14px;">
         <div><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Nama Drum <span style="color:#EF4444;">*</span></label><input type="text" id="bbm-peng-drum" class="finput" placeholder="Contoh: Drum 3, Polos"></div>
@@ -4433,17 +4435,52 @@ async function getNextTransferSeq(bunkerCode) {
   return nums.length ? Math.max(...nums) + 1 : 1;
 }
 
+async function getNextFillCode(tank) {
+  const prefix = tank === 'merah' ? 'M' : 'K';
+  const { data } = await sb.from('fuel_transfers').select('transfer_code').like('transfer_code', prefix + '-%');
+  const nums = (data || [])
+    .map(r => r.transfer_code)
+    .filter(code => new RegExp('^' + prefix + '-\\d+$').test(code))
+    .map(code => parseInt(code.split('-')[1], 10))
+    .filter(n => !isNaN(n));
+  return prefix + '-' + (nums.length ? Math.max(...nums) + 1 : 1);
+}
+
+async function onSumberChange(tank) {
+  const bunkerRow = document.getElementById('bbm-peng-bunker-row');
+  const poolBalance = document.getElementById('bbm-peng-pool-balance');
+  const bunkerPrev = document.getElementById('bbm-peng-bunker-preview');
+  if (tank === 'hijau') {
+    if (bunkerRow) bunkerRow.style.display = '';
+    if (poolBalance) poolBalance.style.display = 'none';
+    if (bunkerPrev) bunkerPrev.style.display = 'none';
+    const bunkerSel = document.getElementById('bbm-peng-bunker');
+    if (bunkerSel) bunkerSel.value = '';
+  } else {
+    if (bunkerRow) bunkerRow.style.display = 'none';
+    if (bunkerPrev) bunkerPrev.style.display = 'none';
+    if (poolBalance) {
+      poolBalance.style.display = '';
+      const levels = await calcTankLevels();
+      const lvl = levels[tank] || 0;
+      const label = tank === 'merah' ? 'Merah' : 'Kuning';
+      const nextCode = await getNextFillCode(tank);
+      poolBalance.innerHTML = 'Kode isi: <strong>' + nextCode + '</strong> &nbsp;|&nbsp; Saldo Tanki ' + label + ': <strong>' + Math.max(0, lvl).toLocaleString('id') + ' L</strong>';
+    }
+  }
+}
+
 async function initPengisianForm() {
   const dateEl = document.getElementById('bbm-peng-date');
   if (dateEl && !dateEl.value) dateEl.value = todayISO();
   const [{ data: bunkers }, { data: units }] = await Promise.all([
-    sb.from('fuel_bunkers').select('id, bunker_code, tank_name, total_liters, delivery_date').order('delivery_date', { ascending: false }),
+    sb.from('fuel_bunkers').select('id, bunker_code, total_liters, delivery_date').eq('tank_name', 'hijau').order('delivery_date', { ascending: false }),
     sb.from('units').select('id, code, name').order('code'),
   ]);
   const bunkerSel = document.getElementById('bbm-peng-bunker');
   if (bunkerSel) bunkerSel.innerHTML = '<option value="">-- Pilih Bunker --</option>' +
     (bunkers || []).map(b => '<option value="' + b.id + '" data-code="' + b.bunker_code + '" data-total="' + b.total_liters + '">' +
-      b.bunker_code + ' — ' + b.tank_name.charAt(0).toUpperCase() + b.tank_name.slice(1) + ' — ' + Number(b.total_liters).toLocaleString('id') + 'L — ' + formatDate(b.delivery_date) + '</option>').join('');
+      b.bunker_code + ' — ' + Number(b.total_liters).toLocaleString('id') + 'L — ' + formatDate(b.delivery_date) + '</option>').join('');
   const unitSel = document.getElementById('bbm-peng-unit');
   if (unitSel) unitSel.innerHTML = '<option value="">-- Pilih Unit --</option>' +
     (units || []).map(u => '<option value="' + u.id + '">' + u.code + ' — ' + u.name + '</option>').join('');
@@ -4454,6 +4491,12 @@ async function initPengisianForm() {
   if (prev) prev.style.display = 'none';
   const bprev = document.getElementById('bbm-peng-bunker-preview');
   if (bprev) bprev.style.display = 'none';
+  const sumberEl = document.getElementById('bbm-peng-sumber');
+  if (sumberEl) sumberEl.value = 'hijau';
+  const poolBal = document.getElementById('bbm-peng-pool-balance');
+  if (poolBal) poolBal.style.display = 'none';
+  const bunkerRow = document.getElementById('bbm-peng-bunker-row');
+  if (bunkerRow) bunkerRow.style.display = '';
   loadBBMProjectsForUnit('');
 }
 
@@ -4549,10 +4592,8 @@ function onGaugeInput(v) {
 }
 
 async function submitPengisian() {
-  const bunkerSel = document.getElementById('bbm-peng-bunker');
-  const bunkerOpt = bunkerSel && bunkerSel.selectedOptions[0];
-  const bunkerId = bunkerOpt ? bunkerOpt.value : '';
-  const bunkerCode = bunkerOpt ? bunkerOpt.dataset.code : '';
+  const sumberEl = document.getElementById('bbm-peng-sumber');
+  const sumber = sumberEl ? sumberEl.value : 'hijau';
   const drumName = document.getElementById('bbm-peng-drum').value.trim();
   const vol = parseFloat(document.getElementById('bbm-peng-vol').value);
   const unitId = document.getElementById('bbm-peng-unit').value;
@@ -4567,14 +4608,34 @@ async function submitPengisian() {
   const notes = document.getElementById('bbm-peng-notes').value.trim() || null;
   const gaugeRaw = parseInt((document.getElementById('bbm-peng-gauge') || {}).value || '');
   const gaugePct = !isNaN(gaugeRaw) && gaugeRaw >= 0 && gaugeRaw <= 100 ? gaugeRaw : null;
-  if (!bunkerId || !drumName || !vol || !unitId || !hm || !date) { showToast('Bunker, Drum, Volume, Unit, HM, dan Tanggal wajib diisi.'); return; }
-  const totalBunker = parseFloat(bunkerOpt.dataset.total) || 0;
-  const { data: existingT } = await sb.from('fuel_transfers').select('volume_liters').eq('bunker_id', bunkerId);
-  const usedSoFar = (existingT || []).reduce((s, t) => s + Number(t.volume_liters), 0);
-  if (vol > totalBunker - usedSoFar) { showToast('Volume melebihi sisa kapasitas bunker (' + Math.round(totalBunker - usedSoFar) + 'L).'); return; }
-  try {
+  if (!drumName || !vol || !unitId || !hm || !date) { showToast('Drum, Volume, Unit, HM, dan Tanggal wajib diisi.'); return; }
+
+  let bunkerId, transferCode;
+
+  if (sumber === 'hijau') {
+    const bunkerSel = document.getElementById('bbm-peng-bunker');
+    const bunkerOpt = bunkerSel && bunkerSel.selectedOptions[0];
+    bunkerId = bunkerOpt ? bunkerOpt.value : '';
+    const bunkerCode = bunkerOpt ? bunkerOpt.dataset.code : '';
+    if (!bunkerId) { showToast('Pilih bunker Hijau terlebih dahulu.'); return; }
+    const totalBunker = parseFloat(bunkerOpt.dataset.total) || 0;
+    const { data: existingT } = await sb.from('fuel_transfers').select('volume_liters').eq('bunker_id', bunkerId);
+    const usedSoFar = (existingT || []).reduce((s, t) => s + Number(t.volume_liters), 0);
+    if (vol > totalBunker - usedSoFar) { showToast('Volume melebihi sisa kapasitas bunker (' + Math.round(totalBunker - usedSoFar) + 'L).'); return; }
     const seq = await getNextTransferSeq(bunkerCode);
-    const transferCode = bunkerCode + '-' + seq;
+    transferCode = bunkerCode + '-' + seq;
+  } else {
+    const obCode = sumber === 'merah' ? 'M-OB' : 'K-OB';
+    const { data: obData, error: obErr } = await sb.from('fuel_bunkers').select('id').eq('bunker_code', obCode).single();
+    if (obErr || !obData) { showToast('Pool bunker ' + obCode + ' tidak ditemukan. Jalankan migrasi dulu.'); return; }
+    bunkerId = obData.id;
+    const levels = await calcTankLevels();
+    const balance = levels[sumber] || 0;
+    if (vol > balance) { showToast('Volume melebihi saldo Tanki ' + (sumber === 'merah' ? 'Merah' : 'Kuning') + ' (' + Math.round(balance) + 'L).'); return; }
+    transferCode = await getNextFillCode(sumber);
+  }
+
+  try {
     const { data: tData, error: e1 } = await sb.from('fuel_transfers')
       .insert({ transfer_code: transferCode, bunker_id: bunkerId, drum_name: drumName, volume_liters: vol, filled_date: date, status: 'deployed' })
       .select('id').single();
@@ -4584,6 +4645,8 @@ async function submitPengisian() {
       .insert({ transfer_id: tData.id, unit_id: unitId, hm_at_fill: hm, dispense_date: date, dispense_time: time, liters_dispensed: vol, l_per_hr: lhr, gauge_pct: gaugePct, project_id: projectId, project, notes });
     if (e2) throw e2;
     showToast('Pengisian ' + transferCode + ' berhasil dicatat!', 'success');
+    const sumberReset = document.getElementById('bbm-peng-sumber');
+    if (sumberReset) sumberReset.value = 'hijau';
     document.getElementById('bbm-peng-bunker').value = '';
     document.getElementById('bbm-peng-drum').value = '';
     document.getElementById('bbm-peng-vol').value = '200';
@@ -4603,6 +4666,10 @@ async function submitPengisian() {
     document.getElementById('bbm-peng-bunker-preview').style.display = 'none';
     document.getElementById('bbm-peng-last-info').style.display = 'none';
     document.getElementById('bbm-peng-lhr-preview').style.display = 'none';
+    const poolBal = document.getElementById('bbm-peng-pool-balance');
+    if (poolBal) poolBal.style.display = 'none';
+    const bunkerRow = document.getElementById('bbm-peng-bunker-row');
+    if (bunkerRow) bunkerRow.style.display = '';
     bbmLastDispenseByUnit = {};
     loadFuelStatus();
   } catch(e) { showToast('Gagal: ' + e.message); }
