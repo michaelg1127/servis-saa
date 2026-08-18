@@ -7521,13 +7521,13 @@ async function loadWoodlogOpenProjects() {
   if (!el) return;
   el.innerHTML = '<div style="color:#94A3B8;padding:20px;">Memuat...</div>';
   try {
-    const { data: projects, error } = await sb.from('projects')
+    const { data: allProjects, error } = await sb.from('projects')
       .select('*, project_units(*, units(code, name))')
       .in('type', ['woodlog_kapal', 'woodlog_hourly'])
-      .is('invoice_number', null)
       .order('project_code', { ascending: false });
     if (error) throw error;
-    const ids = (projects || []).map(function(p) { return p.id; });
+    const projects = (allProjects || []).filter(function(p) { return !p.invoice_number; });
+    const ids = projects.map(function(p) { return p.id; });
     let salMap = {};
     let fillMap = {};
     if (ids.length > 0) {
