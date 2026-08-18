@@ -858,12 +858,14 @@
     <button id="wl-tab-hourly" onclick="switchWoodlogTab('hourly',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Hourly</button>
     <button id="wl-tab-ringkasan" onclick="switchWoodlogTab('ringkasan',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Ringkasan</button>
     <button id="wl-tab-analisis" onclick="switchWoodlogTab('analisis',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Analisis Biaya</button>
+    <button id="wl-tab-open" onclick="switchWoodlogTab('open',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Proyek Terbuka</button>
     <button id="wl-tab-kontinuitas" onclick="switchWoodlogTab('kontinuitas',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Kontinuitas HM</button>
   </div>
   <div id="wl-panel-kapal"></div>
   <div id="wl-panel-hourly" style="display:none;"></div>
   <div id="wl-panel-ringkasan" style="display:none;"></div>
   <div id="wl-panel-analisis" style="display:none;"></div>
+  <div id="wl-panel-open" style="display:none;"></div>
   <div id="wl-panel-kontinuitas" style="display:none;"></div>
   </div>
   </div>
@@ -6439,7 +6441,7 @@ let _wlHourlyCache = {};
 let _wlKontinuitasUnitId = null;
 
 function switchWoodlogTab(tab, el) {
-  ['kapal','hourly','ringkasan','analisis','kontinuitas'].forEach(function(t) {
+  ['kapal','hourly','ringkasan','analisis','open','kontinuitas'].forEach(function(t) {
     const panel = document.getElementById('wl-panel-' + t);
     const btn = document.getElementById('wl-tab-' + t);
     if (panel) panel.style.display = t === tab ? '' : 'none';
@@ -6449,6 +6451,7 @@ function switchWoodlogTab(tab, el) {
   if (tab === 'hourly') loadWoodlogHourly();
   if (tab === 'ringkasan') loadWoodlogRingkasan();
   if (tab === 'analisis') loadWoodlogAnalisis();
+  if (tab === 'open') loadWoodlogOpenProjects();
   if (tab === 'kontinuitas') renderWoodlogKontinuitas();
 }
 
@@ -7366,8 +7369,8 @@ function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
       ? '<span style="background:#DBEAFE;color:#1D4ED8;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;">CLOSED</span>'
       : '<span style="background:#FEF3C7;color:#D97706;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;">OPEN</span>';
     const invoiceCell = isClosed
-      ? '<div>' + (p.invoice_number || '') + '</div><div style="font-size:11px;color:#64748B;">' + fmtRp(p.invoice_amount || 0) + '</div>'
-      : '<button onclick="wlOpenInvoice(\'' + p.id + '\')" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;">+ Invoice</button>';
+      ? '<div style="font-size:12px;font-weight:700;color:#1D4ED8;">' + (p.invoice_number || '') + '</div><div style="font-size:11px;color:#64748B;">' + fmtRp(p.invoice_amount || 0) + '</div><button onclick="event.stopPropagation();wlOpenInvoiceModal(\'' + p.id + '\')" style="font-size:10px;color:#94A3B8;background:none;border:none;cursor:pointer;padding:0;margin-top:2px;">✎ Edit</button>'
+      : '<button onclick="event.stopPropagation();wlOpenInvoiceModal(\'' + p.id + '\')" style="background:#FEF3C7;border:1px solid #FDE68A;color:#D97706;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;">+ Input Invoice</button>';
     return '<tr id="wla-row-' + p.id + '" style="cursor:pointer;border-bottom:2px solid #F1F5F9;" onclick="toggleWLAnalisis(\'' + p.id + '\')">' +
       '<td style="font-weight:700;color:#1D4ED8;">' + p.project_code + ' ' + statusBadge + '</td>' +
       '<td>' + (p.nama_kapal || '—') + '</td>' +
@@ -7478,8 +7481,152 @@ async function wlSaveField(pid, field) {
   await loadWoodlogAnalisis();
 }
 
-function wlOpenInvoice(pid) {
-  openWLCloseProject(pid);
+function wlOpenInvoiceModal(pid) {
+  const el = document.getElementById('wl-panel-analisis');
+  const projects = (el && el._wlaProjects) ? el._wlaProjects : [];
+  const p = projects.find(function(x) { return x.id === pid; });
+  const fmtRp = function(v) { return 'Rp ' + Math.round(v || 0).toLocaleString('id'); };
+  const isClosed = p && !!p.invoice_number;
+  const modalHTML = '<div style="padding:24px;max-width:460px;width:100%;">' +
+    '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:4px;">' + (isClosed ? 'Edit Invoice' : 'Input Invoice') + ' — ' + (p ? p.project_code : '') + '</div>' +
+    '<div style="font-size:13px;color:#64748B;margin-bottom:20px;">' + (p ? (p.nama_kapal || '') : '') + '</div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">No. Invoice *</label>' +
+    '<input type="text" id="wlinv-num" class="finput" value="' + (p && p.invoice_number ? p.invoice_number : '') + '" placeholder="Nomor invoice dari klien"></div>' +
+    '<div style="margin-bottom:20px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Nilai Invoice (Rp)</label>' +
+    '<input type="number" id="wlinv-amt" class="finput" value="' + (p && p.invoice_amount ? p.invoice_amount : '') + '" min="0" placeholder="0"></div>' +
+    '<div style="display:flex;gap:12px;">' +
+    '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>' +
+    '<button onclick="wlSaveInvoice(\'' + pid + '\')" class="btn-primary" style="flex:2;">Simpan Invoice</button>' +
+    '</div></div>';
+  document.getElementById('modal-box').innerHTML = modalHTML;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+async function wlSaveInvoice(pid) {
+  const num = (document.getElementById('wlinv-num') || {}).value;
+  const inv = num ? num.trim() : '';
+  const invAmt = parseFloat((document.getElementById('wlinv-amt') || {}).value) || null;
+  if (!inv) { showToast('No. Invoice wajib diisi.'); return; }
+  const { error } = await sb.from('projects').update({ invoice_number: inv, invoice_amount: invAmt }).eq('id', pid);
+  if (error) { showToast('Gagal: ' + error.message); return; }
+  closeModal();
+  showToast('Invoice tersimpan!', 'success');
+  await loadWoodlogAnalisis();
+  const openEl = document.getElementById('wl-panel-open');
+  if (openEl && openEl.style.display !== 'none') await loadWoodlogOpenProjects();
+}
+
+async function loadWoodlogOpenProjects() {
+  const el = document.getElementById('wl-panel-open');
+  if (!el) return;
+  el.innerHTML = '<div style="color:#94A3B8;padding:20px;">Memuat...</div>';
+  try {
+    const { data: projects, error } = await sb.from('projects')
+      .select('*, project_units(*, units(code, name))')
+      .in('type', ['woodlog_kapal', 'woodlog_hourly'])
+      .is('invoice_number', null)
+      .order('project_code', { ascending: false });
+    if (error) throw error;
+    const ids = (projects || []).map(function(p) { return p.id; });
+    let salMap = {};
+    let fillMap = {};
+    if (ids.length > 0) {
+      const [salRes, fillRes] = await Promise.all([
+        sb.from('woodlog_operator_salary').select('project_id, salary_amount').in('project_id', ids),
+        fetchFillMap(ids)
+      ]);
+      (salRes.data || []).forEach(function(s) { salMap[s.project_id] = (salMap[s.project_id] || 0) + Number(s.salary_amount); });
+      fillMap = fillRes;
+    }
+    renderWoodlogOpenProjects(projects || [], salMap, fillMap);
+  } catch(e) { el.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
+}
+
+function renderWoodlogOpenProjects(projects, salMap, fillMap) {
+  const el = document.getElementById('wl-panel-open');
+  if (!el) return;
+  if (!projects.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#64748B;"><div style="font-size:32px;margin-bottom:12px;">✅</div><div style="font-weight:700;font-size:16px;">Semua proyek sudah tertutup!</div><div style="font-size:13px;margin-top:4px;">Tidak ada proyek yang belum memiliki nomor invoice.</div></div>';
+    return;
+  }
+  const fmtRp = function(v) { return 'Rp ' + Math.round(v).toLocaleString('id'); };
+  const rows = projects.map(function(p) {
+    const pus = p.project_units || [];
+    const projectFills = (fillMap && fillMap[p.id]) ? fillMap[p.id] : {};
+    let totalBBM = 0;
+    pus.forEach(function(pu) {
+      const unitCode = (pu.units && pu.units.code) ? pu.units.code : '';
+      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 450 : 320;
+      const hasSolar = pu.solar_awal_pct != null && pu.solar_akhir_pct != null;
+      const tankDiff = hasSolar ? (Number(pu.solar_awal_pct) - Number(pu.solar_akhir_pct)) / 100 * tankSize : 0;
+      const fills = projectFills[pu.unit_id] || 0;
+      totalBBM += tankDiff + fills;
+    });
+    const income = (p.total_mt_m3 && p.unit_price) ? Number(p.total_mt_m3) * Number(p.unit_price) : 0;
+    const fuelCost = totalBBM * Number(p.harga_solar_rpl || 0);
+    const laborCost = (salMap[p.id] || 0) * 1.05;
+    const profit = income - fuelCost - laborCost;
+    const isCompleted = !!p.end_date;
+    const statusBadge = isCompleted
+      ? '<span style="background:#DCFCE7;color:#16A34A;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;">SELESAI</span>'
+      : '<span style="background:#FEE2E2;color:#DC2626;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;">BERJALAN</span>';
+    return '<tr style="border-bottom:2px solid #F1F5F9;">' +
+      '<td style="font-weight:700;color:#D97706;">' + p.project_code + '<br>' + statusBadge + '</td>' +
+      '<td>' + (p.nama_kapal || '—') + '<br><span style="font-size:11px;color:#94A3B8;">' + (p.type === 'woodlog_hourly' ? 'Hourly' : 'Kapal') + '</span></td>' +
+      '<td>' + (p.end_date ? formatDate(p.end_date) : '<span style="color:#DC2626;">Belum selesai</span>') + '</td>' +
+      '<td style="text-align:right;">' + (income > 0 ? fmtRp(income) : '<span style="color:#94A3B8;">—</span>') + '</td>' +
+      '<td style="text-align:right;color:#D97706;">' + Math.round(totalBBM).toLocaleString('id') + ' L<br>' + fmtRp(fuelCost) + '</td>' +
+      '<td style="text-align:right;color:#7C3AED;">' + fmtRp(laborCost) + '</td>' +
+      '<td style="text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#DC2626') + ';">' + fmtRp(profit) + '</td>' +
+      '<td style="text-align:center;"><button onclick="wlOpenInvoiceFromOpen(\'' + p.id + '\')" style="background:#FEF3C7;border:1px solid #FDE68A;color:#D97706;font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;cursor:pointer;">+ Input Invoice</button></td>' +
+      '</tr>';
+  }).join('');
+  el.innerHTML =
+    '<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">' +
+    '<div><div style="font-size:15px;font-weight:800;color:#D97706;">Proyek Belum Tertutup</div>' +
+    '<div style="font-size:12px;color:#64748B;margin-top:2px;">' + projects.length + ' proyek belum memiliki nomor invoice</div></div>' +
+    '<button onclick="loadWoodlogOpenProjects()" style="background:#F1F5F9;border:1px solid #E2E8F0;color:#64748B;font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:600;">↻ Refresh</button>' +
+    '</div>' +
+    '<div class="table-wrap"><table class="dt"><thead><tr>' +
+    '<th>Kode</th><th>Kapal</th><th>Tgl Selesai</th>' +
+    '<th style="text-align:right;">Income</th>' +
+    '<th style="text-align:right;">BBM</th>' +
+    '<th style="text-align:right;">Labor (+5%)</th>' +
+    '<th style="text-align:right;">Profit Est.</th>' +
+    '<th style="text-align:center;">Invoice</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  el._wloProjects = projects;
+}
+
+function wlOpenInvoiceFromOpen(pid) {
+  const el = document.getElementById('wl-panel-open');
+  const projects = (el && el._wloProjects) ? el._wloProjects : [];
+  const p = projects.find(function(x) { return x.id === pid; });
+  const modalHTML = '<div style="padding:24px;max-width:460px;width:100%;">' +
+    '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:4px;">Input Invoice — ' + (p ? p.project_code : '') + '</div>' +
+    '<div style="font-size:13px;color:#64748B;margin-bottom:20px;">' + (p ? (p.nama_kapal || '') : '') + '</div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">No. Invoice *</label>' +
+    '<input type="text" id="wlinv-num" class="finput" placeholder="Nomor invoice dari klien"></div>' +
+    '<div style="margin-bottom:20px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Nilai Invoice (Rp)</label>' +
+    '<input type="number" id="wlinv-amt" class="finput" min="0" placeholder="0"></div>' +
+    '<div style="display:flex;gap:12px;">' +
+    '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>' +
+    '<button onclick="wlSaveInvoiceFromOpen(\'' + pid + '\')" class="btn-primary" style="flex:2;">Simpan & Tutup Proyek</button>' +
+    '</div></div>';
+  document.getElementById('modal-box').innerHTML = modalHTML;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+async function wlSaveInvoiceFromOpen(pid) {
+  const num = (document.getElementById('wlinv-num') || {}).value;
+  const inv = num ? num.trim() : '';
+  const invAmt = parseFloat((document.getElementById('wlinv-amt') || {}).value) || null;
+  if (!inv) { showToast('No. Invoice wajib diisi.'); return; }
+  const { error } = await sb.from('projects').update({ invoice_number: inv, invoice_amount: invAmt }).eq('id', pid);
+  if (error) { showToast('Gagal: ' + error.message); return; }
+  closeModal();
+  showToast('Invoice tersimpan — proyek tertutup!', 'success');
+  await loadWoodlogOpenProjects();
 }
 
 function renderWoodlogKontinuitas() {
