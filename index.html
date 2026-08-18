@@ -803,7 +803,7 @@
     <div style="background:white;border-radius:16px;padding:24px;box-shadow:0 1px 6px rgba(0,0,0,0.07);">
       <div id="bbm-terima-preview" style="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#1D4ED8;font-weight:600;"></div>
       <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanggal Terima <span style="color:#EF4444;">*</span></label><input type="date" id="bbm-terima-date" class="finput" onchange="onTerimaChange()"></div>
-      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanki Tujuan <span style="color:#EF4444;">*</span></label><select id="bbm-terima-tank" class="finput" onchange="onTerimaChange()"><option value="">-- Pilih Tanki --</option><option value="hijau">Tanki Hijau (8.000 L)</option><option value="merah">Tanki Merah (1.500 L)</option><option value="kuning">Tanki Kuning (1.500 L)</option></select></div>
+      <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Tanki Tujuan <span style="color:#EF4444;">*</span></label><select id="bbm-terima-tank" class="finput" onchange="onTerimaChange()"><option value="">-- Pilih Tanki --</option><option value="hijau">Tanki Hijau (8.000 L)</option></select></div>
       <div style="margin-bottom:14px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Volume (L) <span style="color:#EF4444;">*</span></label><input type="number" id="bbm-terima-vol" class="finput" placeholder="Contoh: 8000" min="1" onchange="onTerimaChange()"></div>
       <div style="margin-bottom:20px;"><label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Catatan</label><textarea id="bbm-terima-notes" class="finput" rows="2" placeholder="Opsional..."></textarea></div>
       <button onclick="submitFuelBunker()" class="btn-primary" style="width:100%;padding:13px;font-size:15px;font-weight:700;">Simpan Bunker</button>
@@ -4395,7 +4395,8 @@ async function submitFuelBunker() {
 async function loadBunkerHistory() {
   const el = document.getElementById('bbm-bunker-history');
   if (!el) return;
-  const { data } = await sb.from('fuel_bunkers').select('id, bunker_code, delivery_date, tank_name, total_liters, notes').order('delivery_date', { ascending: false });
+  const { data: rawBunkers } = await sb.from('fuel_bunkers').select('id, bunker_code, delivery_date, tank_name, total_liters, notes').order('delivery_date', { ascending: false });
+  const data = (rawBunkers || []).filter(b => !b.bunker_code.endsWith('-OB'));
   if (!data || data.length === 0) {
     el.innerHTML = '<div style="color:#94A3B8;font-size:13px;margin-top:12px;">Belum ada bunker.</div>'; return;
   }
@@ -4757,7 +4758,7 @@ async function loadFuelRiwayat() {
     if (e3) throw e3;
     fuelRiwayatData = (dispenses || []).map(r => ({ ...r, _type: 'dispense' }));
     fuelTankXferData = (xfers || []).map(r => ({ ...r, _type: 'xfer' }));
-    fuelBunkerData = (bunkers || []).map(r => ({ ...r, _type: 'bunker' }));
+    fuelBunkerData = (bunkers || []).filter(r => !r.bunker_code.endsWith('-OB')).map(r => ({ ...r, _type: 'bunker' }));
     renderFuelRiwayat();
   } catch(e) { el.innerHTML = '<div style="color:#DC2626;padding:16px;">Gagal: ' + e.message + '</div>'; }
 }
@@ -4775,7 +4776,7 @@ function renderFuelRiwayat() {
   const bunkerFromDisp = fuelRiwayatData.map(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : null);
   const bunkerFromXfer = fuelTankXferData.map(r => r.fuel_bunkers ? r.fuel_bunkers.bunker_code : null);
   const bunkerFromTerima = fuelBunkerData.map(r => r.bunker_code);
-  const bunkerOpts = [...new Set([...bunkerFromDisp, ...bunkerFromXfer, ...bunkerFromTerima].filter(Boolean))].sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; });
+  const bunkerOpts = [...new Set([...bunkerFromDisp, ...bunkerFromXfer, ...bunkerFromTerima].filter(b => b && !b.endsWith('-OB')))].sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; });
   const unitOpts = [...new Set(fuelRiwayatData.map(r => r.units ? r.units.code : null).filter(Boolean))].sort();
   const projectCodes = fuelRiwayatData.map(r => (r.project_id && r.projects) ? r.projects.project_code : r.project).filter(Boolean);
   const projectOpts = [...new Set(projectCodes)].sort();
