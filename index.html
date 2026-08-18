@@ -6907,9 +6907,9 @@ function openCloseWoodlogKapalModal(id) {
 }
 
 async function submitCloseWoodlogKapal(id) {
-  const inv = (document.getElementById('wlclose-inv') || {}).value ? document.getElementById('wlclose-inv').value.trim() : '';
+  const raw = (document.getElementById('wlclose-inv') || {}).value;
+  const inv = raw ? raw.trim() : null;
   const invAmt = parseFloat((document.getElementById('wlclose-invamt') || {}).value) || null;
-  if (!inv) { showToast('No. Invoice wajib diisi.'); return; }
   try {
     const { error } = await sb.from('projects').update({ invoice_number: inv, invoice_amount: invAmt }).eq('id', id);
     if (error) throw error;
@@ -7504,9 +7504,8 @@ function wlOpenInvoiceModal(pid) {
 
 async function wlSaveInvoice(pid) {
   const num = (document.getElementById('wlinv-num') || {}).value;
-  const inv = num ? num.trim() : '';
+  const inv = num ? num.trim() : null;
   const invAmt = parseFloat((document.getElementById('wlinv-amt') || {}).value) || null;
-  if (!inv) { showToast('No. Invoice wajib diisi.'); return; }
   const { error } = await sb.from('projects').update({ invoice_number: inv, invoice_amount: invAmt }).eq('id', pid);
   if (error) { showToast('Gagal: ' + error.message); return; }
   closeModal();
@@ -7619,9 +7618,8 @@ function wlOpenInvoiceFromOpen(pid) {
 
 async function wlSaveInvoiceFromOpen(pid) {
   const num = (document.getElementById('wlinv-num') || {}).value;
-  const inv = num ? num.trim() : '';
+  const inv = num ? num.trim() : null;
   const invAmt = parseFloat((document.getElementById('wlinv-amt') || {}).value) || null;
-  if (!inv) { showToast('No. Invoice wajib diisi.'); return; }
   const { error } = await sb.from('projects').update({ invoice_number: inv, invoice_amount: invAmt }).eq('id', pid);
   if (error) { showToast('Gagal: ' + error.message); return; }
   closeModal();
