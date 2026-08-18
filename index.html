@@ -7075,86 +7075,129 @@ async function loadWoodlogRingkasan() {
   try {
     const monthInput = el.querySelector('#wl-ring-month');
     const monthYear = monthInput ? monthInput.value : todayISO().slice(0, 7);
-    const { data: completedProjects } = await sb.from('projects')
-      .select('id, project_code, end_date, type')
+    const [y, m] = monthYear.split('-').map(Number);
+    const monthStart = monthYear + '-01';
+    const lastDay = new Date(y, m, 0).getDate();
+    const monthEnd = monthYear + '-' + String(lastDay).padStart(2, '0');
+    const { data: monthProjects } = await sb.from('projects')
+      .select('id, project_code, nama_kapal, end_date, type')
       .in('type', ['woodlog_kapal', 'woodlog_hourly'])
       .not('end_date', 'is', null)
+      .gte('end_date', monthStart)
+      .lte('end_date', monthEnd)
       .order('end_date', { ascending: true });
-    const completedIds = (completedProjects || []).map(p => p.id);
+    const allMonthProjects = monthProjects || [];
+    const allIds = allMonthProjects.map(p => p.id);
     let salaryRows = [];
-    if (completedIds.length > 0) {
+    if (allIds.length > 0) {
       const { data: sals } = await sb.from('woodlog_operator_salary')
-        .select('*').in('project_id', completedIds).is('paid_batch', null);
+        .select('*').in('project_id', allIds).is('paid_batch', null);
       salaryRows = sals || [];
     }
     const { data: kasbons } = await sb.from('woodlog_kasbon').select('*').eq('month_year', monthYear);
     const kasbonMap = {};
     (kasbons || []).forEach(k => { kasbonMap[k.operator_name] = { amount: Number(k.amount), id: k.id }; });
-    renderWoodlogRingkasan(salaryRows, completedProjects || [], kasbonMap, monthYear);
+    renderWoodlogRingkasan(salaryRows, allMonthProjects, kasbonMap, monthYear);
   } catch(e) { el.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
 }
 
-function renderWoodlogRingkasan(salaryRows, completedProjects, kasbonMap, monthYear) {
+function renderWoodlogRingkasan(salaryRows, allProjects, kasbonMap, monthYear) {
   const el = document.getElementById('wl-panel-ringkasan');
   if (!el) return;
-  const retainerIds = new Set(completedProjects.slice(-2).map(p => p.id));
-  const payableRows = salaryRows.filter(s => !retainerIds.has(s.project_id));
-  const retainerProjects = completedProjects.slice(-2);
-  const opSums = {};
-  payableRows.forEach(function(s) {
-    if (!opSums[s.operator_name]) opSums[s.operator_name] = 0;
-    opSums[s.operator_name] += Number(s.salary_amount);
-  });
-  const allOps = Array.from(new Set(WL_BANGAU_OPS.concat(WL_STD_OPS).concat(Object.keys(opSums))));
-  const tableRows = allOps.map(function(op) {
-    const sal16 = opSums[op] || 0;
-    const kasbon = kasbonMap[op] ? kasbonMap[op].amount : 0;
-    const eom = sal16 + 3100000 - kasbon;
-    return '<tr>' +
-      '<td style="font-weight:700;">' + op + '</td>' +
-      '<td style="text-align:right;font-weight:700;color:#1D4ED8;">Rp ' + sal16.toLocaleString('id') + '</td>' +
-      '<td style="text-align:right;">Rp 3.100.000</td>' +
-      '<td style="text-align:center;"><input type="number" id="wl-kasbon-' + op + '" class="finput" style="width:130px;font-size:13px;" value="' + kasbon + '" min="0" placeholder="0"></td>' +
-      '<td style="text-align:right;font-weight:700;color:#16A34A;">Rp ' + eom.toLocaleString('id') + '</td>' +
-      '</tr>';
-  }).join('');
-  const retainerInfo = retainerProjects.length > 0
-    ? '<div style="font-size:12px;color:#D97706;margin-bottom:12px;">Retainer (belum dibayar): <strong>' + retainerProjects.map(p => p.project_code).join(', ') + '</strong></div>'
-    : '';
-  const paidCount = payableRows.length;
-  el.innerHTML = '<div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+  el._wlMonthYear = monthYear;
+  el._wlProjects = allProjects;
+  el._wlSalary = salaryRows;
+  el._wlKasbon = kasbonMap;
+  const batch16 = allProjects.filter(function(p) { return parseInt((p.end_date || '').split('-')[2], 10) <= 15; });
+  const batch31 = allProjects.filter(function(p) { return parseInt((p.end_date || '').split('-')[2], 10) >= 16; });
+  const projMap = {};
+  allProjects.forEach(function(p) { projMap[p.id] = p; });
+  function buildOpMap(batchProjects) {
+    const batchIds = new Set(batchProjects.map(function(p) { return p.id; }));
+    const opMap = {};
+    WL_BANGAU_OPS.concat(WL_STD_OPS).forEach(function(op) { opMap[op] = { total: 0, rows: [] }; });
+    salaryRows.filter(function(s) { return batchIds.has(s.project_id); }).forEach(function(s) {
+      if (!opMap[s.operator_name]) opMap[s.operator_name] = { total: 0, rows: [] };
+      const p = projMap[s.project_id];
+      const label = p ? ((p.project_code || '') + ' ' + (p.nama_kapal || '')) : s.project_id;
+      const amt = Number(s.salary_amount);
+      opMap[s.operator_name].total += amt;
+      if (amt > 0) opMap[s.operator_name].rows.push(label + ': Rp ' + amt.toLocaleString('id'));
+    });
+    return opMap;
+  }
+  const opMap16 = buildOpMap(batch16);
+  const opMap31 = buildOpMap(batch31);
+  const fmtRp = function(v) { return 'Rp ' + Math.round(v).toLocaleString('id'); };
+  function tbl16(opMap) {
+    const entries = Object.entries(opMap).filter(function(e) { return e[1].total > 0 || e[1].rows.length > 0; });
+    if (!entries.length) return '<div style="color:#64748B;font-size:13px;padding:8px 0;">Tidak ada proyek selesai tgl 1–15 bulan ini.</div>';
+    return '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#DBEAFE;"><th style="padding:8px 10px;text-align:left;">Operator</th><th style="padding:8px 10px;text-align:left;">Detail Proyek</th><th style="padding:8px 10px;text-align:right;">Total Gaji</th></tr></thead><tbody>' +
+      entries.map(function(e) {
+        return '<tr style="border-bottom:1px solid #BFDBFE;"><td style="padding:8px 10px;font-weight:600;">' + e[0] + '</td>' +
+          '<td style="padding:8px 10px;font-size:11px;color:#64748B;">' + (e[1].rows.join('<br>') || '—') + '</td>' +
+          '<td style="padding:8px 10px;text-align:right;font-weight:700;">' + fmtRp(e[1].total) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  function tbl31(opMap) {
+    const allOps = Array.from(new Set(WL_BANGAU_OPS.concat(WL_STD_OPS).concat(Object.keys(opMap).filter(function(k) { return opMap[k].total > 0; }))));
+    if (!allOps.length) return '<div style="color:#64748B;font-size:13px;padding:8px 0;">Tidak ada proyek selesai tgl 16–31 bulan ini.</div>';
+    return '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#DCFCE7;"><th style="padding:8px 10px;text-align:left;">Operator</th><th style="padding:8px 10px;text-align:left;">Detail Proyek</th><th style="padding:8px 10px;text-align:right;">Gaji Proyek</th><th style="padding:8px 10px;text-align:right;">Gaji Pokok</th><th style="padding:8px 10px;text-align:center;">Kasbon</th><th style="padding:8px 10px;text-align:right;">Grand Total</th></tr></thead><tbody>' +
+      allOps.map(function(name) {
+        const s = opMap[name] || { total: 0, rows: [] };
+        const kb = kasbonMap[name] ? kasbonMap[name].amount : 0;
+        const grand = s.total + 3100000 - kb;
+        const sid = name.replace(/\s+/g, '_');
+        return '<tr style="border-bottom:1px solid #BBF7D0;"><td style="padding:8px 10px;font-weight:600;">' + name + '</td>' +
+          '<td style="padding:8px 10px;font-size:11px;color:#64748B;">' + (s.rows.join('<br>') || '—') + '</td>' +
+          '<td style="padding:8px 10px;text-align:right;">' + fmtRp(s.total) + '</td>' +
+          '<td style="padding:8px 10px;text-align:right;color:#64748B;">Rp 3.100.000</td>' +
+          '<td style="padding:8px 10px;text-align:center;"><input id="wl-kasbon-' + sid + '" data-op="' + name + '" type="number" class="finput" style="width:110px;text-align:right;" value="' + kb + '" placeholder="0"></td>' +
+          '<td style="padding:8px 10px;text-align:right;font-weight:800;color:#16A34A;">' + fmtRp(grand) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  el.innerHTML =
+    '<div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
     '<label style="font-size:13px;font-weight:700;">Bulan:</label>' +
     '<input type="month" id="wl-ring-month" class="finput" style="width:160px;" value="' + monthYear + '" onchange="loadWoodlogRingkasan()">' +
     '</div>' +
-    retainerInfo +
-    '<div style="font-size:13px;color:#64748B;margin-bottom:12px;">' + paidCount + ' salary row(s) payable (unpaid, completed, excluding last 2 projects).</div>' +
-    '<div class="table-wrap" style="margin-bottom:16px;"><table class="dt"><thead><tr><th>Operator</th><th style="text-align:right;">Salary (16th / EOM)</th><th style="text-align:right;">Basic</th><th style="text-align:center;">KASBON</th><th style="text-align:right;">Akhir Bulan</th></tr></thead><tbody>' + tableRows + '</tbody></table></div>' +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
-    '<button onclick="markWoodlogPaid(\'' + monthYear + '\',\'mid_month\')" class="btn-primary" style="background:#1D4ED8;">Tandai Dibayar (16)</button>' +
-    '<button onclick="markWoodlogPaid(\'' + monthYear + '\',\'end_of_month\')" class="btn-primary" style="background:#16A34A;">Tandai Dibayar (Akhir Bulan)</button>' +
+    '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:16px;margin-bottom:20px;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+    '<div style="font-size:14px;font-weight:800;color:#1D4ED8;">Batch 16 — Kapal Selesai Tgl 1–15</div>' +
+    '<button onclick="exportWoodlogBatch16()" style="background:#1D4ED8;color:white;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">↓ Excel Batch 16</button>' +
+    '</div>' + tbl16(opMap16) +
+    (batch16.length > 0 ? '<div style="margin-top:12px;"><button onclick="markWLPaid(\'mid_month\')" class="btn-primary" style="background:#1D4ED8;">Tandai Lunas Batch 16</button></div>' : '') +
+    '</div>' +
+    '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:16px;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+    '<div style="font-size:14px;font-weight:800;color:#16A34A;">Batch 31 — Kapal Tgl 16–31 + Gaji Pokok</div>' +
+    '<button onclick="exportWoodlogBatch31()" style="background:#16A34A;color:white;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">↓ Excel Batch 31</button>' +
+    '</div>' + tbl31(opMap31) +
+    '<div style="margin-top:12px;"><button onclick="markWLPaid(\'end_of_month\')" class="btn-primary" style="background:#16A34A;">Tandai Lunas Batch 31</button></div>' +
     '</div>';
 }
 
-async function markWoodlogPaid(monthYear, paymentType) {
+async function markWLPaid(paymentType) {
   try {
+    const el = document.getElementById('wl-panel-ringkasan');
+    const monthYear = el ? el._wlMonthYear : null;
+    if (!monthYear) return;
     await saveWoodlogKasbon(monthYear);
-    const { data: completedProjects } = await sb.from('projects')
-      .select('id, end_date').in('type', ['woodlog_kapal', 'woodlog_hourly'])
-      .not('end_date', 'is', null).order('end_date', { ascending: true });
-    const completedIds = (completedProjects || []).map(p => p.id);
-    if (completedIds.length === 0) { showToast('Tidak ada proyek yang selesai.'); return; }
-    const retainerIds = new Set(completedProjects.slice(-2).map(p => p.id));
-    const payableIds = completedIds.filter(id => !retainerIds.has(id));
-    if (payableIds.length === 0) { showToast('Tidak ada salary yang bisa ditandai (semua dalam retainer).'); return; }
+    const projects = el._wlProjects || [];
+    const batchProjects = paymentType === 'mid_month'
+      ? projects.filter(function(p) { return parseInt((p.end_date || '').split('-')[2], 10) <= 15; })
+      : projects.filter(function(p) { return parseInt((p.end_date || '').split('-')[2], 10) >= 16; });
+    const batchIds = batchProjects.map(function(p) { return p.id; });
+    if (batchIds.length === 0) { showToast('Tidak ada proyek batch ini untuk ditandai.'); return; }
     const { data: rows } = await sb.from('woodlog_operator_salary')
-      .select('id').in('project_id', payableIds).is('paid_batch', null);
-    const ids = (rows || []).map(r => r.id);
-    if (ids.length === 0) { showToast('Tidak ada salary unpaid untuk ditandai.'); return; }
-    const label = paymentType === 'mid_month' ? '16' : 'Akhir Bulan';
+      .select('id').in('project_id', batchIds).is('paid_batch', null);
+    const ids = (rows || []).map(function(r) { return r.id; });
+    if (ids.length === 0) { showToast('Tidak ada salary unpaid untuk batch ini.'); return; }
+    const label = paymentType === 'mid_month' ? 'Batch 16' : 'Batch 31';
     if (!confirm('Tandai ' + ids.length + ' salary row(s) sebagai dibayar (' + label + ')?')) return;
     const { error } = await sb.from('woodlog_operator_salary').update({ paid_batch: paymentType }).in('id', ids);
     if (error) throw error;
-    showToast(ids.length + ' salary ditandai sebagai dibayar.', 'success');
+    showToast(ids.length + ' salary ditandai sebagai dibayar (' + label + ').', 'success');
     await loadWoodlogRingkasan();
   } catch(e) { showToast('Gagal: ' + e.message); }
 }
@@ -7163,9 +7206,10 @@ async function saveWoodlogKasbon(monthYear) {
   const allOps = WL_BANGAU_OPS.concat(WL_STD_OPS);
   const { data: existing } = await sb.from('woodlog_kasbon').select('id, operator_name').eq('month_year', monthYear);
   const existMap = {};
-  (existing || []).forEach(k => { existMap[k.operator_name] = k.id; });
+  (existing || []).forEach(function(k) { existMap[k.operator_name] = k.id; });
   await Promise.all(allOps.map(async function(op) {
-    const input = document.getElementById('wl-kasbon-' + op);
+    const sid = op.replace(/\s+/g, '_');
+    const input = document.getElementById('wl-kasbon-' + sid) || document.getElementById('wl-kasbon-' + op);
     if (!input) return;
     const amount = parseFloat(input.value) || 0;
     if (existMap[op]) {
@@ -7174,6 +7218,88 @@ async function saveWoodlogKasbon(monthYear) {
       await sb.from('woodlog_kasbon').insert({ month_year: monthYear, operator_name: op, amount: amount });
     }
   }));
+}
+
+async function exportWoodlogBatch16() {
+  if (typeof XLSX === 'undefined') { showToast('SheetJS tidak tersedia'); return; }
+  const el = document.getElementById('wl-panel-ringkasan');
+  if (!el) return;
+  const monthYear = el._wlMonthYear || '';
+  const allProjects = el._wlProjects || [];
+  const salaryRows = el._wlSalary || [];
+  const batch16 = allProjects.filter(function(p) { return parseInt((p.end_date || '').split('-')[2], 10) <= 15; });
+  if (batch16.length === 0) { showToast('Tidak ada data Batch 16'); return; }
+  const projMap = {};
+  allProjects.forEach(function(p) { projMap[p.id] = p; });
+  const batchIds = new Set(batch16.map(function(p) { return p.id; }));
+  const opMap = {};
+  WL_BANGAU_OPS.concat(WL_STD_OPS).forEach(function(op) { opMap[op] = { total: 0, rows: [] }; });
+  salaryRows.filter(function(s) { return batchIds.has(s.project_id); }).forEach(function(s) {
+    if (!opMap[s.operator_name]) opMap[s.operator_name] = { total: 0, rows: [] };
+    const p = projMap[s.project_id];
+    const amt = Number(s.salary_amount);
+    opMap[s.operator_name].total += amt;
+    if (amt > 0) opMap[s.operator_name].rows.push((p ? (p.project_code || '') + ' ' + (p.nama_kapal || '') : s.project_id) + ': ' + amt.toLocaleString('id'));
+  });
+  const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const _my = monthYear.split('-');
+  const periodeStr = '1–15 ' + (BULAN[parseInt(_my[1], 10) - 1] || '') + ' ' + _my[0];
+  const rows = [['Periode:', periodeStr], [], ['Operator', 'Detail Proyek', 'Total Gaji']];
+  let grandTotal = 0;
+  Object.entries(opMap).filter(function(e) { return e[1].total > 0; }).forEach(function(e) {
+    rows.push([e[0], e[1].rows.join('\n'), e[1].total]);
+    grandTotal += e[1].total;
+  });
+  rows.push([], ['', 'GRAND TOTAL', grandTotal]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'Batch 16');
+  XLSX.writeFile(wb, 'WL_Batch16_' + monthYear + '.xlsx');
+}
+
+async function exportWoodlogBatch31() {
+  if (typeof XLSX === 'undefined') { showToast('SheetJS tidak tersedia'); return; }
+  const el = document.getElementById('wl-panel-ringkasan');
+  if (!el) return;
+  const monthYear = el._wlMonthYear || '';
+  const allProjects = el._wlProjects || [];
+  const salaryRows = el._wlSalary || [];
+  const kasbonMap = el._wlKasbon || {};
+  const batch31 = allProjects.filter(function(p) { return parseInt((p.end_date || '').split('-')[2], 10) >= 16; });
+  const projMap = {};
+  allProjects.forEach(function(p) { projMap[p.id] = p; });
+  const batchIds = new Set(batch31.map(function(p) { return p.id; }));
+  const opMap = {};
+  WL_BANGAU_OPS.concat(WL_STD_OPS).forEach(function(op) { opMap[op] = { total: 0, rows: [] }; });
+  salaryRows.filter(function(s) { return batchIds.has(s.project_id); }).forEach(function(s) {
+    if (!opMap[s.operator_name]) opMap[s.operator_name] = { total: 0, rows: [] };
+    const p = projMap[s.project_id];
+    const amt = Number(s.salary_amount);
+    opMap[s.operator_name].total += amt;
+    if (amt > 0) opMap[s.operator_name].rows.push((p ? (p.project_code || '') + ' ' + (p.nama_kapal || '') : s.project_id) + ': ' + amt.toLocaleString('id'));
+  });
+  await saveWoodlogKasbon(monthYear);
+  const { data: freshKb } = await sb.from('woodlog_kasbon').select('operator_name, amount').eq('month_year', monthYear);
+  const kbMap = {};
+  (freshKb || []).forEach(function(k) { kbMap[k.operator_name] = Number(k.amount); });
+  const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const _my = monthYear.split('-');
+  const periodeStr = '16–31 ' + (BULAN[parseInt(_my[1], 10) - 1] || '') + ' ' + _my[0];
+  const rows = [['Periode:', periodeStr], [], ['Operator', 'Detail Proyek', 'Gaji Proyek', 'Gaji Pokok', 'Kasbon', 'Grand Total']];
+  let gtKerja = 0, gtPokok = 0, gtGrand = 0;
+  const allOps = Array.from(new Set(WL_BANGAU_OPS.concat(WL_STD_OPS).concat(Object.keys(opMap).filter(function(k) { return opMap[k].total > 0; }))));
+  allOps.forEach(function(name) {
+    const s = opMap[name] || { total: 0, rows: [] };
+    const kb = kbMap[name] || 0;
+    const grand = s.total + 3100000 - kb;
+    rows.push([name, s.rows.join('\n'), s.total, 3100000, kb, grand]);
+    gtKerja += s.total; gtPokok += 3100000; gtGrand += grand;
+  });
+  rows.push([], ['', 'GRAND TOTAL', gtKerja, gtPokok, 0, gtGrand]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'Batch 31');
+  XLSX.writeFile(wb, 'WL_Batch31_' + monthYear + '.xlsx');
 }
 
 async function loadWoodlogAnalisis() {
@@ -7189,25 +7315,35 @@ async function loadWoodlogAnalisis() {
     if (!projects || projects.length === 0) {
       el.innerHTML = '<div style="color:#94A3B8;padding:20px;">Belum ada proyek kapal woodlog yang selesai.</div>'; return;
     }
-    const ids = projects.map(p => p.id);
-    const [salRes, fillRes] = await Promise.all([
+    const ids = projects.map(function(p) { return p.id; });
+    const [salRes, salDetailRes, fillRes] = await Promise.all([
       sb.from('woodlog_operator_salary').select('project_id, salary_amount').in('project_id', ids),
+      sb.from('woodlog_operator_salary').select('project_id, operator_name, salary_amount').in('project_id', ids),
       fetchFillMap(ids)
     ]);
     const salMap = {};
-    (salRes.data || []).forEach(s => { salMap[s.project_id] = (salMap[s.project_id] || 0) + Number(s.salary_amount); });
-    renderWoodlogAnalisis(projects, salMap, fillRes);
+    (salRes.data || []).forEach(function(s) { salMap[s.project_id] = (salMap[s.project_id] || 0) + Number(s.salary_amount); });
+    const salDetail = {};
+    (salDetailRes.data || []).forEach(function(s) {
+      if (!salDetail[s.project_id]) salDetail[s.project_id] = [];
+      salDetail[s.project_id].push({ name: s.operator_name, amount: Number(s.salary_amount) });
+    });
+    renderWoodlogAnalisis(projects, salMap, salDetail, fillRes);
   } catch(e) { el.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
 }
 
-function renderWoodlogAnalisis(projects, salMap, fillMap) {
+function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
   const el = document.getElementById('wl-panel-analisis');
   if (!el) return;
+  el._wlaProjects = projects;
+  el._wlaSalMap = salMap;
+  el._wlaSalDetail = salDetail;
+  el._wlaFillMap = fillMap;
+  const fmtRp = function(v) { return 'Rp ' + Math.round(v).toLocaleString('id'); };
   const rows = projects.map(function(p) {
     const income = (p.total_mt_m3 && p.unit_price) ? Number(p.total_mt_m3) * Number(p.unit_price) : 0;
     const pus = p.project_units || [];
     const projectFills = (fillMap && fillMap[p.id]) ? fillMap[p.id] : {};
-    // BBM: per unit with correct tank size
     let totalBBM = 0;
     pus.forEach(function(pu) {
       const unitCode = (pu.units && pu.units.code) ? pu.units.code : '';
@@ -7222,23 +7358,128 @@ function renderWoodlogAnalisis(projects, salMap, fillMap) {
     const laborCost = laborBase * 1.05;
     const profit = income - fuelCost - laborCost;
     const totalHM = pus.reduce(function(a, pu) {
-      return a + ((pu.hm_akhir && pu.hm_awal) ? Number(pu.hm_akhir) - Number(pu.hm_awal) : 0);
+      return a + ((pu.hm_akhir != null && pu.hm_awal != null) ? Number(pu.hm_akhir) - Number(pu.hm_awal) : 0);
     }, 0);
     const yieldHM = totalHM > 0 ? profit / totalHM : 0;
-    const fmtRp = function(v) { return 'Rp ' + Math.round(v).toLocaleString('id'); };
-    return '<tr>' +
-      '<td style="font-weight:700;color:#1D4ED8;">' + p.project_code + '</td>' +
+    const isClosed = !!p.invoice_number;
+    const statusBadge = isClosed
+      ? '<span style="background:#DBEAFE;color:#1D4ED8;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;">CLOSED</span>'
+      : '<span style="background:#FEF3C7;color:#D97706;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;">OPEN</span>';
+    const invoiceCell = isClosed
+      ? '<div>' + (p.invoice_number || '') + '</div><div style="font-size:11px;color:#64748B;">' + fmtRp(p.invoice_amount || 0) + '</div>'
+      : '<button onclick="wlOpenInvoice(\'' + p.id + '\')" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;">+ Invoice</button>';
+    return '<tr id="wla-row-' + p.id + '" style="cursor:pointer;border-bottom:2px solid #F1F5F9;" onclick="toggleWLAnalisis(\'' + p.id + '\')">' +
+      '<td style="font-weight:700;color:#1D4ED8;">' + p.project_code + ' ' + statusBadge + '</td>' +
       '<td>' + (p.nama_kapal || '—') + '</td>' +
-      '<td>' + formatDate(p.end_date) + '</td>' +
-      '<td style="text-align:right;">' + fmtRp(income) + '</td>' +
-      '<td style="text-align:right;color:#D97706;">' + (Math.round(totalBBM).toLocaleString('id') + ' L · ' + fmtRp(fuelCost)) + '</td>' +
-      '<td style="text-align:right;color:#7C3AED;">' + fmtRp(laborCost) + '</td>' +
-      '<td style="text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#DC2626') + ';">' + fmtRp(profit) + '</td>' +
-      '<td style="text-align:right;font-size:12px;">' + Math.round(yieldHM).toLocaleString('id') + '/HM</td>' +
-      '<td style="text-align:right;color:#64748B;">' + (p.invoice_amount ? fmtRp(p.invoice_amount) : '—') + '</td>' +
-      '</tr>';
+      '<td>' + formatDate(p.end_date) + '<br><span style="font-size:11px;color:#94A3B8;">' + (p.total_mt_m3 ? Number(p.total_mt_m3).toLocaleString('id') + ' MT' : '—') + '</span></td>' +
+      '<td style="text-align:right;"><div>' + fmtRp(income) + '</div>' +
+      '<button onclick="event.stopPropagation();wlEditField(\'' + p.id + '\',\'unit_price\')" style="font-size:10px;color:#1D4ED8;background:none;border:none;cursor:pointer;padding:0;">✎ Rate/MT</button></td>' +
+      '<td style="text-align:right;color:#D97706;"><div>' + Math.round(totalBBM).toLocaleString('id') + ' L</div><div>' + fmtRp(fuelCost) + '</div>' +
+      '<button onclick="event.stopPropagation();wlEditField(\'' + p.id + '\',\'harga_solar_rpl\')" style="font-size:10px;color:#D97706;background:none;border:none;cursor:pointer;padding:0;">✎ Rp/L</button></td>' +
+      '<td style="text-align:right;color:#7C3AED;">' + fmtRp(laborCost) + '<br><span style="font-size:10px;color:#94A3B8;">(base × 1.05)</span></td>' +
+      '<td style="text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#DC2626') + ';">' + fmtRp(profit) + '<br><span style="font-size:10px;">' + Math.round(yieldHM).toLocaleString('id') + '/HM</span></td>' +
+      '<td style="text-align:right;" onclick="event.stopPropagation();">' + invoiceCell + '</td>' +
+      '</tr>' +
+      '<tr id="wla-detail-' + p.id + '" style="display:none;background:#F8FAFC;"><td colspan="8" style="padding:0;">' +
+      '<div style="padding:12px 16px;" id="wla-detail-inner-' + p.id + '"><div style="color:#94A3B8;font-size:12px;">Memuat detail...</div></div>' +
+      '<div id="wla-edit-' + p.id + '" style="padding:0 16px 12px;display:none;"></div>' +
+      '</td></tr>';
   }).join('');
-  el.innerHTML = '<div class="table-wrap"><table class="dt"><thead><tr><th>Kode</th><th>Kapal</th><th>Selesai</th><th style="text-align:right;">Income</th><th style="text-align:right;">BBM (L · Cost)</th><th style="text-align:right;">Labor (+5%)</th><th style="text-align:right;">Profit</th><th style="text-align:right;">Yield/HM</th><th style="text-align:right;">Invoice</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  el.innerHTML = '<div style="margin-bottom:8px;font-size:12px;color:#94A3B8;">Klik baris untuk lihat breakdown · ✎ untuk edit</div>' +
+    '<div class="table-wrap"><table class="dt"><thead><tr>' +
+    '<th>Kode</th><th>Kapal</th><th>Selesai / Tonnage</th>' +
+    '<th style="text-align:right;">Income</th>' +
+    '<th style="text-align:right;">BBM</th>' +
+    '<th style="text-align:right;">Labor (+5%)</th>' +
+    '<th style="text-align:right;">Profit / Yield</th>' +
+    '<th style="text-align:right;">Invoice</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+function toggleWLAnalisis(pid) {
+  const detailRow = document.getElementById('wla-detail-' + pid);
+  if (!detailRow) return;
+  const isOpen = detailRow.style.display !== 'none';
+  detailRow.style.display = isOpen ? 'none' : '';
+  if (!isOpen) {
+    const el = document.getElementById('wl-panel-analisis');
+    const projects = el._wlaProjects || [];
+    const salDetail = el._wlaSalDetail || {};
+    const fillMap = el._wlaFillMap || {};
+    const p = projects.find(function(x) { return x.id === pid; });
+    if (!p) return;
+    const pus = p.project_units || [];
+    const projectFills = fillMap[pid] || {};
+    const fmtRp = function(v) { return 'Rp ' + Math.round(v).toLocaleString('id'); };
+    // BBM per unit
+    let bbmRows = '';
+    pus.forEach(function(pu) {
+      const unitCode = (pu.units && pu.units.code) ? pu.units.code : '?';
+      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 450 : 320;
+      const hasSolar = pu.solar_awal_pct != null && pu.solar_akhir_pct != null;
+      const tankDiff = hasSolar ? (Number(pu.solar_awal_pct) - Number(pu.solar_akhir_pct)) / 100 * tankSize : 0;
+      const fills = projectFills[pu.unit_id] || 0;
+      const total = tankDiff + fills;
+      bbmRows += '<tr><td style="font-weight:700;">' + unitCode + '</td>' +
+        '<td style="text-align:right;">' + (hasSolar ? Math.round(tankDiff).toLocaleString('id') + ' L' : '—') + '</td>' +
+        '<td style="text-align:right;">' + Math.round(fills).toLocaleString('id') + ' L</td>' +
+        '<td style="text-align:right;font-weight:700;">' + Math.round(total).toLocaleString('id') + ' L</td></tr>';
+    });
+    if (!bbmRows) bbmRows = '<tr><td colspan="4" style="color:#94A3B8;font-size:12px;">Tidak ada data unit.</td></tr>';
+    // Operator salary breakdown
+    const opRows = (salDetail[pid] || []).map(function(s) {
+      return '<tr><td style="font-weight:600;">' + s.name + '</td><td style="text-align:right;">' + fmtRp(s.amount) + '</td><td style="text-align:right;color:#94A3B8;">' + fmtRp(s.amount * 1.05) + ' (+5%)</td></tr>';
+    }).join('');
+    const inner = document.getElementById('wla-detail-inner-' + pid);
+    if (inner) inner.innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">' +
+      '<div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">BBM per Unit</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#FEF9C3;">' +
+      '<th style="padding:4px 8px;text-align:left;">Unit</th><th style="padding:4px 8px;text-align:right;">Tank Diff</th><th style="padding:4px 8px;text-align:right;">Isi Aktual</th><th style="padding:4px 8px;text-align:right;">Total</th></tr></thead>' +
+      '<tbody>' + bbmRows + '</tbody></table></div>' +
+      '<div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;">Labor per Operator</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#F3E8FF;">' +
+      '<th style="padding:4px 8px;text-align:left;">Operator</th><th style="padding:4px 8px;text-align:right;">Base</th><th style="padding:4px 8px;text-align:right;">+5%</th></tr></thead>' +
+      '<tbody>' + (opRows || '<tr><td colspan="3" style="color:#94A3B8;font-size:12px;">Belum ada data salary.</td></tr>') + '</tbody></table></div>' +
+      '</div>';
+  }
+}
+
+function wlEditField(pid, field) {
+  const el = document.getElementById('wl-panel-analisis');
+  const editDiv = document.getElementById('wla-edit-' + pid);
+  if (!editDiv) return;
+  const projects = (el && el._wlaProjects) || [];
+  const p = projects.find(function(x) { return x.id === pid; });
+  if (!p) return;
+  const detailRow = document.getElementById('wla-detail-' + pid);
+  if (detailRow) detailRow.style.display = '';
+  const label = field === 'unit_price' ? 'Rate / MT (Rp)' : 'Harga Solar (Rp/L)';
+  const current = field === 'unit_price' ? (p.unit_price || '') : (p.harga_solar_rpl || '');
+  editDiv.style.display = 'block';
+  editDiv.innerHTML = '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+    '<span style="font-size:13px;font-weight:600;color:#374151;">' + label + ':</span>' +
+    '<input type="number" id="wla-inp-' + pid + '" class="finput" style="width:160px;font-size:13px;" value="' + current + '" min="0">' +
+    '<button onclick="wlSaveField(\'' + pid + '\',\'' + field + '\')" class="btn-primary" style="padding:6px 14px;font-size:13px;">Simpan</button>' +
+    '<button onclick="document.getElementById(\'wla-edit-' + pid + '\').style.display=\'none\';" class="btn-secondary" style="padding:6px 12px;font-size:13px;">Batal</button>' +
+    '</div>';
+}
+
+async function wlSaveField(pid, field) {
+  const input = document.getElementById('wla-inp-' + pid);
+  if (!input) return;
+  const val = parseFloat(input.value);
+  if (isNaN(val) || val < 0) { showToast('Nilai tidak valid'); return; }
+  const update = {};
+  update[field] = val;
+  const { error } = await sb.from('projects').update(update).eq('id', pid);
+  if (error) { showToast('Gagal: ' + error.message); return; }
+  showToast('Tersimpan!', 'success');
+  await loadWoodlogAnalisis();
+}
+
+function wlOpenInvoice(pid) {
+  openWLCloseProject(pid);
 }
 
 function renderWoodlogKontinuitas() {
