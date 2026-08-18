@@ -7312,11 +7312,11 @@ async function loadWoodlogAnalisis() {
   try {
     const { data: projects, error } = await sb.from('projects')
       .select('*, project_units(unit_id, hm_awal, hm_akhir, solar_awal_pct, solar_akhir_pct, units(code))')
-      .eq('type', 'woodlog_kapal').not('end_date', 'is', null)
+      .in('type', ['woodlog_kapal', 'woodlog_hourly'])
       .order('project_code', { ascending: false });
     if (error) throw error;
     if (!projects || projects.length === 0) {
-      el.innerHTML = '<div style="color:#94A3B8;padding:20px;">Belum ada proyek kapal woodlog yang selesai.</div>'; return;
+      el.innerHTML = '<div style="color:#94A3B8;padding:20px;">Belum ada proyek woodlog.</div>'; return;
     }
     const ids = projects.map(function(p) { return p.id; });
     const [salRes, salDetailRes, fillRes] = await Promise.all([
