@@ -7444,7 +7444,11 @@ function toggleWLAnalisis(pid) {
       '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#F3E8FF;">' +
       '<th style="padding:4px 8px;text-align:left;">Operator</th><th style="padding:4px 8px;text-align:right;">Base</th><th style="padding:4px 8px;text-align:right;">+5%</th></tr></thead>' +
       '<tbody>' + (opRows || '<tr><td colspan="3" style="color:#94A3B8;font-size:12px;">Belum ada data salary.</td></tr>') + '</tbody></table></div>' +
-      '</div>';
+      '</div>' +
+      '<div style="margin-top:14px;border-top:1px solid #E2E8F0;padding-top:12px;">' +
+      '<button onclick="wlSyncFromMonitoring(\'' + pid + '\')" id="wl-sync-btn-' + pid + '" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;">↻ Sync dari Woodlog Monitoring</button>' +
+      '</div>' +
+      '<div id="wl-sync-result-' + pid + '" style="margin-top:10px;"></div>';
   }
 }
 
@@ -7500,6 +7504,106 @@ function wlOpenInvoiceModal(pid) {
     '</div></div>';
   document.getElementById('modal-box').innerHTML = modalHTML;
   document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+async function wlSyncFromMonitoring(pid) {
+  var btn = document.getElementById('wl-sync-btn-' + pid);
+  var resultDiv = document.getElementById('wl-sync-result-' + pid);
+  if (!resultDiv) return;
+  var el = document.getElementById('wl-panel-analisis');
+  var projects = (el && el._wlaProjects) || [];
+  var p = projects.find(function(x) { return x.id === pid; });
+  if (!p || !p.project_code) {
+    resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;padding:8px;">Kode proyek tidak tersedia di SERVIS SAA.</div>';
+    return;
+  }
+  if (btn) { btn.textContent = 'Memuat...'; btn.disabled = true; }
+  try {
+    var res = await fetch('https://woodlog-monitoring.vercel.app/api/project-stats?code=' + encodeURIComponent(p.project_code));
+    if (!res.ok) {
+      if (res.status === 404) throw new Error('Kode ' + p.project_code + ' tidak ditemukan di Woodlog Monitoring. Pastikan kode proyek sudah diisi di sana.');
+      throw new Error('Error ' + res.status + ' dari Woodlog Monitoring.');
+    }
+    var data = await res.json();
+    var salDetail = ((el && el._wlaSalDetail) || {})[pid] || [];
+    wlRenderSyncTable(pid, data, salDetail, Number(p.total_mt_m3 || 0));
+  } catch(e) {
+    resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;padding:8px;">' + e.message + '</div>';
+  } finally {
+    if (btn) { btn.textContent = '↻ Sync dari Woodlog Monitoring'; btn.disabled = false; }
+  }
+}
+
+function wlRenderSyncTable(pid, data, salDetail, totalMt) {
+  var resultDiv = document.getElementById('wl-sync-result-' + pid);
+  if (!resultDiv) return;
+  var fmtRp = function(v) { return 'Rp ' + Math.round(v).toLocaleString('id'); };
+  var fmtMT = function(v) { return v.toFixed(2) + ' MT'; };
+  if (!data.totalRitase || data.totalRitase === 0) {
+    resultDiv.innerHTML = '<div style="color:#D97706;font-size:12px;padding:8px;">Total ritase = 0, tidak bisa menghitung tonnage.</div>';
+    return;
+  }
+  var tpr = (totalMt * 0.9) / data.totalRitase;
+  var salMap = {};
+  salDetail.forEach(function(s) { salMap[s.name] = s.amount; });
+  var ops = Object.keys(data.bonMuat);
+  var safePid = pid.replace(/[^a-zA-Z0-9]/g, '_');
+  var rows = ops.map(function(op) {
+    var bonCount = data.bonMuat[op];
+    var tonnage = tpr * bonCount;
+    var currentSal = salMap[op] || 0;
+    var safeOp = op.replace(/[^a-zA-Z0-9]/g, '_');
+    return '<tr style="border-bottom:1px solid #E2E8F0;">' +
+      '<td style="padding:6px 8px;font-weight:600;">' + op + '</td>' +
+      '<td style="padding:6px 8px;text-align:right;">' + bonCount.toLocaleString('id') + '</td>' +
+      '<td style="padding:6px 8px;text-align:right;color:#7C3AED;">' + fmtMT(tonnage) + '</td>' +
+      '<td style="padding:6px 8px;text-align:right;color:#94A3B8;">' + fmtRp(currentSal) + '</td>' +
+      '<td style="padding:6px 8px;"><input type="number" id="wlss-' + safePid + '-' + safeOp + '" data-op="' + op + '" class="finput" style="width:130px;" value="' + currentSal + '" min="0" placeholder="0"></td>' +
+      '</tr>';
+  }).join('');
+  resultDiv._syncOps = ops;
+  resultDiv._syncPid = pid;
+  resultDiv.innerHTML =
+    '<div style="margin-bottom:8px;font-size:12px;color:#64748B;">' +
+    'Total Ritase: <strong>' + data.totalRitase.toLocaleString('id') + '</strong> &nbsp;·&nbsp; ' +
+    'Tonnage/Ritase: <strong>' + fmtMT(tpr) + '</strong></div>' +
+    '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+    '<thead><tr style="background:#EFF6FF;">' +
+    '<th style="padding:6px 8px;text-align:left;">Operator</th>' +
+    '<th style="padding:6px 8px;text-align:right;">Bon Muat</th>' +
+    '<th style="padding:6px 8px;text-align:right;">Tonase</th>' +
+    '<th style="padding:6px 8px;text-align:right;">Gaji Saat Ini</th>' +
+    '<th style="padding:6px 8px;text-align:left;">Gaji Baru</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<div style="margin-top:10px;">' +
+    '<button onclick="wlSaveSyncSalary(\'' + pid + '\')" class="btn-primary" style="font-size:12px;padding:7px 16px;">Simpan Gaji</button>' +
+    '</div>';
+}
+
+async function wlSaveSyncSalary(pid) {
+  var resultDiv = document.getElementById('wl-sync-result-' + pid);
+  var ops = resultDiv ? resultDiv._syncOps : null;
+  if (!ops || !ops.length) return;
+  var safePid = pid.replace(/[^a-zA-Z0-9]/g, '_');
+  var inserts = ops.map(function(op) {
+    var safeOp = op.replace(/[^a-zA-Z0-9]/g, '_');
+    var input = document.getElementById('wlss-' + safePid + '-' + safeOp);
+    var amount = parseFloat((input || {}).value) || 0;
+    return { project_id: pid, operator_name: op, salary_amount: amount, paid_batch: null };
+  });
+  try {
+    var { error: delErr } = await sb.from('woodlog_operator_salary')
+      .delete().eq('project_id', pid).is('paid_batch', null);
+    if (delErr) throw delErr;
+    if (inserts.length > 0) {
+      var { error: insErr } = await sb.from('woodlog_operator_salary').insert(inserts);
+      if (insErr) throw insErr;
+    }
+    showToast('Gaji berhasil disimpan!', 'success');
+    await loadWoodlogAnalisis();
+  } catch(e) {
+    showToast('Gagal menyimpan: ' + e.message);
+  }
 }
 
 async function wlSaveInvoice(pid) {
