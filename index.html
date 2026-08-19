@@ -7526,7 +7526,7 @@ async function wlSyncFromMonitoring(pid) {
     }
     var data = await res.json();
     var salDetail = ((el && el._wlaSalDetail) || {})[pid] || [];
-    wlRenderSyncTable(pid, data, salDetail, Number(p.total_mt_m3 || 0));
+    wlRenderSyncTable(pid, data, salDetail, Number(data.blQuantity || p.total_mt_m3 || 0));
   } catch(e) {
     resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;padding:8px;">' + e.message + '</div>';
   } finally {
