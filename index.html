@@ -7526,7 +7526,7 @@ async function wlSyncFromMonitoring(pid) {
     }
     var data = await res.json();
     var salDetail = ((el && el._wlaSalDetail) || {})[pid] || [];
-    wlRenderSyncTable(pid, data, salDetail, Number(data.blQuantity || p.total_mt_m3 || 0));
+    wlRenderSyncTable(pid, data, salDetail, Number(data.blQuantity || p.total_mt_m3 || 0), Number(p.unit_price || 0));
   } catch(e) {
     resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;padding:8px;">' + e.message + '</div>';
   } finally {
@@ -7534,7 +7534,7 @@ async function wlSyncFromMonitoring(pid) {
   }
 }
 
-function wlRenderSyncTable(pid, data, salDetail, totalMt) {
+function wlRenderSyncTable(pid, data, salDetail, totalMt, unitPrice) {
   var resultDiv = document.getElementById('wl-sync-result-' + pid);
   if (!resultDiv) return;
   var fmtRp = function(v) { return 'Rp ' + Math.round(v).toLocaleString('id'); };
@@ -7552,13 +7552,15 @@ function wlRenderSyncTable(pid, data, salDetail, totalMt) {
     var bonCount = data.bonMuat[op];
     var tonnage = tpr * bonCount;
     var currentSal = salMap[op] || 0;
+    var suggestedSal = unitPrice > 0 ? Math.round(tonnage * unitPrice) : 0;
+    var defaultSal = currentSal > 0 ? currentSal : suggestedSal;
     var safeOp = op.replace(/[^a-zA-Z0-9]/g, '_');
     return '<tr style="border-bottom:1px solid #E2E8F0;">' +
       '<td style="padding:6px 8px;font-weight:600;">' + op + '</td>' +
       '<td style="padding:6px 8px;text-align:right;">' + bonCount.toLocaleString('id') + '</td>' +
       '<td style="padding:6px 8px;text-align:right;color:#7C3AED;">' + fmtMT(tonnage) + '</td>' +
       '<td style="padding:6px 8px;text-align:right;color:#94A3B8;">' + fmtRp(currentSal) + '</td>' +
-      '<td style="padding:6px 8px;"><input type="number" id="wlss-' + safePid + '-' + safeOp + '" data-op="' + op + '" class="finput" style="width:130px;" value="' + currentSal + '" min="0" placeholder="0"></td>' +
+      '<td style="padding:6px 8px;"><input type="number" id="wlss-' + safePid + '-' + safeOp + '" data-op="' + op + '" class="finput" style="width:130px;" value="' + defaultSal + '" min="0" placeholder="0"></td>' +
       '</tr>';
   }).join('');
   resultDiv._syncOps = ops;
