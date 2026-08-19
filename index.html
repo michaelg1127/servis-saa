@@ -7563,12 +7563,27 @@ function wlRenderSyncTable(pid, data, salDetail, totalMt, unitPrice) {
       '<td style="padding:6px 8px;"><input type="number" id="wlss-' + safePid + '-' + safeOp + '" data-op="' + op + '" class="finput" style="width:130px;" value="' + defaultSal + '" min="0" placeholder="0"></td>' +
       '</tr>';
   }).join('');
+  var blMonitoring = Number(data.blQuantity || 0);
+  var blSaa = Number(totalMt || 0);
+  var blMatch = blMonitoring > 0 && blSaa > 0 && blMonitoring === blSaa;
+  var blDiff = blMonitoring > 0 && blSaa > 0 && !blMatch;
+  var blMonitoringStr = blMonitoring > 0 ? blMonitoring.toLocaleString('id') + ' MT' : '—';
+  var blSaaStr = blSaa > 0 ? blSaa.toLocaleString('id') + ' MT' : '—';
+  var blStatusBadge = blMatch
+    ? '<span style="color:#16A34A;font-weight:700;">✓ sama</span>'
+    : (blDiff ? '<span style="color:#DC2626;font-weight:700;">⚠ berbeda</span>' : '');
   resultDiv._syncOps = ops;
   resultDiv._syncPid = pid;
   resultDiv.innerHTML =
-    '<div style="margin-bottom:8px;font-size:12px;color:#64748B;">' +
+    '<div style="margin-bottom:6px;font-size:12px;color:#64748B;">' +
     'Total Ritase: <strong>' + data.totalRitase.toLocaleString('id') + '</strong> &nbsp;·&nbsp; ' +
     'Tonnage/Ritase: <strong>' + fmtMT(tpr) + '</strong></div>' +
+    '<div style="margin-bottom:10px;font-size:12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:6px 10px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">' +
+    '<span>BL Monitoring: <strong>' + blMonitoringStr + '</strong></span>' +
+    '<span style="color:#CBD5E1;">|</span>' +
+    '<span>BL SAA: <strong>' + blSaaStr + '</strong></span>' +
+    (blStatusBadge ? '<span>' + blStatusBadge + '</span>' : '') +
+    '</div>' +
     '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">' +
     '<thead><tr style="background:#EFF6FF;">' +
     '<th style="padding:6px 8px;text-align:left;">Operator</th>' +
