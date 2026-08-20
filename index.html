@@ -924,6 +924,7 @@ let fuelRiwayatData = [];
 let fuelRiwayatFilters = { bunker: '', unit: '', project: '' };
 let fuelTankXferData = [];
 let fuelBunkerData = [];
+let fuelBunkerMap = {};
 let bbmLastDispenseByUnit = {};
 let proyekTab = 'kapal';
 let proyekKapalData = [];
@@ -4331,6 +4332,7 @@ async function submitTankTransfer() {
     closeModal();
     showToast('Transfer berhasil dicatat.', 'success');
     loadFuelStatus();
+    if (fuelBbmSubTab === 'riwayat') loadFuelRiwayat();
   } catch(e) { showToast('Gagal: ' + e.message); }
 }
 
@@ -4815,8 +4817,8 @@ async function loadFuelRiwayat() {
         .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, gauge_pct, project, project_id, notes, units(id, code, name), fuel_transfers(id, transfer_code, drum_name, fuel_bunkers(bunker_code)), projects(project_code, nama_kapal)')
         .order('dispense_date', { ascending: false }).order('created_at', { ascending: false }),
       sb.from('fuel_tank_transfers')
-        .select('id, from_tank, to_tank, volume_liters, transfer_date, notes, fuel_bunkers(bunker_code)')
-        .order('transfer_date', { ascending: false }).order('created_at', { ascending: false }),
+        .select('id, from_tank, to_tank, volume_liters, transfer_date, notes, bunker_id')
+        .order('transfer_date', { ascending: false }),
       sb.from('fuel_bunkers')
         .select('id, bunker_code, tank_name, total_liters, delivery_date')
         .order('delivery_date', { ascending: false }),
@@ -4827,6 +4829,7 @@ async function loadFuelRiwayat() {
     fuelRiwayatData = (dispenses || []).map(r => ({ ...r, _type: 'dispense' }));
     fuelTankXferData = (xfers || []).map(r => ({ ...r, _type: 'xfer' }));
     fuelBunkerData = (bunkers || []).filter(r => !r.bunker_code.endsWith('-OB')).map(r => ({ ...r, _type: 'bunker' }));
+    fuelBunkerMap = Object.fromEntries((bunkers || []).map(b => [b.id, b.bunker_code]));
     renderFuelRiwayat();
   } catch(e) { el.innerHTML = '<div style="color:#DC2626;padding:16px;">Gagal: ' + e.message + '</div>'; }
 }
@@ -4842,7 +4845,7 @@ function renderFuelRiwayat() {
   const el = document.getElementById('bbm-panel-riwayat');
   if (!el) return;
   const bunkerFromDisp = fuelRiwayatData.map(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers ? r.fuel_transfers.fuel_bunkers.bunker_code : null);
-  const bunkerFromXfer = fuelTankXferData.map(r => r.fuel_bunkers ? r.fuel_bunkers.bunker_code : null);
+  const bunkerFromXfer = fuelTankXferData.map(r => r.bunker_id ? fuelBunkerMap[r.bunker_id] : null);
   const bunkerFromTerima = fuelBunkerData.map(r => r.bunker_code);
   const bunkerOpts = [...new Set([...bunkerFromDisp, ...bunkerFromXfer, ...bunkerFromTerima].filter(b => b && !b.endsWith('-OB')))].sort((a,b) => { const na=parseInt(a.replace('X',''),10),nb=parseInt(b.replace('X',''),10); return nb-na; });
   const unitOpts = [...new Set(fuelRiwayatData.map(r => r.units ? r.units.code : null).filter(Boolean))].sort();
@@ -4866,7 +4869,7 @@ function renderFuelRiwayat() {
   let filtBunkers = fuelBunkerData.slice();
   if (fuelRiwayatFilters.bunker) {
     filtDisp = filtDisp.filter(r => r.fuel_transfers && r.fuel_transfers.fuel_bunkers && r.fuel_transfers.fuel_bunkers.bunker_code === fuelRiwayatFilters.bunker);
-    filtXfer = filtXfer.filter(r => r.fuel_bunkers && r.fuel_bunkers.bunker_code === fuelRiwayatFilters.bunker);
+    filtXfer = filtXfer.filter(r => r.bunker_id && fuelBunkerMap[r.bunker_id] === fuelRiwayatFilters.bunker);
     filtBunkers = filtBunkers.filter(r => r.bunker_code === fuelRiwayatFilters.bunker);
   }
   if (fuelRiwayatFilters.unit) { filtDisp = filtDisp.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit); filtXfer = []; filtBunkers = []; }
@@ -4900,7 +4903,7 @@ function renderFuelRiwayat() {
       '</tr>';
   };
   const xferRow = (r) => {
-    const bunker = r.fuel_bunkers ? r.fuel_bunkers.bunker_code : '—';
+    const bunker = r.bunker_id && fuelBunkerMap[r.bunker_id] ? fuelBunkerMap[r.bunker_id] : '—';
     const fromL = r.from_tank.charAt(0).toUpperCase() + r.from_tank.slice(1);
     const toL = r.to_tank.charAt(0).toUpperCase() + r.to_tank.slice(1);
     return '<tr style="background:#EFF6FF;">' +
