@@ -4816,7 +4816,6 @@ async function loadFuelRiwayat() {
         .order('dispense_date', { ascending: false }).order('created_at', { ascending: false }),
       sb.from('fuel_tank_transfers')
         .select('id, from_tank, to_tank, volume_liters, transfer_date, notes, fuel_bunkers(bunker_code)')
-        .not('bunker_id', 'is', null)
         .order('transfer_date', { ascending: false }).order('created_at', { ascending: false }),
       sb.from('fuel_bunkers')
         .select('id, bunker_code, tank_name, total_liters, delivery_date')
