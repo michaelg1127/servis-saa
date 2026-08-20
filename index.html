@@ -4859,6 +4859,7 @@ function renderFuelRiwayat() {
     '<select onchange="fuelRiwayatFilters.project=this.value;renderFuelRiwayat()" style="padding:6px 10px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;background:white;">' +
     '<option value="">Semua Project</option>' + projectOpts.map(p => '<option value="' + p + '"' + (fuelRiwayatFilters.project===p ? ' selected' : '') + '>' + p + '</option>').join('') + '</select>' +
   '</div>';
+  const debugBanner = '<div style="font-size:11px;color:#94A3B8;margin-bottom:8px;">DBG — dispenses:' + fuelRiwayatData.length + ' xfers:' + fuelTankXferData.length + ' bunkers:' + fuelBunkerData.length + ' bunkerMap:' + Object.keys(fuelBunkerMap).length + '</div>';
   const sortPills = '<div id="bbm-riwayat-sort-pills" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">' +
     '<button class="filter-pill' + (fuelRiwayatSort==='date' ? ' on' : '') + '" onclick="setFuelRiwayatSort(this.dataset.s,this)" data-s="date">Terbaru</button>' +
     '<button class="filter-pill' + (fuelRiwayatSort==='unit' ? ' on' : '') + '" onclick="setFuelRiwayatSort(this.dataset.s,this)" data-s="unit">Per Unit</button>' +
@@ -4875,7 +4876,7 @@ function renderFuelRiwayat() {
   if (fuelRiwayatFilters.unit) { filtDisp = filtDisp.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit); filtXfer = []; filtBunkers = []; }
   if (fuelRiwayatFilters.project) { filtDisp = filtDisp.filter(r => ((r.project_id && r.projects) ? r.projects.project_code : r.project) === fuelRiwayatFilters.project); filtXfer = []; filtBunkers = []; }
   if (!filtDisp.length && !filtXfer.length && !filtBunkers.length) {
-    el.innerHTML = filterRow + sortPills + '<div style="color:#94A3B8;padding:20px;">Belum ada data.</div>';
+    el.innerHTML = debugBanner + filterRow + sortPills + '<div style="color:#94A3B8;padding:20px;">Belum ada data.</div>';
     return;
   }
   const dispRow = (r) => {
@@ -4961,7 +4962,7 @@ function renderFuelRiwayat() {
       body += '<tbody><tr style="background:#F0FDF4;"><td colspan="12" style="font-weight:800;color:#166534;padding:8px 12px;">' + k + '</td></tr>' + grps[k].map(r => r._type === 'xfer' ? xferRow(r) : r._type === 'bunker' ? bunkerRow(r) : dispRow(r)).join('') + '</tbody>';
     });
   }
-  el.innerHTML = filterRow + sortPills + '<div class="table-wrap"><table class="dt">' + hdr + body + '</table></div>';
+  el.innerHTML = debugBanner + filterRow + sortPills + '<div class="table-wrap"><table class="dt">' + hdr + body + '</table></div>';
 }
 
 // ============================================================
