@@ -4595,6 +4595,29 @@ function onGaugeInput(v) {
   onPengisianHMChange();
 }
 
+async function checkHMFillDuplicate(unitId, hm) {
+  const { data, error } = await sb.from('fuel_dispenses')
+    .select('id, dispense_date, liters_dispensed, units(code)')
+    .eq('unit_id', unitId)
+    .eq('hm_at_fill', hm)
+    .limit(1)
+    .single();
+  if (error || !data) return null;
+  return data;
+}
+
+async function checkProjectHMOverlap(unitId, hmAwal, hmAkhir, unitCode) {
+  const { data, error } = await sb.from('project_units')
+    .select('id, hm_awal, hm_akhir, projects(project_code)')
+    .eq('unit_id', unitId)
+    .lte('hm_awal', hmAkhir ?? 999999999)
+    .or('hm_akhir.is.null,hm_akhir.gte.' + hmAwal)
+    .limit(1)
+    .single();
+  if (error || !data) return null;
+  return data;
+}
+
 async function submitPengisian() {
   const sumberEl = document.getElementById('bbm-peng-sumber');
   const sumber = sumberEl ? sumberEl.value : 'hijau';
@@ -4613,6 +4636,12 @@ async function submitPengisian() {
   const gaugeRaw = parseInt((document.getElementById('bbm-peng-gauge') || {}).value || '');
   const gaugePct = !isNaN(gaugeRaw) && gaugeRaw >= 0 && gaugeRaw <= 100 ? gaugeRaw : null;
   if (!drumName || !vol || !unitId || !hm || !date) { showToast('Drum, Volume, Unit, HM, dan Tanggal wajib diisi.'); return; }
+  const hmDupConflict = await checkHMFillDuplicate(unitId, hm);
+  if (hmDupConflict) {
+    const unitCode = document.getElementById('bbm-peng-unit').selectedOptions[0]?.text?.split(' — ')[0] || '';
+    showToast('Unit ' + unitCode + ' sudah pernah diisi pada HM ' + hm + ' — ' + hmDupConflict.dispense_date + ', ' + hmDupConflict.liters_dispensed + 'L. Koreksi HM sebelum menyimpan.');
+    return;
+  }
 
   let bunkerId, transferCode;
 
@@ -5328,6 +5357,14 @@ async function submitAddKapal(shipNum, monthYear) {
     if (isNaN(sAwal) || sAwal < 0 || sAwal > 100) { showToast('Solar Awal% wajib diisi (0-100)'); return; }
     if (gapVisible && !gapReason) { showToast('Alasan gap HM wajib diisi'); return; }
     unitRows.push({ unit_id: unitId, hm_awal: hmAwal, hm_akhir: null, solar_awal_pct: sAwal, solar_akhir_pct: null, solar_isi_liters: 0, hm_gap_reason: gapReason || null });
+    const unitCode_k = document.getElementById('ku-unit-' + rowId)?.selectedOptions[0]?.text || unitId;
+    const overlapK = await checkProjectHMOverlap(unitId, hmAwal, null, unitCode_k);
+    if (overlapK) {
+      const pc_k = overlapK.projects?.project_code || '?';
+      const ha_k = overlapK.hm_akhir != null ? overlapK.hm_akhir : 'sekarang';
+      showToast('Unit ' + unitCode_k + ' sudah tercatat di Proyek ' + pc_k + ' pada HM ' + overlapK.hm_awal + '–' + ha_k + '. Selesaikan atau perbaiki HM sebelum menyimpan.');
+      return;
+    }
   }
   const projectCode = formatKapalCode(monthYear, shipNum);
   try {
@@ -5528,6 +5565,14 @@ async function submitAddStockpile() {
     if (isNaN(sAwal) || sAwal < 0 || sAwal > 100) { showToast('Solar Awal% wajib diisi (0-100)'); return; }
     if (gapVisible && !gapReason) { showToast('Alasan gap HM wajib diisi'); return; }
     unitRows.push({ unit_id: unitId, hm_awal: hmAwal, hm_akhir: null, solar_awal_pct: sAwal, solar_akhir_pct: null, solar_isi_liters: 0, hm_gap_reason: gapReason || null });
+    const unitCode_s = document.getElementById('su-unit-' + rowId)?.selectedOptions[0]?.text || unitId;
+    const overlapS = await checkProjectHMOverlap(unitId, hmAwal, null, unitCode_s);
+    if (overlapS) {
+      const pc_s = overlapS.projects?.project_code || '?';
+      const ha_s = overlapS.hm_akhir != null ? overlapS.hm_akhir : 'sekarang';
+      showToast('Unit ' + unitCode_s + ' sudah tercatat di Proyek ' + pc_s + ' pada HM ' + overlapS.hm_awal + '–' + ha_s + '. Selesaikan atau perbaiki HM sebelum menyimpan.');
+      return;
+    }
   }
   try {
     const { data: proj, error: pe } = await sb.from('projects').insert({
