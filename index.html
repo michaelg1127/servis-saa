@@ -4846,8 +4846,8 @@ async function loadFuelRiwayat() {
         .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, gauge_pct, project, project_id, notes, units(id, code, name), fuel_transfers(id, transfer_code, drum_name, fuel_bunkers(bunker_code)), projects(project_code, nama_kapal)')
         .order('dispense_date', { ascending: false }).order('created_at', { ascending: false }),
       sb.from('fuel_tank_transfers')
-        .select('id, from_tank, to_tank, volume_liters, transfer_date, notes, bunker_id')
-        .order('transfer_date', { ascending: false }),
+        .select('id, from_tank, to_tank, volume_liters, transfer_date, notes, bunker_id, created_at')
+        .order('created_at', { ascending: false }),
       sb.from('fuel_bunkers')
         .select('id, bunker_code, tank_name, total_liters, delivery_date')
         .order('delivery_date', { ascending: false }),
@@ -4969,10 +4969,10 @@ function renderFuelRiwayat() {
   let body = '';
   if (fuelRiwayatSort === 'date') {
     const all = [
-      ...filtDisp.map(r => ({ ...r, _d: r.dispense_date })),
-      ...filtXfer.map(r => ({ ...r, _d: r.transfer_date })),
-      ...filtBunkers.map(r => ({ ...r, _d: r.delivery_date }))
-    ].sort((a,b) => b._d.localeCompare(a._d));
+      ...filtDisp.map(r => ({ ...r, _d: r.dispense_date, _dt: r.created_at || r.dispense_date })),
+      ...filtXfer.map(r => ({ ...r, _d: r.transfer_date, _dt: r.created_at || r.transfer_date })),
+      ...filtBunkers.map(r => ({ ...r, _d: r.delivery_date, _dt: r.created_at || r.delivery_date }))
+    ].sort((a,b) => (b._dt || b._d || '').localeCompare(a._dt || a._d || ''));
     body = '<tbody>' + all.map(r => r._type === 'xfer' ? xferRow(r) : r._type === 'bunker' ? bunkerRow(r) : dispRow(r)).join('') + '</tbody>';
   } else if (fuelRiwayatSort === 'unit') {
     const grps = {};
