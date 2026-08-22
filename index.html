@@ -7472,7 +7472,8 @@ function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
     const fuelCost = totalBBM * Number(p.harga_solar_rpl || 0);
     const laborBase = salMap[p.id] || 0;
     const laborCost = laborBase * 1.05;
-    const profit = income - fuelCost - laborCost;
+    const fixedCost = Number(p.total_mt_m3 || 0) * 920;
+    const profit = income - fuelCost - laborCost - fixedCost;
     const totalHM = pus.reduce(function(a, pu) {
       return a + ((pu.hm_akhir != null && pu.hm_awal != null) ? Number(pu.hm_akhir) - Number(pu.hm_awal) : 0);
     }, 0);
@@ -7493,10 +7494,11 @@ function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
       '<td style="text-align:right;color:#D97706;"><div>' + Math.round(totalBBM).toLocaleString('id') + ' L</div><div>' + fmtRp(fuelCost) + '</div>' +
       '<button onclick="event.stopPropagation();wlEditField(\'' + p.id + '\',\'harga_solar_rpl\')" style="font-size:10px;color:#D97706;background:none;border:none;cursor:pointer;padding:0;">✎ Rp/L</button></td>' +
       '<td style="text-align:right;color:#7C3AED;">' + fmtRp(laborCost) + '<br><span style="font-size:10px;color:#94A3B8;">(base × 1.05)</span></td>' +
+      '<td style="text-align:right;color:#6B7280;">' + fmtRp(fixedCost) + '<br><span style="font-size:10px;color:#94A3B8;">Rp 920/MT</span></td>' +
       '<td style="text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#DC2626') + ';">' + fmtRp(profit) + '<br><span style="font-size:10px;">' + Math.round(yieldHM).toLocaleString('id') + '/HM</span></td>' +
       '<td style="text-align:right;" onclick="event.stopPropagation();">' + invoiceCell + '</td>' +
       '</tr>' +
-      '<tr id="wla-detail-' + p.id + '" style="display:none;background:#F8FAFC;"><td colspan="8" style="padding:0;">' +
+      '<tr id="wla-detail-' + p.id + '" style="display:none;background:#F8FAFC;"><td colspan="9" style="padding:0;">' +
       '<div style="padding:12px 16px;" id="wla-detail-inner-' + p.id + '"><div style="color:#94A3B8;font-size:12px;">Memuat detail...</div></div>' +
       '<div id="wla-edit-' + p.id + '" style="padding:0 16px 12px;display:none;"></div>' +
       '</td></tr>';
@@ -7507,6 +7509,7 @@ function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
     '<th style="text-align:right;">Income</th>' +
     '<th style="text-align:right;">BBM</th>' +
     '<th style="text-align:right;">Labor (+5%)</th>' +
+    '<th style="text-align:right;">Fixed Cost</th>' +
     '<th style="text-align:right;">Profit / Yield</th>' +
     '<th style="text-align:right;">Invoice</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
@@ -7802,7 +7805,8 @@ function renderWoodlogOpenProjects(projects, salMap, fillMap) {
     const income = (p.total_mt_m3 && p.unit_price) ? Number(p.total_mt_m3) * Number(p.unit_price) : 0;
     const fuelCost = totalBBM * Number(p.harga_solar_rpl || 0);
     const laborCost = (salMap[p.id] || 0) * 1.05;
-    const profit = income - fuelCost - laborCost;
+    const fixedCost = Number(p.total_mt_m3 || 0) * 920;
+    const profit = income - fuelCost - laborCost - fixedCost;
     const isCompleted = !!p.end_date;
     const statusBadge = isCompleted
       ? '<span style="background:#DCFCE7;color:#16A34A;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;">SELESAI</span>'
@@ -7814,6 +7818,7 @@ function renderWoodlogOpenProjects(projects, salMap, fillMap) {
       '<td style="text-align:right;">' + (income > 0 ? fmtRp(income) : '<span style="color:#94A3B8;">—</span>') + '</td>' +
       '<td style="text-align:right;color:#D97706;">' + Math.round(totalBBM).toLocaleString('id') + ' L<br>' + fmtRp(fuelCost) + '</td>' +
       '<td style="text-align:right;color:#7C3AED;">' + fmtRp(laborCost) + '</td>' +
+      '<td style="text-align:right;color:#6B7280;">' + fmtRp(fixedCost) + '<br><span style="font-size:10px;color:#94A3B8;">Rp 920/MT</span></td>' +
       '<td style="text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#DC2626') + ';">' + fmtRp(profit) + '</td>' +
       '<td style="text-align:center;"><button onclick="wlOpenInvoiceFromOpen(\'' + p.id + '\')" style="background:#FEF3C7;border:1px solid #FDE68A;color:#D97706;font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;cursor:pointer;">+ Input Invoice</button></td>' +
       '</tr>';
@@ -7829,6 +7834,7 @@ function renderWoodlogOpenProjects(projects, salMap, fillMap) {
     '<th style="text-align:right;">Income</th>' +
     '<th style="text-align:right;">BBM</th>' +
     '<th style="text-align:right;">Labor (+5%)</th>' +
+    '<th style="text-align:right;">Fixed Cost</th>' +
     '<th style="text-align:right;">Profit Est.</th>' +
     '<th style="text-align:center;">Invoice</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
