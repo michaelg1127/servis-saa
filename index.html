@@ -5737,6 +5737,14 @@ async function submitEditKapal(projId) {
     const newSAwal = parseInt(document.getElementById('kapal-en-sawal-' + j)?.value);
     if (!newUnitId) { showToast('Pilih unit untuk baris unit baru'); return; }
     if (isNaN(newHmAwal)) { showToast('HM Awal unit baru wajib diisi'); return; }
+    const newUnitCode_k = document.getElementById('kapal-en-unit-' + j)?.selectedOptions[0]?.text || newUnitId;
+    const overlapEK = await checkProjectHMOverlap(newUnitId, newHmAwal, null, newUnitCode_k);
+    if (overlapEK) {
+      const pc_ek = overlapEK.projects?.project_code || '?';
+      const ha_ek = overlapEK.hm_akhir != null ? overlapEK.hm_akhir : 'sekarang';
+      showToast('Unit ' + newUnitCode_k + ' sudah tercatat di Proyek ' + pc_ek + ' pada HM ' + overlapEK.hm_awal + '–' + ha_ek + '. Selesaikan atau perbaiki HM sebelum menyimpan.');
+      return;
+    }
     unitUpdates.push({ unit_id: newUnitId, hm_awal: newHmAwal, hm_akhir: null, solar_awal_pct: isNaN(newSAwal) ? 100 : newSAwal, solar_akhir_pct: null, hm_gap_reason: null });
   }
   try {
