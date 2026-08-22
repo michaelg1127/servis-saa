@@ -5702,6 +5702,38 @@ async function addNewKapalUnitRow() {
 }
 function removeKapalNewUnitRow(idx) { var el = document.getElementById('kapal-en-row-' + idx); if (el) el.remove(); }
 
+async function addWlNewUnitRow() {
+  var units = (allUnits && allUnits.length > 0) ? allUnits : [];
+  if (units.length === 0) {
+    var res = await sb.from('units').select('id,code,name').order('code');
+    units = res.data || [];
+    allUnits = units;
+  }
+  var wlUnits = units.filter(function(u) { return WL_ALL_CODES.includes(u.code); });
+  var countEl = document.getElementById('wlen-count');
+  if (!countEl) return;
+  var idx = parseInt(countEl.value) || 0;
+  var opts = '<option value="">-- Pilih Unit --</option>';
+  wlUnits.forEach(function(u) { opts += '<option value="' + u.id + '">' + u.code + '</option>'; });
+  var row = document.createElement('div');
+  row.id = 'wlen-row-' + idx;
+  row.style.cssText = 'background:#ECFDF5;border:1px solid #6EE7B7;border-radius:10px;padding:12px;margin-bottom:8px;';
+  row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    + '<span style="font-size:12px;font-weight:700;color:#059669;">Unit Baru #' + (idx+1) + '</span>'
+    + '<button type="button" onclick="removeWlNewUnitRow(' + idx + ')" style="font-size:11px;color:#EF4444;background:none;border:none;cursor:pointer;">&#10005;</button>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 70px 70px 60px 60px;gap:8px;">'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Unit</label><select id="wlen-unit-' + idx + '" class="finput" style="font-size:12px;padding:6px 8px;">' + opts + '</select></div>'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Awal</label><input type="number" id="wlen-hmawal-' + idx + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="HM" step="0.1"></div>'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Akhir</label><input type="number" id="wlen-hmakhir-' + idx + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="Opsional" step="0.1"></div>'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Awal%</label><input type="number" id="wlen-sawal-' + idx + '" class="finput" style="font-size:12px;padding:6px 8px;" value="100" min="0" max="100"></div>'
+    + '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Akhir%</label><input type="number" id="wlen-sakhir-' + idx + '" class="finput" style="font-size:12px;padding:6px 8px;" placeholder="0" min="0" max="100"></div>'
+    + '</div>';
+  document.getElementById('wlen-rows').appendChild(row);
+  countEl.value = idx + 1;
+}
+function removeWlNewUnitRow(idx) { var el = document.getElementById('wlen-row-' + idx); if (el) el.remove(); }
+
 async function submitEditKapal(projId) {
   const p = proyekKapalData.find(function(x) { return x.id === projId; });
   if (!p) { showToast('Data tidak ditemukan'); return; }
@@ -6844,6 +6876,9 @@ async function openEditWoodlogKapalModal(id) {
     '<div style="margin-bottom:16px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Catatan</label><textarea id="wledit-notes" class="finput" rows="2">' + (p.notes || '') + '</textarea></div>' +
     '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Unit HM + Solar (' + units.length + ' unit)</div>' +
     unitRowsHTML +
+    '<div id="wlen-rows"></div>' +
+    '<input type="hidden" id="wlen-count" value="0">' +
+    '<button type="button" onclick="addWlNewUnitRow()" style="width:100%;padding:8px;margin-bottom:12px;background:#ECFDF5;border:1.5px dashed #6EE7B7;border-radius:8px;color:#059669;font-size:13px;font-weight:600;cursor:pointer;">+ Tambah Unit</button>' +
     '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Salary Bangau (J02/J03) — auto dari BL</div>' +
     '<div style="background:#EFF6FF;border-radius:10px;padding:12px;margin-bottom:16px;">' + bangauRows + '</div>' +
     '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Salary STD (J45–J48) — input tonnage</div>' +
@@ -6930,6 +6965,29 @@ async function submitEditWoodlogKapal(id) {
         solar_awal_pct: u.solar_awal_pct, solar_akhir_pct: u.solar_akhir_pct
       }).eq('project_id', id).eq('unit_id', u.unit_id);
     }));
+    // Insert new units
+    const newCount = parseInt((document.getElementById('wlen-count') || {}).value) || 0;
+    const newUnitRows = [];
+    for (let j = 0; j < newCount; j++) {
+      if (!document.getElementById('wlen-row-' + j)) continue;
+      const newUnitId = (document.getElementById('wlen-unit-' + j) || {}).value;
+      if (!newUnitId) continue;
+      const newHmAwal = parseFloat((document.getElementById('wlen-hmawal-' + j) || {}).value);
+      const newHmAkhir = parseFloat((document.getElementById('wlen-hmakhir-' + j) || {}).value);
+      const newSAwal = parseFloat((document.getElementById('wlen-sawal-' + j) || {}).value);
+      const newSAkhir = parseFloat((document.getElementById('wlen-sakhir-' + j) || {}).value);
+      newUnitRows.push({
+        project_id: id, unit_id: newUnitId,
+        hm_awal: isNaN(newHmAwal) ? null : newHmAwal,
+        hm_akhir: isNaN(newHmAkhir) ? null : newHmAkhir,
+        solar_awal_pct: isNaN(newSAwal) ? null : newSAwal,
+        solar_akhir_pct: isNaN(newSAkhir) ? null : newSAkhir
+      });
+    }
+    if (newUnitRows.length > 0) {
+      const { error: enErr } = await sb.from('project_units').insert(newUnitRows);
+      if (enErr) throw enErr;
+    }
     // Delete + re-insert salary rows
     await sb.from('woodlog_operator_salary').delete().eq('project_id', id);
     if (salaryInserts.length > 0) {
