@@ -4888,7 +4888,6 @@ function renderFuelRiwayat() {
     '<select onchange="fuelRiwayatFilters.project=this.value;renderFuelRiwayat()" style="padding:6px 10px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:13px;background:white;">' +
     '<option value="">Semua Project</option>' + projectOpts.map(p => '<option value="' + p + '"' + (fuelRiwayatFilters.project===p ? ' selected' : '') + '>' + p + '</option>').join('') + '</select>' +
   '</div>';
-  const debugBanner = '<div style="font-size:11px;color:#94A3B8;margin-bottom:8px;">DBG — dispenses:' + fuelRiwayatData.length + ' xfers:' + fuelTankXferData.length + ' bunkers:' + fuelBunkerData.length + ' bunkerMap:' + Object.keys(fuelBunkerMap).length + '</div>';
   const sortPills = '<div id="bbm-riwayat-sort-pills" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">' +
     '<button class="filter-pill' + (fuelRiwayatSort==='date' ? ' on' : '') + '" onclick="setFuelRiwayatSort(this.dataset.s,this)" data-s="date">Terbaru</button>' +
     '<button class="filter-pill' + (fuelRiwayatSort==='unit' ? ' on' : '') + '" onclick="setFuelRiwayatSort(this.dataset.s,this)" data-s="unit">Per Unit</button>' +
@@ -4902,8 +4901,9 @@ function renderFuelRiwayat() {
     filtXfer = filtXfer.filter(r => r.bunker_id && fuelBunkerMap[r.bunker_id] === fuelRiwayatFilters.bunker);
     filtBunkers = filtBunkers.filter(r => r.bunker_code === fuelRiwayatFilters.bunker);
   }
-  if (fuelRiwayatFilters.unit) { filtDisp = filtDisp.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit); filtXfer = []; filtBunkers = []; }
-  if (fuelRiwayatFilters.project) { filtDisp = filtDisp.filter(r => ((r.project_id && r.projects) ? r.projects.project_code : r.project) === fuelRiwayatFilters.project); filtXfer = []; filtBunkers = []; }
+  if (fuelRiwayatFilters.unit) { filtDisp = filtDisp.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit); }
+  if (fuelRiwayatFilters.project) { filtDisp = filtDisp.filter(r => ((r.project_id && r.projects) ? r.projects.project_code : r.project) === fuelRiwayatFilters.project); }
+  const debugBanner = '<div style="font-size:11px;color:#94A3B8;margin-bottom:8px;">DBG — dispenses:' + fuelRiwayatData.length + ' xfers:' + fuelTankXferData.length + ' bunkers:' + fuelBunkerData.length + ' bunkerMap:' + Object.keys(fuelBunkerMap).length + ' | filtered disp:' + filtDisp.length + ' xfers:' + filtXfer.length + '</div>';
   if (!filtDisp.length && !filtXfer.length && !filtBunkers.length) {
     el.innerHTML = debugBanner + filterRow + sortPills + '<div style="color:#94A3B8;padding:20px;">Belum ada data.</div>';
     return;
