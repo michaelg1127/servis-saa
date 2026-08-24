@@ -7520,7 +7520,7 @@ function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
     const totalHM = pus.reduce(function(a, pu) {
       return a + ((pu.hm_akhir != null && pu.hm_awal != null) ? Number(pu.hm_akhir) - Number(pu.hm_awal) : 0);
     }, 0);
-    const yieldHM = totalHM > 0 ? profit / totalHM : 0;
+    const ratio = totalBBM > 0 ? Number(p.total_mt_m3 || 0) / totalBBM : 0;
     const isClosed = !!p.invoice_number;
     const statusBadge = isClosed
       ? '<span style="background:#DBEAFE;color:#1D4ED8;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;">CLOSED</span>'
@@ -7538,7 +7538,7 @@ function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
       '<button onclick="event.stopPropagation();wlEditField(\'' + p.id + '\',\'harga_solar_rpl\')" style="font-size:10px;color:#D97706;background:none;border:none;cursor:pointer;padding:0;">✎ Rp/L</button></td>' +
       '<td style="text-align:right;color:#7C3AED;">' + fmtRp(laborCost) + '<br><span style="font-size:10px;color:#94A3B8;">(base × 1.05)</span></td>' +
       '<td style="text-align:right;color:#6B7280;">' + fmtRp(fixedCost) + '<br><span style="font-size:10px;color:#94A3B8;">Rp 920/MT</span></td>' +
-      '<td style="text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#DC2626') + ';">' + fmtRp(profit) + '<br><span style="font-size:10px;">' + Math.round(yieldHM).toLocaleString('id') + '/HM</span></td>' +
+      '<td style="text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#DC2626') + ';">' + fmtRp(profit) + '<br><span style="font-size:10px;">' + ratio.toFixed(2) + 'X</span></td>' +
       '<td style="text-align:right;" onclick="event.stopPropagation();">' + invoiceCell + '</td>' +
       '</tr>' +
       '<tr id="wla-detail-' + p.id + '" style="display:none;background:#F8FAFC;"><td colspan="9" style="padding:0;">' +
@@ -7553,7 +7553,7 @@ function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
     '<th style="text-align:right;">BBM</th>' +
     '<th style="text-align:right;">Labor (+5%)</th>' +
     '<th style="text-align:right;">Fixed Cost</th>' +
-    '<th style="text-align:right;">Profit / Yield</th>' +
+    '<th style="text-align:right;">Profit / Ratio</th>' +
     '<th style="text-align:right;">Invoice</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>';
 }
