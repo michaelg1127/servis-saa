@@ -6797,7 +6797,7 @@ async function openAddWoodlogKapalModal() {
 
 function wlUpdateSalaryPreview() {
   const bl = parseFloat(document.getElementById('wladd-bl') ? document.getElementById('wladd-bl').value : '') || 0;
-  const bangauSal = Math.round(bl * 0.9 / 4 * 800);
+  const bangauSal = Math.round(bl * 750 / 4);
   WL_BANGAU_OPS.forEach(function(op) {
     const el = document.getElementById('wl-bang-sal-' + op);
     if (el) el.textContent = 'Rp ' + bangauSal.toLocaleString('id');
@@ -6806,7 +6806,7 @@ function wlUpdateSalaryPreview() {
     const inp = document.getElementById('wl-std-ton-' + op);
     const ton = parseFloat(inp ? inp.value : '') || 0;
     const salEl = document.getElementById('wl-std-sal-' + op);
-    if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 750).toLocaleString('id');
+    if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 0.95 * 800).toLocaleString('id');
   });
 }
 
@@ -6844,8 +6844,8 @@ async function submitAddWoodlogKapal(shipNum, monthYear) {
       if (e2) throw e2;
     }
     if (bl) {
-      const bangauSal = Math.round(bl * 0.9 / 4 * 800);
-      const bl4 = bl * 0.9 / 4;
+      const bangauSal = Math.round(bl * 750 / 4);
+      const bl4 = bl / 4;
       const bangauRows = WL_BANGAU_OPS.map(function(op) {
         return { project_id: proj.id, operator_name: op, unit_type: 'bangau', tonnage_mt: bl4, salary_amount: bangauSal };
       });
@@ -6939,7 +6939,7 @@ async function openEditWoodlogKapalModal(id) {
 
 function wlEditSalaryPreview() {
   const bl = parseFloat(document.getElementById('wledit-bl') ? document.getElementById('wledit-bl').value : '') || 0;
-  const bangauSal = Math.round(bl * 0.9 / 4 * 800);
+  const bangauSal = Math.round(bl * 750 / 4);
   WL_BANGAU_OPS.forEach(function(op) {
     const el = document.getElementById('wledit-bang-sal-' + op);
     if (el) el.textContent = 'Rp ' + bangauSal.toLocaleString('id');
@@ -6948,7 +6948,7 @@ function wlEditSalaryPreview() {
     const inp = document.getElementById('wledit-std-ton-' + op);
     const ton = parseFloat(inp ? inp.value : '') || 0;
     const salEl = document.getElementById('wledit-std-sal-' + op);
-    if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 750).toLocaleString('id');
+    if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 0.95 * 800).toLocaleString('id');
   });
 }
 
@@ -6976,7 +6976,7 @@ async function wlEditSyncFromMonitoring(code) {
     if (!data.totalRitase || data.totalRitase === 0) {
       notes.push('<div style="color:#D97706;font-size:12px;">Total ritase = 0, tonase STD tidak dihitung.</div>');
     } else {
-      var tpr = (bl * 0.9) / data.totalRitase;
+      var tpr = (bl * 0.95) / data.totalRitase;
       var bonMuat = data.bonMuat || {};
       var skipped = [];
       var filled = [];
@@ -7036,8 +7036,8 @@ async function submitEditWoodlogKapal(id) {
   const salaryInserts = [];
   const blVal = bl || 0;
   if (blVal > 0) {
-    const bangauSal = Math.round(blVal * 0.9 / 4 * 800);
-    const bl4 = blVal * 0.9 / 4;
+    const bangauSal = Math.round(blVal * 750 / 4);
+    const bl4 = blVal / 4;
     WL_BANGAU_OPS.forEach(function(op) {
       salaryInserts.push({ project_id: id, operator_name: op, unit_type: 'bangau', tonnage_mt: bl4, salary_amount: bangauSal });
     });
@@ -7045,7 +7045,7 @@ async function submitEditWoodlogKapal(id) {
   WL_STD_OPS.forEach(function(op) {
     const inp = document.getElementById('wledit-std-ton-' + op);
     const ton = parseFloat(inp ? inp.value : '') || 0;
-    if (ton > 0) salaryInserts.push({ project_id: id, operator_name: op, unit_type: 'std', tonnage_mt: ton, salary_amount: Math.round(ton * 750) });
+    if (ton > 0) salaryInserts.push({ project_id: id, operator_name: op, unit_type: 'std', tonnage_mt: ton, salary_amount: Math.round(ton * 0.95 * 800) });
   });
   try {
     const { error: pe } = await sb.from('projects').update({
@@ -7755,7 +7755,7 @@ function wlRenderSyncTable(pid, data, salDetail, totalMt, unitPrice) {
     resultDiv.innerHTML = '<div style="color:#D97706;font-size:12px;padding:8px;">Total ritase = 0, tidak bisa menghitung tonnage.</div>';
     return;
   }
-  var tpr = (totalMt * 0.9) / data.totalRitase;
+  var tpr = (totalMt * 0.95) / data.totalRitase;
   var salMap = {};
   salDetail.forEach(function(s) { salMap[s.name] = s.amount; });
   var ops = Object.keys(data.bonMuat);
