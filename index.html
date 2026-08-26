@@ -6922,6 +6922,8 @@ async function openEditWoodlogKapalModal(id) {
     '<div id="wlen-rows"></div>' +
     '<input type="hidden" id="wlen-count" value="0">' +
     '<button type="button" onclick="addWlNewUnitRow()" style="width:100%;padding:8px;margin-bottom:12px;background:#ECFDF5;border:1.5px dashed #6EE7B7;border-radius:8px;color:#059669;font-size:13px;font-weight:600;cursor:pointer;">+ Tambah Unit</button>' +
+    '<div style="margin-bottom:16px;"><button type="button" id="wledit-sync-btn" onclick="wlEditSyncFromMonitoring(\'' + (p.project_code || '') + '\')" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;">↻ Sync dari Woodlog Monitoring</button>' +
+    '<div id="wledit-sync-result" style="margin-top:8px;"></div></div>' +
     '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Salary Bangau (J02/J03) — auto dari BL</div>' +
     '<div style="background:#EFF6FF;border-radius:10px;padding:12px;margin-bottom:16px;">' + bangauRows + '</div>' +
     '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Salary STD (J45–J48) — input tonnage</div>' +
@@ -6948,6 +6950,57 @@ function wlEditSalaryPreview() {
     const salEl = document.getElementById('wledit-std-sal-' + op);
     if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 750).toLocaleString('id');
   });
+}
+
+async function wlEditSyncFromMonitoring(code) {
+  var btn = document.getElementById('wledit-sync-btn');
+  var resultDiv = document.getElementById('wledit-sync-result');
+  if (!resultDiv) return;
+  if (!code) { resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;">Kode proyek tidak tersedia.</div>'; return; }
+  if (btn) { btn.textContent = 'Memuat...'; btn.disabled = true; }
+  try {
+    var res = await fetch('https://woodlog-monitoring.vercel.app/api/project-stats?code=' + encodeURIComponent(code));
+    if (!res.ok) {
+      if (res.status === 404) throw new Error('Kode ' + code + ' tidak ditemukan di Woodlog Monitoring. Pastikan kode proyek sudah diisi di sana.');
+      throw new Error('Error ' + res.status + ' dari Woodlog Monitoring.');
+    }
+    var data = await res.json();
+    var bl = Number(data.blQuantity || 0);
+    var notes = [];
+    var blInput = document.getElementById('wledit-bl');
+    if (bl > 0 && blInput) {
+      var oldBl = parseFloat(blInput.value) || 0;
+      if (oldBl > 0 && oldBl !== bl) notes.push('<div style="color:#D97706;font-size:12px;">BL diganti: ' + oldBl.toLocaleString('id') + ' \u2192 ' + bl.toLocaleString('id') + ' MT</div>');
+      blInput.value = bl;
+    }
+    if (!data.totalRitase || data.totalRitase === 0) {
+      notes.push('<div style="color:#D97706;font-size:12px;">Total ritase = 0, tonase STD tidak dihitung.</div>');
+    } else {
+      var tpr = (bl * 0.9) / data.totalRitase;
+      var bonMuat = data.bonMuat || {};
+      var skipped = [];
+      var filled = [];
+      Object.keys(bonMuat).forEach(function(op) {
+        var inp = document.getElementById('wledit-std-ton-' + op);
+        if (inp) {
+          var ton = Math.round(tpr * bonMuat[op] * 100) / 100;
+          inp.value = ton;
+          filled.push(op + ': ' + bonMuat[op] + ' bon \u2192 ' + ton.toFixed(2) + ' MT');
+        } else if (WL_BANGAU_OPS.indexOf(op) === -1) {
+          skipped.push(op);
+        }
+      });
+      notes.push('<div style="color:#64748B;font-size:12px;margin-bottom:4px;">Ritase: <strong>' + data.totalRitase.toLocaleString('id') + '</strong> \u00b7 Tonase/Ritase: <strong>' + tpr.toFixed(2) + ' MT</strong></div>');
+      if (filled.length) notes.push('<div style="color:#16A34A;font-size:12px;">' + filled.join(' \u00b7 ') + '</div>');
+      if (skipped.length) notes.push('<div style="color:#D97706;font-size:12px;">Dilewati (bukan operator STD): ' + skipped.join(', ') + '</div>');
+    }
+    wlEditSalaryPreview();
+    resultDiv.innerHTML = notes.join('');
+  } catch(e) {
+    resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;">' + e.message + '</div>';
+  } finally {
+    if (btn) { btn.textContent = '\u21bb Sync dari Woodlog Monitoring'; btn.disabled = false; }
+  }
 }
 
 async function submitEditWoodlogKapal(id) {
