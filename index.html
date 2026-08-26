@@ -6657,7 +6657,7 @@ function renderWoodlogKapalList(projects, salaryMap) {
       if (pu.solar_awal_pct == null || pu.solar_akhir_pct == null) return;
       bbmHasData = true;
       const unitCode = pu.units ? pu.units.code : '';
-      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 450 : 320;
+      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 500 : 370;
       const tankDiff = (Number(pu.solar_awal_pct) - Number(pu.solar_akhir_pct)) / 100 * tankSize;
       const fills = fillMap[pu.unit_id] || 0;
       bbmTotal += tankDiff + fills;
@@ -6717,7 +6717,7 @@ async function toggleWoodlogKapalDetail(id) {
   }).join('');
   const bbmRows = (p.project_units || []).map(function(pu) {
     const unitCode = pu.units ? pu.units.code : '';
-    const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 450 : 320;
+    const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 500 : 370;
     const hasSolar = pu.solar_awal_pct != null && pu.solar_akhir_pct != null;
     const tankDiff = hasSolar ? (Number(pu.solar_awal_pct) - Number(pu.solar_akhir_pct)) / 100 * tankSize : 0;
     const fills = fillMap[pu.unit_id] || 0;
@@ -7506,7 +7506,7 @@ function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
     let totalBBM = 0;
     pus.forEach(function(pu) {
       const unitCode = (pu.units && pu.units.code) ? pu.units.code : '';
-      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 450 : 320;
+      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 500 : 370;
       const hasSolar = pu.solar_awal_pct != null && pu.solar_akhir_pct != null;
       const tankDiff = hasSolar ? (Number(pu.solar_awal_pct) - Number(pu.solar_akhir_pct)) / 100 * tankSize : 0;
       const fills = projectFills[pu.unit_id] || 0;
@@ -7577,7 +7577,7 @@ function toggleWLAnalisis(pid) {
     let bbmRows = '';
     pus.forEach(function(pu) {
       const unitCode = (pu.units && pu.units.code) ? pu.units.code : '?';
-      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 450 : 320;
+      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 500 : 370;
       const hasSolar = pu.solar_awal_pct != null && pu.solar_akhir_pct != null;
       const tankDiff = hasSolar ? (Number(pu.solar_awal_pct) - Number(pu.solar_akhir_pct)) / 100 * tankSize : 0;
       const fills = projectFills[pu.unit_id] || 0;
@@ -7839,7 +7839,7 @@ function renderWoodlogOpenProjects(projects, salMap, fillMap) {
     let totalBBM = 0;
     pus.forEach(function(pu) {
       const unitCode = (pu.units && pu.units.code) ? pu.units.code : '';
-      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 450 : 320;
+      const tankSize = WL_BANGAU_CODES.includes(unitCode) ? 500 : 370;
       const hasSolar = pu.solar_awal_pct != null && pu.solar_akhir_pct != null;
       const tankDiff = hasSolar ? (Number(pu.solar_awal_pct) - Number(pu.solar_akhir_pct)) / 100 * tankSize : 0;
       const fills = projectFills[pu.unit_id] || 0;
