@@ -6316,7 +6316,7 @@ async function exportBatchExcel(batchType) {
   }
   XLSX.utils.book_append_sheet(wb, wsTransfer, 'TRANSFER');
   const label = batchType === 'mid_month' ? 'Batch16' : 'Batch31';
-  XLSX.writeFile(wb, label + '_' + monthYear.replace('-', '') + '.xlsx');
+  XLSX.writeFile(wb, label + '_' + monthYear.replace('-', '') + '.xlsx', { cellStyles: true });
   showToast('Export ' + label + ' berhasil!', 'success');
 }
 async function exportProyekExcel() {
