@@ -5251,7 +5251,7 @@ function renderProyekKapalList() {
 }
 
 function openKapalBLEdit(id) {
-  document.querySelectorAll('[id^="kapal-bledit-"]').forEach(function(r) { r.style.display = 'none'; });
+  document.querySelectorAll('tr[id^="kapal-bledit-"]').forEach(function(r) { r.style.display = 'none'; });
   const bleditRow = document.getElementById('kapal-bledit-' + id);
   if (!bleditRow) return;
   const inner = document.getElementById('kapal-bledit-inner-' + id);
@@ -6513,7 +6513,7 @@ function setProyekAnalisisFilter(f) {
 }
 
 function proyekAnalisisEdit(pid, field) {
-  document.querySelectorAll('[id^="proy-edit-"]').forEach(function(r) { r.style.display = 'none'; });
+  document.querySelectorAll('tr[id^="proy-edit-"]').forEach(function(r) { r.style.display = 'none'; });
   const editRow = document.getElementById('proy-edit-' + pid);
   if (!editRow) return;
   const inner = document.getElementById('proy-edit-inner-' + pid);
