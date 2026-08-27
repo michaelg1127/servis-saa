@@ -6,7 +6,7 @@
 <title>SERVIS SAA &mdash; PT Surya Alam Armada</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx-style@0.8.13/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <style>
   html, body { margin: 0; padding: 0; overflow-x: hidden; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F1F5F9; font-size: 16px; }
@@ -6230,7 +6230,7 @@ async function exportBatchExcel(batchType) {
   var _xb = { top: _xt, bottom: _xt, left: _xt, right: _xt };
   var _xh = { font: { bold: true, italic: true }, fill: { fgColor: { rgb: 'FFFF00' }, patternType: 'solid' }, border: _xb };
   function _xcs(ws, r, c, s) { var ref = XLSX.utils.encode_cell({ r: r, c: c }); if (!ws[ref]) ws[ref] = { t: 's', v: '' }; ws[ref].s = s; }
-  function _xnf(ws, r, c) { var ref = XLSX.utils.encode_cell({ r: r, c: c }); if (ws[ref] && ws[ref].t === 'n') ws[ref].z = '#,##0'; }
+  function _xnf(ws, r, c) { var ref = XLSX.utils.encode_cell({ r: r, c: c }); if (ws[ref] && ws[ref].t === 'n') { var _v = ws[ref].v; ws[ref].t = 's'; ws[ref].v = Math.round(_v).toLocaleString('id'); delete ws[ref].w; } }
   // REKAP — shift TOTAL to col M; apply header style + numFmt
   var rekapAoa = rekapRows.map(function(row) { var r2 = row.slice(0, 11); r2.push(''); r2.push(row.length > 11 ? row[11] : ''); return r2; });
   var wsRekap = XLSX.utils.aoa_to_sheet(rekapAoa);
@@ -6246,7 +6246,7 @@ async function exportBatchExcel(batchType) {
   var slipRows = [];
   var _xnfAmt = function(ws, ri, ci) {
     var ref = XLSX.utils.encode_cell({ r: ri, c: ci });
-    if (ws[ref] && ws[ref].t === 'n') ws[ref].z = '#,##0';
+    if (ws[ref] && ws[ref].t === 'n') { var _v = ws[ref].v; ws[ref].t = 's'; ws[ref].v = Math.round(_v).toLocaleString('id'); delete ws[ref].w; }
   };
   Object.keys(unitSheetData).sort().forEach(function(code) {
     var entry = unitSheetData[code];
@@ -6334,7 +6334,7 @@ async function exportBatchExcel(batchType) {
       var ref = XLSX.utils.encode_cell({ r: ri, c: ci });
       if (!wsTransfer[ref]) wsTransfer[ref] = { t: 's', v: '' };
       wsTransfer[ref].s = Object.assign({}, wsTransfer[ref].s || {}, { border: _xb });
-      if (ci >= 3 && ci <= 7 && wsTransfer[ref].t === 'n') wsTransfer[ref].z = '#,##0';
+      if (ci >= 3 && ci <= 7 && wsTransfer[ref].t === 'n') { var _tv = wsTransfer[ref].v; wsTransfer[ref].t = 's'; wsTransfer[ref].v = Math.round(_tv).toLocaleString('id'); delete wsTransfer[ref].w; }
     }
   }
   XLSX.utils.book_append_sheet(wb, wsTransfer, 'TRANSFER');
@@ -7562,7 +7562,7 @@ async function exportWoodlogBatch16() {
   var _hdr16 = { font:{bold:true}, fill:{fgColor:{rgb:'DBEAFE'},patternType:'solid'}, border:_bx16 };
   var _tot16 = { font:{bold:true}, fill:{fgColor:{rgb:'DCFCE7'},patternType:'solid'}, border:_bx16 };
   var _cs16 = function(r,c,s){ var ref=XLSX.utils.encode_cell({r:r,c:c}); if(!ws[ref]) ws[ref]={t:'s',v:''}; ws[ref].s=s; };
-  var _nf16 = function(r,c){ var ref=XLSX.utils.encode_cell({r:r,c:c}); if(ws[ref]&&ws[ref].t==='n') ws[ref].z='#,##0'; };
+  var _nf16 = function(r,c){ var ref=XLSX.utils.encode_cell({r:r,c:c}); if(ws[ref]&&ws[ref].t==='n'){ var _v=ws[ref].v; ws[ref].t='s'; ws[ref].v=Math.round(_v).toLocaleString('id'); delete ws[ref].w; } };
   for(var _ci=0;_ci<3;_ci++) _cs16(2,_ci,_hdr16);
   rows.forEach(function(row,ri){ if(ri<3||!row||!row.length) return; if(row[1]==='GRAND TOTAL'){ for(var _ci=0;_ci<3;_ci++) _cs16(ri,_ci,_tot16); _nf16(ri,2); } else { _nf16(ri,2); } });
   ws['!cols']=[{wch:18},{wch:40},{wch:16}];
@@ -7615,7 +7615,7 @@ async function exportWoodlogBatch31() {
   var _hdr31 = { font:{bold:true}, fill:{fgColor:{rgb:'DBEAFE'},patternType:'solid'}, border:_bx31 };
   var _tot31 = { font:{bold:true}, fill:{fgColor:{rgb:'DCFCE7'},patternType:'solid'}, border:_bx31 };
   var _cs31 = function(r,c,s){ var ref=XLSX.utils.encode_cell({r:r,c:c}); if(!ws[ref]) ws[ref]={t:'s',v:''}; ws[ref].s=s; };
-  var _nf31 = function(r,c){ var ref=XLSX.utils.encode_cell({r:r,c:c}); if(ws[ref]&&ws[ref].t==='n') ws[ref].z='#,##0'; };
+  var _nf31 = function(r,c){ var ref=XLSX.utils.encode_cell({r:r,c:c}); if(ws[ref]&&ws[ref].t==='n'){ var _v=ws[ref].v; ws[ref].t='s'; ws[ref].v=Math.round(_v).toLocaleString('id'); delete ws[ref].w; } };
   for(var _ci=0;_ci<6;_ci++) _cs31(2,_ci,_hdr31);
   rows.forEach(function(row,ri){ if(ri<3||!row||!row.length) return; if(row[1]==='GRAND TOTAL'){ for(var _ci=0;_ci<6;_ci++) _cs31(ri,_ci,_tot31); _nf31(ri,2); _nf31(ri,3); _nf31(ri,5); } else { _nf31(ri,2); _nf31(ri,3); _nf31(ri,4); _nf31(ri,5); } });
   ws['!cols']=[{wch:18},{wch:40},{wch:16},{wch:14},{wch:14},{wch:16}];
