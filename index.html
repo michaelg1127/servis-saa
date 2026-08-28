@@ -5889,8 +5889,8 @@ function openEditStockpileModal(id) {
   let unitRowsHTML = '';
   units.forEach(function(u, i) {
     const unitCode = u.units ? u.units.code : '?';
-    unitRowsHTML += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;margin-bottom:8px;">';
-    unitRowsHTML += '<div style="font-size:12px;font-weight:700;color:#1E293B;margin-bottom:8px;">' + unitCode + '</div>';
+    unitRowsHTML += '<div id="stk-eu-container-' + i + '" style="position:relative;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;margin-bottom:8px;">';
+    unitRowsHTML += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:12px;font-weight:700;color:#1E293B;">' + unitCode + '</span><button type="button" onclick="markStkUnitDeleted(' + i + ')" style="font-size:11px;color:#EF4444;background:none;border:none;cursor:pointer;padding:2px 6px;">&#10005; Hapus</button></div>';
     unitRowsHTML += '<div style="display:grid;grid-template-columns:80px 80px 60px 60px 80px;gap:8px;">';
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Awal</label><input type="number" id="stk-eu-hmawal-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + u.hm_awal + '"></div>';
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Akhir</label><input type="number" id="stk-eu-hmakhir-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + (u.hm_akhir != null ? u.hm_akhir : '') + '" placeholder="Opsional"></div>';
@@ -5960,6 +5960,17 @@ async function addNewStockpileUnitRow() {
   countEl.value = idx + 1;
 }
 function removeStockpileNewUnitRow(idx) { var el = document.getElementById('stk-en-row-' + idx); if (el) el.remove(); }
+function markStkUnitDeleted(i) {
+  var el = document.getElementById('stk-eu-container-' + i);
+  if (!el || el.dataset.deleted === 'true') return;
+  el.dataset.deleted = 'true';
+  el.style.opacity = '0.4';
+  el.style.pointerEvents = 'none';
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#EF4444;border-radius:10px;';
+  overlay.textContent = 'Akan Dihapus';
+  el.appendChild(overlay);
+}
 
 async function submitEditStockpile(projId) {
   const p = proyekStockpileData.find(function(x) { return x.id === projId; });
@@ -5972,6 +5983,8 @@ async function submitEditStockpile(projId) {
   const existingUnits = p.project_units || [];
   const unitUpdates = [];
   for (let i = 0; i < unitCount; i++) {
+    const container = document.getElementById('stk-eu-container-' + i);
+    if (container && container.dataset.deleted === 'true') continue;
     const hmAwal = parseFloat(document.getElementById('stk-eu-hmawal-' + i)?.value);
     const hmAkhir = parseFloat(document.getElementById('stk-eu-hmakhir-' + i)?.value);
     const sAwal = parseInt(document.getElementById('stk-eu-sawal-' + i)?.value);
