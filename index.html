@@ -5475,35 +5475,49 @@ function renderProyekStockpileList() {
   }
   h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
   h += '<thead><tr style="background:#F1F5F9;">';
-  ['Kode','Pemberi Kerja','Tanggal','Unit','HM Awal','HM Akhir','HM Total','Salary Total'].forEach(col => {
+  ['Kode','Pemberi Kerja','Tanggal','Unit','HM Awal','HM Akhir','HM Total','Salary Total',''].forEach(function(col) {
     h += '<th style="padding:10px 12px;text-align:left;font-weight:700;color:#475569;white-space:nowrap;">' + col + '</th>';
   });
-  h += '<th></th></tr></thead><tbody>';
-  proyekStockpileData.forEach(p => {
-    const units = p.project_units || [];
-    const totalHM = units.reduce((s, u) => s + (u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0), 0);
-    const hasOngoingStk = units.some(function(u) { return u.hm_akhir == null; });
-    const totalSalary = units.reduce((s, u) => s + (u.hm_akhir != null ? (u.hm_akhir - u.hm_awal) * 35000 : 0), 0);
-    h += '<tr style="border-bottom:1px solid #F1F5F9;cursor:pointer;" onclick="toggleStockpileDetail(\'' + p.id + '\')">';
-    h += '<td style="padding:10px 12px;font-weight:700;color:#1D4ED8;">' + p.project_code + (hasOngoingStk ? ' <span style="background:#FEF3C7;color:#B45309;font-size:10px;font-weight:700;padding:2px 6px;border-radius:99px;">Ongoing</span>' : '') + '</td>';
-    h += '<td style="padding:10px 12px;">' + p.pemberi_kerja + '</td>';
-    h += '<td style="padding:10px 12px;white-space:nowrap;">' + formatDate(p.start_date) + ' – ' + formatDate(p.end_date) + '</td>';
-    var unitCodes = units.map(function(u) { return u.units ? u.units.code : '?'; }).join('<br>');
-    var hmAwalList = units.map(function(u) { return u.hm_awal != null ? u.hm_awal : '—'; }).join('<br>');
-    var hmAkhirList = units.map(function(u) { return u.hm_akhir != null ? u.hm_akhir : '<span style="color:#F59E0B;font-weight:700;">Ongoing</span>'; }).join('<br>');
-    h += '<td style="padding:10px 12px;font-weight:700;">' + unitCodes + '</td>';
-    h += '<td style="padding:10px 12px;text-align:right;">' + hmAwalList + '</td>';
-    h += '<td style="padding:10px 12px;text-align:right;">' + hmAkhirList + '</td>';
-    h += '<td style="padding:10px 12px;text-align:right;">' + totalHM.toFixed(1) + '</td>';
-    h += '<td style="padding:10px 12px;text-align:right;font-weight:700;color:#16A34A;">' + fmtRp(totalSalary) + '</td>';
-    h += '<td style="padding:10px 12px;"><svg style="width:14px;height:14px;" fill="none" stroke="#94A3B8" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></td></tr>';
+  h += '</tr></thead><tbody>';
+  proyekStockpileData.forEach(function(p) {
+    var units = p.project_units || [];
     _proyekStockpileCache[p.id] = p;
-    h += '<tr id="stk-detail-' + p.id + '" style="display:none;background:#F8FAFC;"><td colspan="9" style="padding:8px;color:#64748B;font-size:12px;">Klik untuk memuat detail...</td></tr>';
+    if (units.length === 0) {
+      h += '<tr style="border-bottom:1px solid #F1F5F9;">';
+      h += '<td style="padding:10px 12px;font-weight:700;color:#1D4ED8;">' + p.project_code + '</td>';
+      h += '<td style="padding:10px 12px;">' + (p.pemberi_kerja || '—') + '</td>';
+      h += '<td style="padding:10px 12px;white-space:nowrap;">' + formatDate(p.start_date) + ' – ' + formatDate(p.end_date) + '</td>';
+      h += '<td colspan="5" style="padding:10px 12px;color:#94A3B8;">—</td>';
+      h += '<td style="padding:10px 12px;"><button onclick="openEditStockpileModal(\'' + p.id + '\')" style="background:#EFF6FF;border:1.5px solid #93C5FD;color:#1D4ED8;font-size:12px;font-weight:700;padding:5px 12px;border-radius:7px;cursor:pointer;">✎ Edit</button></td>';
+      h += '</tr>';
+      return;
+    }
+    units.forEach(function(u, ui) {
+      var unitCode = u.units ? u.units.code : '?';
+      var hmKerja = u.hm_akhir != null ? u.hm_akhir - u.hm_awal : null;
+      var salary = hmKerja != null ? Math.round(hmKerja * 35000) : null;
+      var isOngoing = u.hm_akhir == null;
+      var rs = ui === 0 && units.length > 1 ? ' rowspan="' + units.length + '"' : '';
+      h += '<tr style="border-bottom:1px solid #F1F5F9;">';
+      if (ui === 0) {
+        h += '<td' + rs + ' style="padding:10px 12px;font-weight:700;color:#1D4ED8;vertical-align:middle;">' + p.project_code + '</td>';
+        h += '<td' + rs + ' style="padding:10px 12px;vertical-align:middle;">' + (p.pemberi_kerja || '—') + '</td>';
+        h += '<td' + rs + ' style="padding:10px 12px;white-space:nowrap;vertical-align:middle;">' + formatDate(p.start_date) + ' – ' + formatDate(p.end_date) + '</td>';
+      }
+      h += '<td style="padding:10px 12px;font-weight:700;">' + unitCode + (isOngoing ? ' <span style="background:#FEF3C7;color:#B45309;font-size:10px;font-weight:700;padding:2px 6px;border-radius:99px;">Ongoing</span>' : '') + '</td>';
+      h += '<td style="padding:10px 12px;">' + (u.hm_awal != null ? u.hm_awal : '—') + '</td>';
+      h += '<td style="padding:10px 12px;">' + (u.hm_akhir != null ? u.hm_akhir : '—') + '</td>';
+      h += '<td style="padding:10px 12px;">' + (hmKerja != null ? hmKerja.toFixed(1) : '—') + '</td>';
+      h += '<td style="padding:10px 12px;font-weight:700;color:#16A34A;">' + (salary != null ? fmtRp(salary) : '—') + '</td>';
+      if (ui === 0) {
+        h += '<td' + rs + ' style="padding:10px 12px;vertical-align:middle;"><button onclick="openEditStockpileModal(\'' + p.id + '\')" style="background:#EFF6FF;border:1.5px solid #93C5FD;color:#1D4ED8;font-size:12px;font-weight:700;padding:5px 12px;border-radius:7px;cursor:pointer;">✎ Edit</button></td>';
+      }
+      h += '</tr>';
+    });
   });
   h += '</tbody></table></div>';
   panel.innerHTML = h;
 }
-
 async function toggleStockpileDetail(id) {
   const row = document.getElementById('stk-detail-' + id);
   if (!row) return;
