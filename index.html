@@ -4940,7 +4940,7 @@ function renderFuelRiwayat() {
     filtXfer = filtXfer.filter(r => r.bunker_id && fuelBunkerMap[r.bunker_id] === fuelRiwayatFilters.bunker);
     filtBunkers = filtBunkers.filter(r => r.bunker_code === fuelRiwayatFilters.bunker);
   }
-  if (fuelRiwayatFilters.unit) { filtDisp = filtDisp.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit); }
+  if (fuelRiwayatFilters.unit) { filtDisp = filtDisp.filter(r => r.units && r.units.code === fuelRiwayatFilters.unit); filtXfer = []; filtBunkers = []; }
   if (fuelRiwayatFilters.project) { filtDisp = filtDisp.filter(r => ((r.project_id && r.projects) ? r.projects.project_code : r.project) === fuelRiwayatFilters.project); }
   if (!filtDisp.length && !filtXfer.length && !filtBunkers.length) {
     el.innerHTML = filterRow + sortPills + '<div style="color:#94A3B8;padding:20px;">Belum ada data.</div>';
