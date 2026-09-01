@@ -8362,15 +8362,20 @@ async function loadPbmGaji() {
 }
 
 async function _fetchPbmPeriod(startDate, endDate) {
-  var res = await sb.from('sof_shifts').select('pbm_staff_id, shift_date, pbm_staff(name)')
-    .gte('shift_date', startDate).lte('shift_date', endDate);
+  var res = await sb.from('sof_shifts').select('pbm_staff_id, shift_date, shift_num, sof_projects(label), pbm_staff(name)')
+    .gte('shift_date', startDate).lte('shift_date', endDate)
+    .order('shift_date').order('shift_num');
   if (res.error) { console.error('_fetchPbmPeriod:', res.error); return []; }
   var map = {};
   (res.data || []).forEach(function(row) {
     var id = row.pbm_staff_id;
     var name = (row.pbm_staff && row.pbm_staff.name) ? row.pbm_staff.name : '\u2014';
-    if (!map[id]) map[id] = { id: id, name: name, shifts: 0 };
+    if (!map[id]) map[id] = { id: id, name: name, shifts: 0, details: [] };
     map[id].shifts++;
+    var label = (row.sof_projects && row.sof_projects.label) ? row.sof_projects.label : '\u2014';
+    var kapal = label.split(' / ')[0];
+    var d = row.shift_date ? row.shift_date.slice(8,10) + '/' + row.shift_date.slice(5,7) : '\u2014';
+    map[id].details.push({ date: d, shiftNum: row.shift_num || '\u2014', kapal: kapal });
   });
   return Object.values(map).sort(function(a, b) { return a.name.localeCompare(b.name); });
 }
@@ -8395,6 +8400,15 @@ function _renderPbmTable(containerId, rows, startDate, endDate) {
         '<td style="text-align:center;padding:8px 10px;font-weight:600;">' + r.shifts + '</td>' +
         '<td style="text-align:right;padding:8px 10px;">' + (tarif ? fmtRp(r.shifts * tarif) : '\u2014') + '</td>' +
         '</tr>';
+      if (r.details && r.details.length > 0) {
+        var detailLines = r.details.map(function(d) {
+          return d.date + ' &nbsp;&middot;&nbsp; Shift ' + d.shiftNum + ' &nbsp;&middot;&nbsp; ' + d.kapal;
+        }).join('<br>');
+        bodyHtml +=
+          '<tr style="background:#f9fafb;">' +
+          '<td colspan="3" style="padding:2px 10px 8px 24px;font-size:11px;color:#9ca3af;line-height:1.8;">' +
+          detailLines + '</td></tr>';
+      }
     });
   }
   var footRp = tarif ? fmtRp(total * tarif) : '\u2014';
