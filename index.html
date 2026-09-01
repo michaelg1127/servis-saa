@@ -5107,7 +5107,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function calcKapalRate(shipNum) {
   if (shipNum <= 15) return 175;
   if (shipNum <= 30) return 200;
-  return 225;
+  if (shipNum <= 40) return 225;
+  return 250;
 }
 
 function calcSolarConsumed(awalPct, akhirPct, isiLiters) {
