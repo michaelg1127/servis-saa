@@ -7295,7 +7295,10 @@ async function wlEditSyncFromMonitoring(code) {
   }
 }
 
+var _wlEditKapalSaving = false;
 async function submitEditWoodlogKapal(id) {
+  if (_wlEditKapalSaving) return;
+  _wlEditKapalSaving = true;
   const namaKapal = (document.getElementById('wledit-namakapal') || {}).value ? document.getElementById('wledit-namakapal').value.trim() : '';
   const pemberi = (document.getElementById('wledit-pemberi') || {}).value ? document.getElementById('wledit-pemberi').value.trim() : null;
   const start = (document.getElementById('wledit-start') || {}).value || '';
@@ -7389,6 +7392,7 @@ async function submitEditWoodlogKapal(id) {
     showToast('Proyek berhasil diperbarui!', 'success');
     await loadWoodlogKapal();
   } catch(e) { showToast('Gagal simpan: ' + e.message); }
+  finally { _wlEditKapalSaving = false; }
 }
 
 function openCloseWoodlogKapalModal(id) {
