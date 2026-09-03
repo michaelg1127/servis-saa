@@ -6616,6 +6616,29 @@ async function saveKasbonRow(btn) {
   } catch(e) { showToast('Gagal simpan kasbon: ' + e.message); }
   btn.disabled = false; btn.textContent = 'Simpan';
 }
+async function saveWlKasbonRow(btn) {
+  var sid = btn.dataset.sid;
+  var opName = btn.dataset.op;
+  var monthYear = btn.dataset.monthyear;
+  var workTotal = parseFloat(btn.dataset.worktotal) || 0;
+  var input = document.getElementById('wl-kasbon-' + sid);
+  var amount = parseFloat(input ? input.value : 0) || 0;
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    var exRes = await sb.from('woodlog_kasbon').select('id').eq('month_year', monthYear).eq('operator_name', opName);
+    if (exRes.data && exRes.data.length > 0) {
+      var { error } = await sb.from('woodlog_kasbon').update({ amount: amount }).eq('id', exRes.data[0].id);
+      if (error) throw error;
+    } else {
+      var { error } = await sb.from('woodlog_kasbon').insert({ month_year: monthYear, operator_name: opName, amount: amount });
+      if (error) throw error;
+    }
+    var grandEl = document.getElementById('wl-grand-' + sid);
+    if (grandEl) grandEl.textContent = fmtRp(workTotal - amount);
+    showToast('Kasbon ' + opName + ' tersimpan', 'success');
+  } catch(e) { showToast('Gagal simpan kasbon: ' + e.message); }
+  btn.disabled = false; btn.textContent = 'Simpan';
+}
 function updateBatch31TotalTransfer() {
   var els = document.querySelectorAll('[id^="proy-grand-"]');
   var total = 0;
@@ -8221,8 +8244,8 @@ function renderWoodlogRingkasan(salaryRows, allProjects, prevRetainer, kasbonMap
           '<td style="padding:8px 10px;font-size:11px;color:#64748B;">' + (s.rows.join('<br>') || '—') + '</td>' +
           '<td style="padding:8px 10px;text-align:right;">' + fmtRp(s.total) + '</td>' +
           '<td style="padding:8px 10px;text-align:right;color:#64748B;">Rp 3.100.000</td>' +
-          '<td style="padding:8px 10px;text-align:center;"><input id="wl-kasbon-' + sid + '" data-op="' + name + '" type="number" class="finput" style="width:110px;text-align:right;" value="' + kb + '" placeholder="0"></td>' +
-          '<td style="padding:8px 10px;text-align:right;font-weight:800;color:#16A34A;">' + fmtRp(grand) + '</td></tr>';
+          '<td style="padding:8px 10px;text-align:center;"><div style="display:flex;gap:4px;align-items:center;justify-content:center;"><input id="wl-kasbon-' + sid + '" data-op="' + name + '" type="number" class="finput" style="width:80px;text-align:right;" value="' + kb + '" placeholder="0"><button data-sid="' + sid + '" data-op="' + name + '" data-worktotal="' + (s.total + 3100000) + '" data-monthyear="' + monthYear + '" onclick="saveWlKasbonRow(this)" style="background:#0F172A;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">Simpan</button></div></td>' +
+          '<td id="wl-grand-' + sid + '" style="padding:8px 10px;text-align:right;font-weight:800;color:#16A34A;">' + fmtRp(grand) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
   el.innerHTML =
