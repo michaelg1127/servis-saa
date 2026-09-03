@@ -6375,9 +6375,12 @@ async function exportBatchExcel(batchType) {
   const panel = document.getElementById('proyek-panel-ringkasan');
   const allProjects = panel._ringkasanProjects;
   const monthYear = panel._monthYear;
-  const ids = batchType === 'mid_month' ? (panel._batch16Ids || []) : (panel._batch31Ids || []);
-  if (!allProjects || ids.length === 0) { showToast('Tidak ada proyek untuk batch ini. Pastikan bulan sudah sesuai.'); return; }
-  const projects = allProjects.filter(function(p) { return ids.indexOf(p.id) >= 0; });
+  function _isNSE(p) { return p.type === 'stockpile' && p.code_prefix === 'NSE'; }
+  function _dayOf(d) { return d ? parseInt(d.slice(8,10), 10) : 0; }
+  const projects = batchType === 'mid_month'
+    ? allProjects.filter(function(p) { return (p.type === 'kapal' || _isNSE(p)) && _dayOf(p.end_date) <= 15; })
+    : allProjects.filter(function(p) { return ((p.type === 'kapal' || _isNSE(p)) && _dayOf(p.end_date) > 15) || (p.type === 'stockpile' && !_isNSE(p)); });
+  if (!allProjects || projects.length === 0) { showToast('Tidak ada proyek untuk batch ini. Pastikan bulan sudah sesuai.'); return; }
   projects.sort(function(a, b) { return (a.end_date || '').localeCompare(b.end_date || ''); });
   const fillMap = await fetchFillMap(projects.map(function(p) { return p.id; }));
   let kasbonMap = {};
