@@ -976,7 +976,7 @@ let bbmLastDispenseByUnit = {};
 let proyekTab = 'kapal';
 let proyekKapalData = [];
 let proyekStockpileData = [];
-let proyekMonthFilter = new Date().toISOString().slice(0,7);
+let proyekMonthFilter = (function() { var d = new Date(); if (d.getDate() <= 10) { d.setMonth(d.getMonth() - 1); } return d.toISOString().slice(0,7); })();
 let _proyekKapalCache = {};
 let _proyekStockpileCache = {};
 let proyekHMUnitId = null;
@@ -6376,7 +6376,7 @@ async function exportBatchExcel(batchType) {
   const allProjects = panel._ringkasanProjects;
   const monthYear = panel._monthYear;
   const ids = batchType === 'mid_month' ? (panel._batch16Ids || []) : (panel._batch31Ids || []);
-  if (!allProjects || ids.length === 0) { showToast('Tidak ada data untuk batch ini'); return; }
+  if (!allProjects || ids.length === 0) { showToast('Tidak ada proyek untuk batch ini. Pastikan bulan sudah sesuai.'); return; }
   const projects = allProjects.filter(function(p) { return ids.indexOf(p.id) >= 0; });
   projects.sort(function(a, b) { return (a.end_date || '').localeCompare(b.end_date || ''); });
   const fillMap = await fetchFillMap(projects.map(function(p) { return p.id; }));
