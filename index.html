@@ -5516,6 +5516,7 @@ function renderProyekNSEList() {
   h += '<div style="display:flex;gap:8px;align-items:center;">';
   h += '<input type="month" value="' + _nseMonthFilter + '" onchange="_nseMonthFilter=this.value;loadProyekNSE();" style="border:1px solid #CBD5E1;border-radius:6px;padding:6px 10px;font-size:13px;">';
   h += '<button onclick="openAddNSEModal()" class="btn-primary" style="padding:8px 16px;font-size:13px;width:auto;">+ Tambah Sesi</button>';
+  h += '<button onclick="exportNSESummary()" style="background:#0F172A;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">&#11015; Download</button>';
   h += '</div></div>';
   if (nseData.length === 0) {
     h += '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Tidak ada sesi NSE bulan ini.</div>';
@@ -6717,6 +6718,72 @@ async function toggleKaryawanActive(id, newState) {
     showToast(newState ? 'Karyawan diaktifkan' : 'Karyawan dinonaktifkan', 'success');
     loadKaryawanTetap();
   } catch(e) { showToast('Gagal: ' + e.message); }
+}
+async function exportNSESummary() {
+  if (typeof ExcelJS === 'undefined') { showToast('ExcelJS tidak tersedia'); return; }
+  if (!nseData || nseData.length === 0) { showToast('Tidak ada sesi NSE untuk diexport'); return; }
+  var NF = '#,##0';
+  var BDR = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+  var BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  var _my = _nseMonthFilter.split('-');
+  var periodeStr = (BULAN_ID[parseInt(_my[1], 10) - 1] || '') + ' ' + _my[0];
+  function _ndayOf(d) { return d ? parseInt(d.slice(8, 10), 10) : 0; }
+  var batch16 = nseData.filter(function(s) { return _ndayOf(s.session_date) <= 15; });
+  var batch31 = nseData.filter(function(s) { return _ndayOf(s.session_date) > 15; });
+  var wb = new ExcelJS.Workbook();
+  var ws = wb.addWorksheet('NSE REKAP');
+  var titleRow = ws.addRow(['NSE — REKAP SESI KERJA']);
+  titleRow.font = { bold: true, size: 14 };
+  ws.addRow(['Bulan: ' + periodeStr]);
+  ws.addRow([]);
+  var COLS = ['Tanggal', 'Sesi', 'Unit', 'Jam Mulai', 'Jam Selesai', 'Overnight', 'Billed Hrs', 'HM Awal', 'HM Akhir', 'HM Gap', 'Salary (Rp)'];
+  function _nseAddBatch(sessions, batchLabel) {
+    if (sessions.length === 0) return;
+    var batchHdr = ws.addRow([batchLabel]);
+    batchHdr.font = { bold: true, size: 12, color: { argb: 'FF9A3412' } };
+    batchHdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEDD5' } };
+    var colHdr = ws.addRow(COLS);
+    colHdr.font = { bold: true };
+    colHdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFED7AA' } };
+    colHdr.eachCell(function(cell) { cell.border = BDR; cell.alignment = { horizontal: 'center' }; });
+    var totalHrs = 0, totalSalary = 0;
+    sessions.forEach(function(s) {
+      var hrs = _nseHrs(s.start_time, s.end_time);
+      var salary = Math.round(hrs * 35000);
+      totalHrs += hrs; totalSalary += salary;
+      var overnight = _isOvernight(s.start_time, s.end_time);
+      var hmGap = (s.hm_awal != null && s.hm_akhir != null) ? +(s.hm_akhir - s.hm_awal).toFixed(1) : '';
+      var unitCode = s.units ? s.units.code : '?';
+      var row = ws.addRow([s.session_date, s.session_num, unitCode, s.start_time.slice(0,5), s.end_time.slice(0,5), overnight ? 'Ya' : 'Tidak', +hrs.toFixed(1), s.hm_awal, s.hm_akhir, hmGap, salary]);
+      row.getCell(11).numFmt = NF;
+      row.eachCell(function(cell) { cell.border = BDR; });
+      if (overnight) { row.getCell(6).font = { color: { argb: 'FFB45309' }, bold: true }; }
+    });
+    var subRow = ws.addRow(['SUBTOTAL ' + batchLabel, '', '', '', '', '', +totalHrs.toFixed(1), '', '', '', totalSalary]);
+    subRow.font = { bold: true };
+    subRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFED7AA' } };
+    subRow.getCell(11).numFmt = NF;
+    subRow.eachCell(function(cell) { cell.border = BDR; });
+    ws.addRow([]);
+  }
+  _nseAddBatch(batch16, 'Batch 16 (Tgl 1-15)');
+  _nseAddBatch(batch31, 'Batch 31 (Tgl 16-31)');
+  var grandHrs = nseData.reduce(function(a, s) { return a + _nseHrs(s.start_time, s.end_time); }, 0);
+  var grandSalary = nseData.reduce(function(a, s) { return a + Math.round(_nseHrs(s.start_time, s.end_time) * 35000); }, 0);
+  var grandRow = ws.addRow(['GRAND TOTAL', '', '', '', '', '', +grandHrs.toFixed(1), '', '', '', grandSalary]);
+  grandRow.eachCell(function(cell) { cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }; cell.border = BDR; cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF9A3412' } }; });
+  grandRow.getCell(11).numFmt = NF;
+  ws.getColumn(1).width = 14; ws.getColumn(2).width = 6; ws.getColumn(3).width = 8;
+  ws.getColumn(4).width = 10; ws.getColumn(5).width = 10; ws.getColumn(6).width = 10;
+  ws.getColumn(7).width = 11; ws.getColumn(8).width = 10; ws.getColumn(9).width = 10;
+  ws.getColumn(10).width = 10; ws.getColumn(11).width = 16;
+  var buffer = await wb.xlsx.writeBuffer();
+  var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'NSE_' + _nseMonthFilter.replace('-', '') + '.xlsx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  showToast('NSE Summary berhasil didownload!', 'success');
 }
 function exportBatch16() { exportBatchExcel('mid_month'); }
 function exportBatch31() { exportBatchExcel('end_of_month'); }
