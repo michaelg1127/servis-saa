@@ -5143,7 +5143,7 @@ function calcKapalTonnageSplit(units, totalMt) {
     var allocatedMt = hasOutlier
       ? (totalHMIncluded > 0 ? totalMt * u.hm / totalHMIncluded : 0)
       : (count > 0 ? totalMt / count : 0);
-    if (u.manual_mt != null) allocatedMt = Number(u.manual_mt);
+    if (u.manual_mt != null) allocatedMt = totalMt * Number(u.manual_mt) / 100;
     return Object.assign({}, u, { allocatedMt: allocatedMt, isExcluded: false, isOutlier: false, isManual: u.manual_mt != null });
   });
 }
@@ -5747,11 +5747,11 @@ async function openEditKapalModal(id) {
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Isi</label><div id="kapal-eu-sisi-display-' + i + '" style="font-size:12px;padding:6px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;color:#64748B;">Memuat...</div></div>';
     unitRowsHTML += '</div>';
     var calcSplit = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
-    var autoMt = calcSplit[i] ? calcSplit[i].allocatedMt.toFixed(2) : '';
+    var autoPct = (calcSplit[i] && (p.total_mt_m3 || 0) > 0) ? (calcSplit[i].allocatedMt / (p.total_mt_m3 || 0) * 100).toFixed(2) : '';
     unitRowsHTML += '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;">';
-    unitRowsHTML += '<label style="font-size:11px;font-weight:600;color:#64748B;white-space:nowrap;">Override MT:</label>';
-    unitRowsHTML += '<input type="number" id="kapal-eu-manualmt-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;width:110px;" value="' + (u.manual_mt != null ? u.manual_mt : '') + '" placeholder="Auto (' + autoMt + ')" step="0.01">';
-    unitRowsHTML += '<span style="font-size:11px;color:#94A3B8;">MT (kosong = otomatis)</span>';
+    unitRowsHTML += '<label style="font-size:11px;font-weight:600;color:#64748B;white-space:nowrap;">Override %:</label>';
+    unitRowsHTML += '<input type="number" id="kapal-eu-manualmt-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;width:90px;" min="0" max="100" value="' + (u.manual_mt != null ? u.manual_mt : '') + '" placeholder="' + autoPct + '" step="0.01">';
+    unitRowsHTML += '<span style="font-size:11px;color:#94A3B8;">% (kosong = otomatis)</span>';
     unitRowsHTML += '</div></div>';
   });
   const modalHTML = '<div style="padding:24px;max-width:680px;width:100%;max-height:80vh;overflow-y:auto;">'
