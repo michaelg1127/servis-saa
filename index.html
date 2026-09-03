@@ -979,7 +979,7 @@ let proyekTab = 'kapal';
 let proyekKapalData = [];
 let proyekStockpileData = [];
 var nseData = [];
-var _nseMonthFilter = (function(){ var d=new Date(); if(d.getDate()<=10){d.setMonth(d.getMonth()-1);} return d.toISOString().slice(0,7); })();
+var _nseMonthFilter = new Date().toISOString().slice(0,7);
 let proyekMonthFilter = (function() { var d = new Date(); if (d.getDate() <= 10) { d.setMonth(d.getMonth() - 1); } return d.toISOString().slice(0,7); })();
 let _proyekKapalCache = {};
 let _proyekStockpileCache = {};
