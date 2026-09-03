@@ -7647,8 +7647,7 @@ async function loadWoodlogRingkasan() {
   if (!el) return;
   el.innerHTML = '<div style="color:#94A3B8;padding:20px;">Memuat...</div>';
   try {
-    const monthInput = el.querySelector('#wl-ring-month');
-    const monthYear = monthInput ? monthInput.value : todayISO().slice(0, 7);
+    const monthYear = _wlRingkasanMonthFilter;
     const [y, m] = monthYear.split('-').map(Number);
     const monthStart = monthYear + '-01';
     const lastDay = new Date(y, m, 0).getDate();
@@ -7733,7 +7732,7 @@ function renderWoodlogRingkasan(salaryRows, allProjects, kasbonMap, monthYear) {
   el.innerHTML =
     '<div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
     '<label style="font-size:13px;font-weight:700;">Bulan:</label>' +
-    '<input type="month" id="wl-ring-month" class="finput" style="width:160px;" value="' + monthYear + '" onchange="loadWoodlogRingkasan()">' +
+    '<input type="month" id="wl-ring-month" class="finput" style="width:160px;" value="' + monthYear + '" onchange="_wlRingkasanMonthFilter=this.value;loadWoodlogRingkasan()">' +
     '</div>' +
     '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:16px;margin-bottom:20px;">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
@@ -8414,6 +8413,7 @@ async function loadWoodlogKontinuitas() {
 // ─── PBM GAJI ─────────────────────────────────────────────────────────────────
 var _pbmGajiData = { p1: [], p2: [] };
 var _pbmKasbonMap = {};
+var _wlRingkasanMonthFilter = (function() { var d = new Date(); if (d.getDate() <= 10) { d.setMonth(d.getMonth() - 1); } return d.toISOString().slice(0,7); })();
 var _kapalMonthFilter = todayISO().slice(0,7);
 var _stkMonthFilter = todayISO().slice(0,7);
 var _wlKapalMonthFilter = todayISO().slice(0,7);
