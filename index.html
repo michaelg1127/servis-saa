@@ -5143,7 +5143,8 @@ function calcKapalTonnageSplit(units, totalMt) {
     var allocatedMt = hasOutlier
       ? (totalHMIncluded > 0 ? totalMt * u.hm / totalHMIncluded : 0)
       : (count > 0 ? totalMt / count : 0);
-    return Object.assign({}, u, { allocatedMt: allocatedMt, isExcluded: false, isOutlier: false });
+    if (u.manual_mt != null) allocatedMt = Number(u.manual_mt);
+    return Object.assign({}, u, { allocatedMt: allocatedMt, isExcluded: false, isOutlier: false, isManual: u.manual_mt != null });
   });
 }
 
@@ -5744,6 +5745,13 @@ async function openEditKapalModal(id) {
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Awal%</label><input type="number" id="kapal-eu-sawal-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + u.solar_awal_pct + '"></div>';
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Akhir%</label><input type="number" id="kapal-eu-sakhir-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + u.solar_akhir_pct + '"></div>';
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">Solar Isi</label><div id="kapal-eu-sisi-display-' + i + '" style="font-size:12px;padding:6px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;color:#64748B;">Memuat...</div></div>';
+    unitRowsHTML += '</div>';
+    var calcSplit = calcKapalTonnageSplit(units, p.total_mt_m3 || 0);
+    var autoMt = calcSplit[i] ? calcSplit[i].allocatedMt.toFixed(2) : '';
+    unitRowsHTML += '<div style="margin-top:8px;display:flex;align-items:center;gap:8px;">';
+    unitRowsHTML += '<label style="font-size:11px;font-weight:600;color:#64748B;white-space:nowrap;">Override MT:</label>';
+    unitRowsHTML += '<input type="number" id="kapal-eu-manualmt-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;width:110px;" value="' + (u.manual_mt != null ? u.manual_mt : '') + '" placeholder="Auto (' + autoMt + ')" step="0.01">';
+    unitRowsHTML += '<span style="font-size:11px;color:#94A3B8;">MT (kosong = otomatis)</span>';
     unitRowsHTML += '</div></div>';
   });
   const modalHTML = '<div style="padding:24px;max-width:680px;width:100%;max-height:80vh;overflow-y:auto;">'
@@ -5877,7 +5885,8 @@ async function submitEditKapal(projId) {
     const sAkhir = parseInt(document.getElementById('kapal-eu-sakhir-' + i)?.value);
     if (isNaN(hmAwal)) { showToast('HM Awal wajib diisi'); return; }
     if (!isNaN(hmAkhir) && hmAkhir <= hmAwal) { showToast('HM Akhir harus lebih besar dari HM Awal'); return; }
-    unitUpdates.push({ unit_id: existingUnits[i].unit_id, hm_awal: hmAwal, hm_akhir: isNaN(hmAkhir) ? null : hmAkhir, solar_awal_pct: isNaN(sAwal) ? 0 : sAwal, solar_akhir_pct: isNaN(sAkhir) ? 0 : sAkhir, hm_gap_reason: existingUnits[i].hm_gap_reason || null });
+    const manualMtVal = parseFloat(document.getElementById('kapal-eu-manualmt-' + i)?.value);
+    unitUpdates.push({ unit_id: existingUnits[i].unit_id, hm_awal: hmAwal, hm_akhir: isNaN(hmAkhir) ? null : hmAkhir, solar_awal_pct: isNaN(sAwal) ? 0 : sAwal, solar_akhir_pct: isNaN(sAkhir) ? 0 : sAkhir, hm_gap_reason: existingUnits[i].hm_gap_reason || null, manual_mt: isNaN(manualMtVal) ? null : manualMtVal });
   }
   const newUnitCount = parseInt(document.getElementById('kapal-en-count')?.value) || 0;
   for (let j = 0; j < newUnitCount; j++) {
@@ -7310,7 +7319,7 @@ async function wlEditSyncFromMonitoring(code) {
     if (!data.totalRitase || data.totalRitase === 0) {
       notes.push('<div style="color:#D97706;font-size:12px;">Total ritase = 0, tonase STD tidak dihitung.</div>');
     } else {
-      var tpr = (bl * 0.95) / data.totalRitase;
+      var tpr = bl / data.totalRitase;
       var bonMuat = data.bonMuat || {};
       var skipped = [];
       var filled = [];
