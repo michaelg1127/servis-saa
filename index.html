@@ -5136,11 +5136,11 @@ function calcKapalTonnageSplit(units, totalMt) {
   const sortedHMs = incHMs.slice().sort(function(a, b) { return a - b; });
   const mid = Math.floor(sortedHMs.length / 2);
   const median = sortedHMs.length % 2 !== 0 ? sortedHMs[mid] : (sortedHMs[mid - 1] + sortedHMs[mid]) / 2;
-  const hasHighOutlier = included.some(function(u) { return median > 0 && u.hm > median * 1.3; });
+  const hasOutlier = included.some(function(u) { return median > 0 && (u.hm > median * 1.3 || u.hm < median * 0.7); });
   const count = included.length;
   return tagged.map(function(u) {
     if (u.excluded) return Object.assign({}, u, { allocatedMt: 0, isExcluded: true, isOutlier: false });
-    var allocatedMt = hasHighOutlier
+    var allocatedMt = hasOutlier
       ? (totalHMIncluded > 0 ? totalMt * u.hm / totalHMIncluded : 0)
       : (count > 0 ? totalMt / count : 0);
     return Object.assign({}, u, { allocatedMt: allocatedMt, isExcluded: false, isOutlier: false });
