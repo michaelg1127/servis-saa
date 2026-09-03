@@ -7149,7 +7149,7 @@ function wlUpdateSalaryPreview() {
     const inp = document.getElementById('wl-std-ton-' + op);
     const ton = parseFloat(inp ? inp.value : '') || 0;
     const salEl = document.getElementById('wl-std-sal-' + op);
-    if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 0.95 * 800).toLocaleString('id');
+    if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 800).toLocaleString('id');
   });
 }
 
@@ -7291,7 +7291,7 @@ function wlEditSalaryPreview() {
     const inp = document.getElementById('wledit-std-ton-' + op);
     const ton = parseFloat(inp ? inp.value : '') || 0;
     const salEl = document.getElementById('wledit-std-sal-' + op);
-    if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 0.95 * 800).toLocaleString('id');
+    if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 800).toLocaleString('id');
   });
 }
 
@@ -7319,7 +7319,7 @@ async function wlEditSyncFromMonitoring(code) {
     if (!data.totalRitase || data.totalRitase === 0) {
       notes.push('<div style="color:#D97706;font-size:12px;">Total ritase = 0, tonase STD tidak dihitung.</div>');
     } else {
-      var tpr = bl / data.totalRitase;
+      var tpr = (bl * 0.95) / data.totalRitase;
       var bonMuat = data.bonMuat || {};
       var skipped = [];
       var filled = [];
@@ -7391,7 +7391,7 @@ async function submitEditWoodlogKapal(id) {
   WL_STD_OPS.forEach(function(op) {
     const inp = document.getElementById('wledit-std-ton-' + op);
     const ton = parseFloat(inp ? inp.value : '') || 0;
-    if (ton > 0) salaryInserts.push({ project_id: id, operator_name: op, unit_type: 'std', tonnage_mt: ton, salary_amount: Math.round(ton * 0.95 * 800) });
+    if (ton > 0) salaryInserts.push({ project_id: id, operator_name: op, unit_type: 'std', tonnage_mt: ton, salary_amount: Math.round(ton * 800) });
   });
   try {
     const { error: pe } = await sb.from('projects').update({
