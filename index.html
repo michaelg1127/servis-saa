@@ -847,12 +847,14 @@
   <div id="proyek-tabs" style="display:flex;gap:0;border-bottom:2px solid #E2E8F0;margin-bottom:20px;flex-wrap:wrap;">
     <button id="proyek-tab-kapal" onclick="switchProyekTab('kapal',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#1D4ED8;border-bottom:3px solid #1D4ED8;margin-bottom:-2px;">Kapal</button>
     <button id="proyek-tab-stockpile" onclick="switchProyekTab('stockpile',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Stockpile</button>
+    <button id="proyek-tab-nse" onclick="switchProyekTab('nse',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">NSE</button>
     <button id="proyek-tab-ringkasan" onclick="switchProyekTab('ringkasan',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Ringkasan Gaji</button>
     <button id="proyek-tab-analisis" onclick="switchProyekTab('analisis',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Analisis Biaya</button>
     <button id="proyek-tab-kontinuitas" onclick="switchProyekTab('kontinuitas',this)" style="padding:12px 18px;border:none;background:none;font-size:14px;font-weight:700;cursor:pointer;color:#94A3B8;border-bottom:3px solid transparent;margin-bottom:-2px;">Kontinuitas HM</button>
   </div>
   <div id="proyek-panel-kapal"></div>
   <div id="proyek-panel-stockpile" style="display:none;"></div>
+  <div id="proyek-panel-nse" style="display:none;"></div>
   <div id="proyek-panel-ringkasan" style="display:none;"></div>
   <div id="proyek-panel-analisis" style="display:none;"></div>
   <div id="proyek-panel-kontinuitas" style="display:none;"></div>
@@ -976,6 +978,8 @@ let bbmLastDispenseByUnit = {};
 let proyekTab = 'kapal';
 let proyekKapalData = [];
 let proyekStockpileData = [];
+var nseData = [];
+var _nseMonthFilter = (function(){ var d=new Date(); if(d.getDate()<=10){d.setMonth(d.getMonth()-1);} return d.toISOString().slice(0,7); })();
 let proyekMonthFilter = (function() { var d = new Date(); if (d.getDate() <= 10) { d.setMonth(d.getMonth() - 1); } return d.toISOString().slice(0,7); })();
 let _proyekKapalCache = {};
 let _proyekStockpileCache = {};
@@ -5487,6 +5491,110 @@ async function loadProyekStockpile() {
   } catch(e) { panel.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
 }
 
+async function loadProyekNSE() {
+  var panel = document.getElementById('proyek-panel-nse');
+  panel.innerHTML = '<div style="color:#64748B;padding:20px;">Memuat data...</div>';
+  try {
+    var res = await sb.from('nse_sessions').select('*, units(code,name)').eq('month_year', _nseMonthFilter).order('session_date').order('session_num');
+    if (res.error) throw res.error;
+    nseData = res.data || [];
+    renderProyekNSEList();
+  } catch(e) { panel.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
+}
+
+function _nseHrs(start, end) {
+  function dec(t) { var p=t.split(':'); return parseInt(p[0])+parseInt(p[1])/60; }
+  var s=dec(start), e=dec(end);
+  return e > s ? e - s : (24 - s) + e;
+}
+function _isOvernight(start, end) { function dec(t){var p=t.split(':');return parseInt(p[0])+parseInt(p[1])/60;} return dec(end)<=dec(start); }
+
+function renderProyekNSEList() {
+  var panel = document.getElementById('proyek-panel-nse');
+  var h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">';
+  h += '<div style="font-size:15px;font-weight:700;color:#1E293B;">NSE — Sesi Kerja</div>';
+  h += '<div style="display:flex;gap:8px;align-items:center;">';
+  h += '<input type="month" value="' + _nseMonthFilter + '" onchange="_nseMonthFilter=this.value;loadProyekNSE();" style="border:1px solid #CBD5E1;border-radius:6px;padding:6px 10px;font-size:13px;">';
+  h += '<button onclick="openAddNSEModal()" class="btn-primary" style="padding:8px 16px;font-size:13px;width:auto;">+ Tambah Sesi</button>';
+  h += '</div></div>';
+  if (nseData.length === 0) {
+    h += '<div style="background:#F8FAFC;border-radius:12px;padding:32px;text-align:center;color:#94A3B8;">Tidak ada sesi NSE bulan ini.</div>';
+    panel.innerHTML = h; return;
+  }
+  // Group by date
+  var dateGroups = {};
+  var dateOrder = [];
+  nseData.forEach(function(s) {
+    if (!dateGroups[s.session_date]) { dateGroups[s.session_date] = []; dateOrder.push(s.session_date); }
+    dateGroups[s.session_date].push(s);
+  });
+  h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
+  h += '<thead><tr style="background:#F1F5F9;">';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;white-space:nowrap;">Tanggal</th>';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;">Sesi</th>';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;">Unit</th>';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;">Start</th>';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;">End</th>';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;text-align:right;">Billed Hrs</th>';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;text-align:right;">HM Awal</th>';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;text-align:right;">HM Akhir</th>';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;text-align:right;">HM Gap</th>';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;text-align:right;">Salary</th>';
+  h += '<th style="padding:10px 12px;"></th>';
+  h += '</tr></thead><tbody>';
+  var grandHrs = 0, grandSalary = 0;
+  dateOrder.forEach(function(date) {
+    var sessions = dateGroups[date];
+    var dayHrs = 0, daySalary = 0;
+    var dateParts = date.split('-');
+    var dateLabel = dateParts[2] + ' ' + ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'][parseInt(dateParts[1],10)-1];
+    sessions.forEach(function(s, si) {
+      var hrs = _nseHrs(s.start_time, s.end_time);
+      var salary = Math.round(hrs * 35000);
+      dayHrs += hrs; daySalary += salary;
+      grandHrs += hrs; grandSalary += salary;
+      var overnight = _isOvernight(s.start_time, s.end_time);
+      var unitCode = s.units ? s.units.code : '?';
+      var startFmt = s.start_time.slice(0,5);
+      var endFmt = s.end_time.slice(0,5);
+      var hmGap = (s.hm_awal != null && s.hm_akhir != null) ? (s.hm_akhir - s.hm_awal).toFixed(1) : '—';
+      h += '<tr style="border-bottom:1px solid #F1F5F9;">';
+      h += '<td style="padding:10px 12px;white-space:nowrap;font-weight:600;">' + (si===0 ? dateLabel : '') + '</td>';
+      h += '<td style="padding:10px 12px;text-align:center;">' + s.session_num + '</td>';
+      h += '<td style="padding:10px 12px;font-weight:700;">' + unitCode + '</td>';
+      h += '<td style="padding:10px 12px;">' + startFmt + '</td>';
+      h += '<td style="padding:10px 12px;">' + endFmt + (overnight ? ' <span style="background:#FEF3C7;color:#B45309;font-size:10px;font-weight:700;padding:2px 5px;border-radius:99px;">&#8593;</span>' : '') + '</td>';
+      h += '<td style="padding:10px 12px;text-align:right;font-weight:700;">' + hrs.toFixed(1) + 'j</td>';
+      h += '<td style="padding:10px 12px;text-align:right;">' + (s.hm_awal != null ? s.hm_awal : '—') + '</td>';
+      h += '<td style="padding:10px 12px;text-align:right;">' + (s.hm_akhir != null ? s.hm_akhir : '—') + '</td>';
+      h += '<td style="padding:10px 12px;text-align:right;">' + hmGap + '</td>';
+      h += '<td style="padding:10px 12px;text-align:right;font-weight:700;color:#16A34A;">' + fmtRp(salary) + '</td>';
+      h += '<td style="padding:10px 12px;white-space:nowrap;">' +
+        '<button onclick="openEditNSEModal(\'' + s.id + '\')" style="background:#EFF6FF;border:1.5px solid #93C5FD;color:#1D4ED8;font-size:12px;font-weight:700;padding:4px 10px;border-radius:7px;cursor:pointer;margin-right:4px;">✎</button>' +
+        '<button onclick="deleteNSESession(\'' + s.id + '\')" style="background:#FEF2F2;border:1.5px solid #FECACA;color:#DC2626;font-size:12px;font-weight:700;padding:4px 10px;border-radius:7px;cursor:pointer;">🗑</button>' +
+        '</td>';
+      h += '</tr>';
+    });
+    // Date subtotal row
+    h += '<tr style="background:#F8FAFC;border-bottom:2px solid #E2E8F0;">';
+    h += '<td colspan="5" style="padding:8px 12px;font-size:12px;color:#64748B;font-style:italic;">Subtotal ' + dateLabel + '</td>';
+    h += '<td style="padding:8px 12px;text-align:right;font-weight:700;">' + dayHrs.toFixed(1) + 'j</td>';
+    h += '<td colspan="2"></td>';
+    h += '<td></td>';
+    h += '<td style="padding:8px 12px;text-align:right;font-weight:700;color:#16A34A;">' + fmtRp(daySalary) + '</td>';
+    h += '<td></td></tr>';
+  });
+  // Grand total
+  h += '<tr style="background:#EFF6FF;border-top:2px solid #BFDBFE;">';
+  h += '<td colspan="5" style="padding:10px 12px;font-size:13px;font-weight:800;color:#1D4ED8;">GRAND TOTAL</td>';
+  h += '<td style="padding:10px 12px;text-align:right;font-size:13px;font-weight:800;color:#1D4ED8;">' + grandHrs.toFixed(1) + 'j</td>';
+  h += '<td colspan="3"></td>';
+  h += '<td style="padding:10px 12px;text-align:right;font-size:13px;font-weight:800;color:#1D4ED8;">' + fmtRp(grandSalary) + '</td>';
+  h += '<td></td></tr>';
+  h += '</tbody></table></div>';
+  panel.innerHTML = h;
+}
+
 function renderProyekStockpileList() {
   const panel = document.getElementById('proyek-panel-stockpile');
   var visData = _cfApply('stk', proyekStockpileData);
@@ -5923,6 +6031,89 @@ async function submitEditKapal(projId) {
   } catch(e) { showToast('Gagal simpan: ' + e.message); }
 }
 
+function _nsePreviewUpdate() {
+  var startEl = document.getElementById('nse-m-start');
+  var endEl = document.getElementById('nse-m-end');
+  var prevEl = document.getElementById('nse-m-preview');
+  if (!startEl || !endEl || !prevEl) return;
+  var start = startEl.value; var end = endEl.value;
+  if (!start || !end) { prevEl.innerHTML = ''; return; }
+  var hrs = _nseHrs(start + ':00', end + ':00');
+  var overnight = _isOvernight(start + ':00', end + ':00');
+  var salary = Math.round(hrs * 35000);
+  var badge = overnight ? ' <span style="background:#FEF3C7;color:#B45309;font-size:11px;font-weight:700;padding:2px 6px;border-radius:99px;">Overnight &#8593;</span>' : '';
+  prevEl.innerHTML = '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 14px;margin-top:4px;">' +
+    '<span style="font-size:13px;font-weight:700;color:#16A34A;">' + hrs.toFixed(1) + ' jam' + badge + ' — ' + fmtRp(salary) + '</span></div>';
+}
+
+async function openAddNSEModal() {
+  var units = (window.allUnits && allUnits.length > 0) ? allUnits : [];
+  if (units.length === 0) {
+    var ur = await sb.from('units').select('id,code,name').order('code');
+    units = ur.data || [];
+  }
+  var unitOpts = units.map(function(u) { return '<option value="' + u.id + '">' + u.code + (u.name ? ' — ' + u.name : '') + '</option>'; }).join('');
+  var today = new Date().toISOString().slice(0,10);
+  var modalHTML = '<div style="padding:24px;max-width:480px;width:100%;">' +
+    '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:16px;">Tambah Sesi NSE</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tanggal *</label><input type="date" id="nse-m-date" class="finput" value="' + today + '"></div>' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Sesi *</label><select id="nse-m-sesi" class="finput"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>' +
+    '</div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Unit *</label><select id="nse-m-unit" class="finput"><option value="">-- Pilih Unit --</option>' + unitOpts + '</select></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jam Mulai *</label><input type="time" id="nse-m-start" class="finput" oninput="_nsePreviewUpdate()"></div>' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jam Selesai *</label><input type="time" id="nse-m-end" class="finput" oninput="_nsePreviewUpdate()"></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Awal</label><input type="number" step="0.1" id="nse-m-hmawal" class="finput" placeholder="Opsional"></div>' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Akhir</label><input type="number" step="0.1" id="nse-m-hmakhir" class="finput" placeholder="Opsional"></div>' +
+    '</div>' +
+    '<div id="nse-m-preview" style="margin-bottom:12px;"></div>' +
+    '<div style="display:flex;gap:12px;margin-top:16px;">' +
+    '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>' +
+    '<button onclick="submitAddNSE()" class="btn-primary" style="flex:2;">Simpan Sesi</button>' +
+    '</div></div>';
+  document.getElementById('modal-box').innerHTML = modalHTML;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+async function openEditNSEModal(id) {
+  var s = nseData.find(function(x) { return x.id === id; });
+  if (!s) { showToast('Data tidak ditemukan'); return; }
+  var units = (window.allUnits && allUnits.length > 0) ? allUnits : [];
+  if (units.length === 0) {
+    var ur = await sb.from('units').select('id,code,name').order('code');
+    units = ur.data || [];
+  }
+  var unitOpts = units.map(function(u) { return '<option value="' + u.id + '" ' + (u.id === s.unit_id ? 'selected' : '') + '>' + u.code + (u.name ? ' — ' + u.name : '') + '</option>'; }).join('');
+  var startVal = s.start_time ? s.start_time.slice(0,5) : '';
+  var endVal = s.end_time ? s.end_time.slice(0,5) : '';
+  var modalHTML = '<div style="padding:24px;max-width:480px;width:100%;">' +
+    '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:16px;">Edit Sesi NSE</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tanggal *</label><input type="date" id="nse-m-date" class="finput" value="' + s.session_date + '"></div>' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Sesi *</label><select id="nse-m-sesi" class="finput"><option value="1" ' + (s.session_num===1?'selected':'') + '>1</option><option value="2" ' + (s.session_num===2?'selected':'') + '>2</option><option value="3" ' + (s.session_num===3?'selected':'') + '>3</option></select></div>' +
+    '</div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Unit *</label><select id="nse-m-unit" class="finput"><option value="">-- Pilih Unit --</option>' + unitOpts + '</select></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jam Mulai *</label><input type="time" id="nse-m-start" class="finput" value="' + startVal + '" oninput="_nsePreviewUpdate()"></div>' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jam Selesai *</label><input type="time" id="nse-m-end" class="finput" value="' + endVal + '" oninput="_nsePreviewUpdate()"></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Awal</label><input type="number" step="0.1" id="nse-m-hmawal" class="finput" value="' + (s.hm_awal != null ? s.hm_awal : '') + '"></div>' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Akhir</label><input type="number" step="0.1" id="nse-m-hmakhir" class="finput" value="' + (s.hm_akhir != null ? s.hm_akhir : '') + '"></div>' +
+    '</div>' +
+    '<div id="nse-m-preview" style="margin-bottom:12px;"></div>' +
+    '<div style="display:flex;gap:12px;margin-top:16px;">' +
+    '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>' +
+    '<button onclick="submitEditNSE(\'' + id + '\')" class="btn-primary" style="flex:2;">Simpan Perubahan</button>' +
+    '</div></div>';
+  document.getElementById('modal-box').innerHTML = modalHTML;
+  document.getElementById('modal-overlay').style.display = 'flex';
+  setTimeout(_nsePreviewUpdate, 50);
+}
+
 function openEditStockpileModal(id) {
   const p = proyekStockpileData.find(function(x) { return x.id === id; });
   if (!p) { showToast('Data tidak ditemukan'); return; }
@@ -6058,6 +6249,57 @@ async function submitEditStockpile(projId) {
   } catch(e) { showToast('Gagal simpan: ' + e.message); }
 }
 
+async function submitAddNSE() {
+  var date = document.getElementById('nse-m-date').value;
+  var sesi = parseInt(document.getElementById('nse-m-sesi').value);
+  var unitId = document.getElementById('nse-m-unit').value;
+  var start = document.getElementById('nse-m-start').value;
+  var end = document.getElementById('nse-m-end').value;
+  var hmAwal = document.getElementById('nse-m-hmawal').value;
+  var hmAkhir = document.getElementById('nse-m-hmakhir').value;
+  hmAwal = hmAwal !== '' ? parseFloat(hmAwal) : null;
+  hmAkhir = hmAkhir !== '' ? parseFloat(hmAkhir) : null;
+  if (!date || !start || !end || !unitId) { showToast('Lengkapi semua field wajib'); return; }
+  if (hmAwal != null && hmAkhir != null && hmAkhir < hmAwal) { showToast('HM Akhir harus >= HM Awal'); return; }
+  var monthYear = date.slice(0,7);
+  var res = await sb.from('nse_sessions').insert({ session_date:date, session_num:sesi, start_time:start+':00', end_time:end+':00', hm_awal:hmAwal, hm_akhir:hmAkhir, unit_id:unitId, month_year:monthYear });
+  if (res.error) {
+    if (res.error.code === '23505') { showToast('Sesi ' + sesi + ' untuk tanggal ini sudah ada'); }
+    else { showToast('Gagal simpan: ' + res.error.message); }
+    return;
+  }
+  closeModal(); loadProyekNSE(); showToast('Sesi ditambahkan', 'success');
+}
+
+async function submitEditNSE(id) {
+  var date = document.getElementById('nse-m-date').value;
+  var sesi = parseInt(document.getElementById('nse-m-sesi').value);
+  var unitId = document.getElementById('nse-m-unit').value;
+  var start = document.getElementById('nse-m-start').value;
+  var end = document.getElementById('nse-m-end').value;
+  var hmAwal = document.getElementById('nse-m-hmawal').value;
+  var hmAkhir = document.getElementById('nse-m-hmakhir').value;
+  hmAwal = hmAwal !== '' ? parseFloat(hmAwal) : null;
+  hmAkhir = hmAkhir !== '' ? parseFloat(hmAkhir) : null;
+  if (!date || !start || !end || !unitId) { showToast('Lengkapi semua field wajib'); return; }
+  if (hmAwal != null && hmAkhir != null && hmAkhir < hmAwal) { showToast('HM Akhir harus >= HM Awal'); return; }
+  var monthYear = date.slice(0,7);
+  var res = await sb.from('nse_sessions').update({ session_date:date, session_num:sesi, start_time:start+':00', end_time:end+':00', hm_awal:hmAwal, hm_akhir:hmAkhir, unit_id:unitId, month_year:monthYear }).eq('id', id);
+  if (res.error) {
+    if (res.error.code === '23505') { showToast('Sesi ' + sesi + ' untuk tanggal ini sudah ada'); }
+    else { showToast('Gagal simpan: ' + res.error.message); }
+    return;
+  }
+  closeModal(); loadProyekNSE(); showToast('Sesi diperbarui', 'success');
+}
+
+async function deleteNSESession(id) {
+  if (!confirm('Hapus sesi ini?')) return;
+  var res = await sb.from('nse_sessions').delete().eq('id', id);
+  if (res.error) { showToast('Gagal hapus: ' + res.error.message); return; }
+  loadProyekNSE(); showToast('Sesi dihapus', 'success');
+}
+
 function downloadImportTemplate(type) {
   const templates = {
     units: 'unit_code,unit_name,model,current_hm,operator_email\r\nK1,Kobelco K1,SK200-8,6000,operator@example.com',
@@ -6082,7 +6324,7 @@ async function loadProyekRingkasan() {
     const firstDay = monthYear + '-01';
     const tmpDate = new Date(y, m, 0);
     const lastDay = tmpDate.getFullYear() + '-' + String(tmpDate.getMonth() + 1).padStart(2, '0') + '-' + String(tmpDate.getDate()).padStart(2, '0');
-    const [projRes, unitRes, kasbonRes, staffRes] = await Promise.all([
+    const [projRes, unitRes, kasbonRes, staffRes, nseRes] = await Promise.all([
       sb.from('projects')
         .select('*, project_units(*, units(code, name, operator_name))')
         .in('type', ['kapal', 'stockpile'])
@@ -6090,14 +6332,16 @@ async function loadProyekRingkasan() {
         .lte('end_date', lastDay),
       sb.from('units').select('code, operator_name'),
       sb.from('proyek_kasbon').select('*').eq('month_year', monthYear),
-      sb.from('staff_salary').select('id,name,role,monthly_amount,bank_name,bank_account_number,bank_account_name').eq('is_active', true).order('name')
+      sb.from('staff_salary').select('id,name,role,monthly_amount,bank_name,bank_account_number,bank_account_name').eq('is_active', true).order('name'),
+      sb.from('nse_sessions').select('*, units(code,name)').eq('month_year', monthYear).is('paid_batch', null).order('session_date').order('session_num')
     ]);
     if (projRes.error) throw projRes.error;
-    renderProyekRingkasan(projRes.data || [], unitRes.data || [], kasbonRes.data || [], monthYear, staffRes.data || []);
+    var nseUnpaid = nseRes.data || [];
+    renderProyekRingkasan(projRes.data || [], unitRes.data || [], kasbonRes.data || [], monthYear, staffRes.data || [], nseUnpaid);
   } catch(e) { panel.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
 }
 
-function renderProyekRingkasan(projects, allUnits, kasbons, monthYear, fixedStaff) {
+function renderProyekRingkasan(projects, allUnits, kasbons, monthYear, fixedStaff, nseSessions) {
   const panel = document.getElementById('proyek-panel-ringkasan');
   panel._ringkasanProjects = projects;
   const proyekOps = (allUnits || []).filter(function(u) { return !WL_ALL_CODES.includes(u.code); });
@@ -6109,10 +6353,15 @@ function renderProyekRingkasan(projects, allUnits, kasbons, monthYear, fixedStaf
   function dayOf(d) { return d ? parseInt(d.slice(8, 10), 10) : 0; }
   function isCarryover(p) { return p.month_year && p.end_date && p.month_year.slice(0, 7) !== p.end_date.slice(0, 7); }
   const unpaid = projects.filter(function(p) { return !p.paid_batch; });
-  function isNSE(p) { return p.type === 'stockpile' && p.code_prefix === 'NSE'; }
-  const batch16 = unpaid.filter(function(p) { return (p.type === 'kapal' || isNSE(p)) && dayOf(p.end_date) <= 15; });
-  const batch31Kapal = unpaid.filter(function(p) { return (p.type === 'kapal' || isNSE(p)) && dayOf(p.end_date) > 15; });
-  const batch31Stk = unpaid.filter(function(p) { return p.type === 'stockpile' && !isNSE(p); });
+  var nseSess = nseSessions || [];
+  var nseBatch16 = nseSess.filter(function(s) { return dayOf(s.session_date) <= 15; });
+  var nseBatch31 = nseSess.filter(function(s) { return dayOf(s.session_date) > 15; });
+  panel._nseBatch16Ids = nseBatch16.map(function(s) { return s.id; });
+  panel._nseBatch31Ids = nseBatch31.map(function(s) { return s.id; });
+  panel._allNseSessions = nseSess;
+  const batch16 = unpaid.filter(function(p) { return p.type === 'kapal' && dayOf(p.end_date) <= 15; });
+  const batch31Kapal = unpaid.filter(function(p) { return p.type === 'kapal' && dayOf(p.end_date) > 15; });
+  const batch31Stk = unpaid.filter(function(p) { return p.type === 'stockpile'; });
   panel._batch16Ids = batch16.map(function(p) { return p.id; });
   panel._batch31Ids = batch31Kapal.concat(batch31Stk).map(function(p) { return p.id; });
   panel._monthYear = monthYear;
@@ -6214,6 +6463,43 @@ function renderProyekRingkasan(projects, allUnits, kasbons, monthYear, fixedStaf
     h += '<div style="margin-top:12px;"><button onclick="markProyekPaid(\'end_of_month\')" class="btn-primary" style="background:#16A34A;">Tandai Lunas Batch 31</button></div>';
   }
   h += '</div>';
+
+  // NSE section
+  if (nseSess.length > 0) {
+    h += '<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:16px;margin-top:20px;">';
+    h += '<div style="font-size:14px;font-weight:800;color:#C2410C;margin-bottom:12px;">NSE — Sesi Belum Dibayar</div>';
+    function _nseRingkasanBatch(sessions, label, batchType) {
+      if (sessions.length === 0) return '';
+      var bh = '<div style="margin-bottom:12px;">';
+      bh += '<div style="font-size:13px;font-weight:700;color:#9A3412;margin-bottom:8px;">' + label + '</div>';
+      bh += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+      bh += '<thead><tr style="background:#FFEDD5;"><th style="padding:7px 10px;text-align:left;">Tanggal</th><th style="padding:7px 10px;">Sesi</th><th style="padding:7px 10px;">Unit</th><th style="padding:7px 10px;">Mulai</th><th style="padding:7px 10px;">Selesai</th><th style="padding:7px 10px;text-align:right;">Billed Hrs</th><th style="padding:7px 10px;text-align:right;">Salary</th></tr></thead><tbody>';
+      var totalHrs = 0, totalSalary = 0;
+      sessions.forEach(function(s) {
+        var hrs = _nseHrs(s.start_time, s.end_time);
+        var salary = Math.round(hrs * 35000);
+        totalHrs += hrs; totalSalary += salary;
+        var overnight = _isOvernight(s.start_time, s.end_time);
+        var unitCode = s.units ? s.units.code : '?';
+        bh += '<tr style="border-bottom:1px solid #FED7AA;">';
+        bh += '<td style="padding:7px 10px;">' + s.session_date + '</td>';
+        bh += '<td style="padding:7px 10px;text-align:center;">' + s.session_num + '</td>';
+        bh += '<td style="padding:7px 10px;font-weight:700;">' + unitCode + '</td>';
+        bh += '<td style="padding:7px 10px;">' + s.start_time.slice(0,5) + '</td>';
+        bh += '<td style="padding:7px 10px;">' + s.end_time.slice(0,5) + (overnight ? ' &#8593;' : '') + '</td>';
+        bh += '<td style="padding:7px 10px;text-align:right;">' + hrs.toFixed(1) + 'j</td>';
+        bh += '<td style="padding:7px 10px;text-align:right;font-weight:700;">' + fmtRp(salary) + '</td></tr>';
+      });
+      bh += '<tr style="background:#FFEDD5;font-weight:700;"><td colspan="5" style="padding:7px 10px;">Subtotal ' + label + '</td><td style="padding:7px 10px;text-align:right;">' + totalHrs.toFixed(1) + 'j</td><td style="padding:7px 10px;text-align:right;">' + fmtRp(totalSalary) + '</td></tr>';
+      bh += '</tbody></table></div>';
+      bh += '<div style="margin-top:8px;"><button onclick="markNSEPaid(\'' + batchType + '\')" style="background:#EA580C;color:white;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">Tandai Lunas NSE ' + label + '</button></div>';
+      bh += '</div>';
+      return bh;
+    }
+    h += _nseRingkasanBatch(nseBatch16, 'Batch 16 (Tgl 1-15)', 'mid_month');
+    h += _nseRingkasanBatch(nseBatch31, 'Batch 31 (Tgl 16-31)', 'end_month');
+    h += '</div>';
+  }
   panel.innerHTML = h;
 }
 
@@ -6231,6 +6517,16 @@ async function markProyekPaid(paymentType) {
     showToast(ids.length + ' proyek ditandai sebagai dibayar.', 'success');
     await loadProyekRingkasan();
   } catch(e) { showToast('Gagal: ' + e.message); }
+}
+
+async function markNSEPaid(batchType) {
+  var el = document.getElementById('proyek-panel-ringkasan');
+  var ids = batchType === 'mid_month' ? (el._nseBatch16Ids || []) : (el._nseBatch31Ids || []);
+  if (!ids || ids.length === 0) { showToast('Tidak ada sesi NSE untuk batch ini'); return; }
+  if (!confirm('Tandai ' + ids.length + ' sesi NSE sebagai sudah dibayar?')) return;
+  var res = await sb.from('nse_sessions').update({ paid_batch: batchType }).in('id', ids);
+  if (res.error) { showToast('Gagal: ' + res.error.message); return; }
+  showToast('NSE ditandai lunas', 'success'); loadProyekRingkasan();
 }
 
 async function saveProyekKasbon(monthYear) {
@@ -6384,11 +6680,10 @@ async function exportBatchExcel(batchType) {
   const panel = document.getElementById('proyek-panel-ringkasan');
   const allProjects = panel._ringkasanProjects;
   const monthYear = panel._monthYear;
-  function _isNSE(p) { return p.type === 'stockpile' && p.code_prefix === 'NSE'; }
   function _dayOf(d) { return d ? parseInt(d.slice(8,10), 10) : 0; }
   const projects = batchType === 'mid_month'
-    ? allProjects.filter(function(p) { return (p.type === 'kapal' || _isNSE(p)) && _dayOf(p.end_date) <= 15; })
-    : allProjects.filter(function(p) { return ((p.type === 'kapal' || _isNSE(p)) && _dayOf(p.end_date) > 15) || (p.type === 'stockpile' && !_isNSE(p)); });
+    ? allProjects.filter(function(p) { return p.type === 'kapal' && _dayOf(p.end_date) <= 15; })
+    : allProjects.filter(function(p) { return (p.type === 'kapal' && _dayOf(p.end_date) > 15) || p.type === 'stockpile'; });
   if (!allProjects || projects.length === 0) { showToast('Tidak ada proyek untuk batch ini. Pastikan bulan sudah sesuai.'); return; }
   projects.sort(function(a, b) { return (a.end_date || '').localeCompare(b.end_date || ''); });
   const fillMap = await fetchFillMap(projects.map(function(p) { return p.id; }));
@@ -6565,6 +6860,25 @@ async function exportBatchExcel(batchType) {
   }
   var totTr = wsTransfer.addRow(['', 'TOTAL', '', trTotKerja, trTotPokok, trTotGrand, trTotFee, trTotNet, '', '', '']);
   styleGrt(totTr); [4,5,6,7,8].forEach(function(ci) { totTr.getCell(ci).numFmt=NF; });
+  // NSE sheet in batch export
+  var _batchNseIds = batchType === 'mid_month' ? (panel._nseBatch16Ids || []) : (panel._nseBatch31Ids || []);
+  var _batchNseSessions = (panel._allNseSessions || []).filter(function(s) { return _batchNseIds.indexOf(s.id) >= 0; });
+  if (_batchNseSessions.length > 0) {
+    var _bNseRows = [['Tanggal','Sesi','Unit','Jam Mulai','Jam Selesai','Overnight','Billed Hrs','HM Awal','HM Akhir','HM Gap','Salary']];
+    var _bNseGrandHrs = 0, _bNseGrandSalary = 0;
+    _batchNseSessions.forEach(function(s) {
+      var hrs = _nseHrs(s.start_time, s.end_time);
+      var salary = Math.round(hrs * 35000);
+      _bNseGrandHrs += hrs; _bNseGrandSalary += salary;
+      var overnight = _isOvernight(s.start_time, s.end_time);
+      var hmGap = (s.hm_awal != null && s.hm_akhir != null) ? s.hm_akhir - s.hm_awal : null;
+      _bNseRows.push([s.session_date, s.session_num, s.units ? s.units.code : '?', s.start_time.slice(0,5), s.end_time.slice(0,5), overnight ? 'Ya' : 'Tidak', +hrs.toFixed(1), s.hm_awal, s.hm_akhir, hmGap, salary]);
+    });
+    _bNseRows.push(['TOTAL', '', '', '', '', '', +_bNseGrandHrs.toFixed(1), '', '', '', _bNseGrandSalary]);
+    wb.addWorksheet('NSE');
+    var _bNseWs = wb.getWorksheet('NSE');
+    _bNseRows.forEach(function(row) { _bNseWs.addRow(row); });
+  }
   // Download
   const label = batchType === 'mid_month' ? 'Batch16' : 'Batch31';
   const buffer = await wb.xlsx.writeBuffer();
@@ -6604,6 +6918,31 @@ async function exportProyekExcel() {
     });
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stkRows), 'Stockpile');
+  // Sheet NSE
+  var _nseExSessions = panel._allNseSessions || [];
+  var nseRows = [['Tanggal','Sesi','Unit','Jam Mulai','Jam Selesai','Overnight','Billed Hrs','HM Awal','HM Akhir','HM Gap','Salary']];
+  var _nseExDateGroups = {}, _nseExDateOrder = [];
+  _nseExSessions.forEach(function(s) {
+    if (!_nseExDateGroups[s.session_date]) { _nseExDateGroups[s.session_date] = []; _nseExDateOrder.push(s.session_date); }
+    _nseExDateGroups[s.session_date].push(s);
+  });
+  var _nseExGrandHrs = 0, _nseExGrandSalary = 0;
+  _nseExDateOrder.forEach(function(date) {
+    var sessList = _nseExDateGroups[date];
+    var dayHrs = 0, daySalary = 0;
+    sessList.forEach(function(s) {
+      var hrs = _nseHrs(s.start_time, s.end_time);
+      var salary = Math.round(hrs * 35000);
+      dayHrs += hrs; daySalary += salary;
+      var overnight = _isOvernight(s.start_time, s.end_time);
+      var hmGap = (s.hm_awal != null && s.hm_akhir != null) ? s.hm_akhir - s.hm_awal : null;
+      nseRows.push([s.session_date, s.session_num, s.units ? s.units.code : '?', s.start_time.slice(0,5), s.end_time.slice(0,5), overnight ? 'Ya' : 'Tidak', +hrs.toFixed(1), s.hm_awal, s.hm_akhir, hmGap, salary]);
+    });
+    _nseExGrandHrs += dayHrs; _nseExGrandSalary += daySalary;
+    nseRows.push(['Subtotal ' + date, '', '', '', '', '', +dayHrs.toFixed(1), '', '', '', daySalary]);
+  });
+  if (_nseExSessions.length > 0) nseRows.push(['GRAND TOTAL', '', '', '', '', '', +_nseExGrandHrs.toFixed(1), '', '', '', _nseExGrandSalary]);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(nseRows), 'NSE');
   // Sheet 3 - Salary Summary
   const salRows = [['Unit','Operator','Gaji Kapal','Gaji Stockpile','HM Stockpile','Total Kerja','Gaji Pokok','Grand Total']];
   const opMap = {};
@@ -6864,7 +7203,7 @@ async function loadProyekKontinuitas() {
 }
 function switchProyekTab(tab, el) {
   proyekTab = tab;
-  const tabs = ['kapal','stockpile','ringkasan','analisis','kontinuitas'];
+  const tabs = ['kapal','stockpile','nse','ringkasan','analisis','kontinuitas'];
   tabs.forEach(t => {
     const btn = document.getElementById('proyek-tab-' + t);
     const panel = document.getElementById('proyek-panel-' + t);
@@ -6874,6 +7213,7 @@ function switchProyekTab(tab, el) {
   });
   if (tab === 'kapal') loadProyekKapal();
   if (tab === 'stockpile') loadProyekStockpile();
+  if (tab === 'nse') loadProyekNSE();
   if (tab === 'ringkasan') loadProyekRingkasan();
   if (tab === 'analisis') loadProyekAnalisis();
   if (tab === 'kontinuitas') renderProyekKontinuitas();
