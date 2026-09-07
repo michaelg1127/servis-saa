@@ -6884,6 +6884,7 @@ async function exportNSESummary() {
 function exportBatch16() { exportBatchExcel('mid_month'); }
 function exportBatch31() { exportBatchExcel('end_of_month'); }
 async function exportBatchExcel(batchType) {
+  await _nseDeriveChain();
   if (typeof XLSX === 'undefined') { showToast('SheetJS tidak tersedia'); return; }
   const panel = document.getElementById('proyek-panel-ringkasan');
   const allProjects = panel._ringkasanProjects;
@@ -7099,6 +7100,7 @@ async function exportBatchExcel(batchType) {
   showToast('Export ' + label + ' berhasil!', 'success');
 }
 async function exportProyekExcel() {
+  await _nseDeriveChain();
   if (typeof XLSX === 'undefined') { showToast('SheetJS tidak tersedia'); return; }
   const panel = document.getElementById('proyek-panel-ringkasan');
   const projects = panel._ringkasanProjects;
