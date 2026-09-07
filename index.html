@@ -980,6 +980,18 @@ let proyekKapalData = [];
 let proyekStockpileData = [];
 var nseData = [];
 var _nseMonthFilter = new Date().toISOString().slice(0,7);
+var _nseHMMap = {};
+var _nseChainAll = [];
+async function _nseDeriveChain() {
+  var res = await sb.from('nse_sessions').select('id, session_date, session_num, hm_awal, hm_akhir').order('session_date', { ascending: true }).order('session_num', { ascending: true });
+  var rows = (res.data || []);
+  _nseChainAll = rows;
+  _nseHMMap = {};
+  for (var i = 0; i < rows.length; i++) {
+    if (i === 0) { _nseHMMap[rows[i].id] = rows[i].hm_awal; }
+    else { _nseHMMap[rows[i].id] = rows[i-1].hm_akhir; }
+  }
+}
 let proyekMonthFilter = (function() { var d = new Date(); if (d.getDate() <= 10) { d.setMonth(d.getMonth() - 1); } return d.toISOString().slice(0,7); })();
 let _proyekKapalCache = {};
 let _proyekStockpileCache = {};
@@ -5498,6 +5510,7 @@ async function loadProyekNSE() {
     var res = await sb.from('nse_sessions').select('*, units(code,name)').eq('month_year', _nseMonthFilter).order('session_date').order('session_num');
     if (res.error) throw res.error;
     nseData = res.data || [];
+    await _nseDeriveChain();
     renderProyekNSEList();
   } catch(e) { panel.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
 }
@@ -5508,6 +5521,21 @@ function _nseHrs(start, end) {
   return e > s ? e - s : (24 - s) + e;
 }
 function _isOvernight(start, end) { function dec(t){var p=t.split(':');return parseInt(p[0])+parseInt(p[1])/60;} return dec(end)<=dec(start); }
+
+function _nseSpans(s) {
+  if (s.time_spans && s.time_spans.length) return s.time_spans;
+  if (s.start_time) return [{ start: s.start_time.slice(0,5), end: s.end_time.slice(0,5) }];
+  return [];
+}
+function _nseTotalHrs(s) {
+  return _nseSpans(s).reduce(function(a, sp) { return a + _nseHrs(sp.start + ':00', sp.end + ':00'); }, 0);
+}
+function _nseSpansLabel(s) {
+  return _nseSpans(s).map(function(sp) {
+    var ov = _isOvernight(sp.start + ':00', sp.end + ':00');
+    return sp.start + '–' + sp.end + (ov ? ' ↑' : '');
+  }).join(', ');
+}
 
 function renderProyekNSEList() {
   var panel = document.getElementById('proyek-panel-nse');
@@ -5534,8 +5562,7 @@ function renderProyekNSEList() {
   h += '<th style="padding:10px 12px;font-weight:700;color:#475569;white-space:nowrap;">Tanggal</th>';
   h += '<th style="padding:10px 12px;font-weight:700;color:#475569;">Sesi</th>';
   h += '<th style="padding:10px 12px;font-weight:700;color:#475569;">Unit</th>';
-  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;">Start</th>';
-  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;">End</th>';
+  h += '<th style="padding:10px 12px;font-weight:700;color:#475569;">Jam</th>';
   h += '<th style="padding:10px 12px;font-weight:700;color:#475569;text-align:right;">Billed Hrs</th>';
   h += '<th style="padding:10px 12px;font-weight:700;color:#475569;text-align:right;">HM Awal</th>';
   h += '<th style="padding:10px 12px;font-weight:700;color:#475569;text-align:right;">HM Akhir</th>';
@@ -5550,23 +5577,21 @@ function renderProyekNSEList() {
     var dateParts = date.split('-');
     var dateLabel = dateParts[2] + ' ' + ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'][parseInt(dateParts[1],10)-1];
     sessions.forEach(function(s, si) {
-      var hrs = _nseHrs(s.start_time, s.end_time);
+      var hrs = _nseTotalHrs(s);
       var salary = Math.round(hrs * 35000);
       dayHrs += hrs; daySalary += salary;
       grandHrs += hrs; grandSalary += salary;
-      var overnight = _isOvernight(s.start_time, s.end_time);
       var unitCode = s.units ? s.units.code : '?';
-      var startFmt = s.start_time.slice(0,5);
-      var endFmt = s.end_time.slice(0,5);
-      var hmGap = (s.hm_awal != null && s.hm_akhir != null) ? (s.hm_akhir - s.hm_awal).toFixed(1) : '—';
+      var jamLabel = _nseSpansLabel(s);
+      var derivedHMAwal = _nseHMMap[s.id];
+      var hmGap = (derivedHMAwal != null && s.hm_akhir != null) ? (s.hm_akhir - derivedHMAwal).toFixed(1) : '—';
       h += '<tr style="border-bottom:1px solid #F1F5F9;">';
       h += '<td style="padding:10px 12px;white-space:nowrap;font-weight:600;">' + (si===0 ? dateLabel : '') + '</td>';
       h += '<td style="padding:10px 12px;text-align:center;">' + s.session_num + '</td>';
       h += '<td style="padding:10px 12px;font-weight:700;">' + unitCode + '</td>';
-      h += '<td style="padding:10px 12px;">' + startFmt + '</td>';
-      h += '<td style="padding:10px 12px;">' + endFmt + (overnight ? ' <span style="background:#FEF3C7;color:#B45309;font-size:10px;font-weight:700;padding:2px 5px;border-radius:99px;">&#8593;</span>' : '') + '</td>';
+      h += '<td style="padding:10px 12px;">' + jamLabel + '</td>';
       h += '<td style="padding:10px 12px;text-align:right;font-weight:700;">' + hrs.toFixed(1) + 'j</td>';
-      h += '<td style="padding:10px 12px;text-align:right;">' + (s.hm_awal != null ? s.hm_awal : '—') + '</td>';
+      h += '<td style="padding:10px 12px;text-align:right;">' + (derivedHMAwal != null ? derivedHMAwal : '—') + '</td>';
       h += '<td style="padding:10px 12px;text-align:right;">' + (s.hm_akhir != null ? s.hm_akhir : '—') + '</td>';
       h += '<td style="padding:10px 12px;text-align:right;">' + hmGap + '</td>';
       h += '<td style="padding:10px 12px;text-align:right;font-weight:700;color:#16A34A;">' + fmtRp(salary) + '</td>';
@@ -5578,7 +5603,7 @@ function renderProyekNSEList() {
     });
     // Date subtotal row
     h += '<tr style="background:#F8FAFC;border-bottom:2px solid #E2E8F0;">';
-    h += '<td colspan="5" style="padding:8px 12px;font-size:12px;color:#64748B;font-style:italic;">Subtotal ' + dateLabel + '</td>';
+    h += '<td colspan="4" style="padding:8px 12px;font-size:12px;color:#64748B;font-style:italic;">Subtotal ' + dateLabel + '</td>';
     h += '<td style="padding:8px 12px;text-align:right;font-weight:700;">' + dayHrs.toFixed(1) + 'j</td>';
     h += '<td colspan="2"></td>';
     h += '<td></td>';
@@ -5587,7 +5612,7 @@ function renderProyekNSEList() {
   });
   // Grand total
   h += '<tr style="background:#EFF6FF;border-top:2px solid #BFDBFE;">';
-  h += '<td colspan="5" style="padding:10px 12px;font-size:13px;font-weight:800;color:#1D4ED8;">GRAND TOTAL</td>';
+  h += '<td colspan="4" style="padding:10px 12px;font-size:13px;font-weight:800;color:#1D4ED8;">GRAND TOTAL</td>';
   h += '<td style="padding:10px 12px;text-align:right;font-size:13px;font-weight:800;color:#1D4ED8;">' + grandHrs.toFixed(1) + 'j</td>';
   h += '<td colspan="3"></td>';
   h += '<td style="padding:10px 12px;text-align:right;font-size:13px;font-weight:800;color:#1D4ED8;">' + fmtRp(grandSalary) + '</td>';
@@ -6033,56 +6058,90 @@ async function submitEditKapal(projId) {
 }
 
 function _nsePreviewUpdate() {
-  var startEl = document.getElementById('nse-m-start');
-  var endEl = document.getElementById('nse-m-end');
   var prevEl = document.getElementById('nse-m-preview');
-  if (!startEl || !endEl || !prevEl) return;
-  var start = startEl.value; var end = endEl.value;
-  if (!start || !end) { prevEl.innerHTML = ''; return; }
-  var hrs = _nseHrs(start + ':00', end + ':00');
-  var overnight = _isOvernight(start + ':00', end + ':00');
+  if (!prevEl) return;
+  var cont = document.getElementById('nse-m-spans');
+  var spanRows = cont ? cont.querySelectorAll('.nse-span-row') : [];
+  var hrs = 0, hasOvernight = false, anySpan = false;
+  spanRows.forEach(function(row) {
+    var sv = row.querySelector('.nse-span-start').value;
+    var ev = row.querySelector('.nse-span-end').value;
+    if (!sv || !ev) return;
+    hrs += _nseHrs(sv + ':00', ev + ':00');
+    if (_isOvernight(sv + ':00', ev + ':00')) hasOvernight = true;
+    anySpan = true;
+  });
+  if (!anySpan) { prevEl.innerHTML = ''; return; }
   var salary = Math.round(hrs * 35000);
-  var badge = overnight ? ' <span style="background:#FEF3C7;color:#B45309;font-size:11px;font-weight:700;padding:2px 6px;border-radius:99px;">Overnight &#8593;</span>' : '';
-  var hmAwal = parseFloat(document.getElementById('nse-m-hmawal') ? document.getElementById('nse-m-hmawal').value : '');
+  var badge = hasOvernight ? ' <span style="background:#FEF3C7;color:#B45309;font-size:11px;font-weight:700;padding:2px 6px;border-radius:99px;">Overnight &#8593;</span>' : '';
   var hmAkhir = parseFloat(document.getElementById('nse-m-hmakhir') ? document.getElementById('nse-m-hmakhir').value : '');
+  var hmAwal = window._nseDerivedHMAwal;
+  var seedEl = document.getElementById('nse-m-hmawal-seed');
+  if (seedEl && hmAwal == null) { hmAwal = seedEl.value !== '' ? parseFloat(seedEl.value) : null; }
   var hmGapHtml = '';
-  if (!isNaN(hmAwal) && !isNaN(hmAkhir)) {
+  if (hmAwal != null && !isNaN(hmAwal) && !isNaN(hmAkhir)) {
     var gap = hmAkhir - hmAwal;
     var gapColor = gap < 0 ? '#DC2626' : '#1D4ED8';
     hmGapHtml = '<span style="font-size:12px;color:' + gapColor + ';font-weight:700;margin-left:12px;">HM Gap: ' + gap.toFixed(1) + '</span>';
   }
-  var continuityHtml = '';
-  if (window._nseLastHM != null && !isNaN(hmAwal)) {
-    var cont = hmAwal - window._nseLastHM;
-    if (cont < 0) { continuityHtml = '<div style="margin-top:6px;font-size:11px;color:#DC2626;font-weight:700;">&#9888; HM Awal (' + hmAwal.toFixed(1) + ') lebih kecil dari HM Terakhir (' + window._nseLastHM.toFixed(1) + ')</div>'; }
-    else if (cont < 0.1) { continuityHtml = '<div style="margin-top:6px;font-size:11px;color:#16A34A;font-weight:700;">&#10003; Lanjut dari HM Terakhir (' + window._nseLastHM.toFixed(1) + ')</div>'; }
-    else { continuityHtml = '<div style="margin-top:6px;font-size:11px;color:#D97706;font-weight:700;">&#9432; Gap +' + cont.toFixed(1) + ' dari HM Terakhir (' + window._nseLastHM.toFixed(1) + ')</div>'; }
-  }
   prevEl.innerHTML = '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 14px;margin-top:4px;">' +
-    '<span style="font-size:13px;font-weight:700;color:#16A34A;">' + hrs.toFixed(1) + ' jam' + badge + ' — ' + fmtRp(salary) + '</span>' + hmGapHtml + continuityHtml + '</div>';
+    '<span style="font-size:13px;font-weight:700;color:#16A34A;">' + hrs.toFixed(1) + ' jam' + badge + ' — ' + fmtRp(salary) + '</span>' + hmGapHtml + '</div>';
 }
 
-async function loadNSEUnitLastHM() {
-  var unitId = (document.getElementById('nse-m-unit') || {}).value;
-  window._nseLastHM = null;
+async function updateNSEHMAwal(editingId) {
   var hintEl = document.getElementById('nse-m-hm-hint');
-  if (!unitId || !hintEl) { _nsePreviewUpdate(); return; }
-  hintEl.innerHTML = '<span style="font-size:11px;color:#64748B;">Mengecek HM terakhir...</span>';
-  var pu = await sb.from('project_units').select('hm_akhir').eq('unit_id', unitId).not('hm_akhir', 'is', null).order('hm_akhir', { ascending: false }).limit(1);
-  var ns = await sb.from('nse_sessions').select('hm_akhir').eq('unit_id', unitId).not('hm_akhir', 'is', null).order('hm_akhir', { ascending: false }).limit(1);
-  var puVal = pu.data && pu.data.length > 0 ? pu.data[0].hm_akhir : null;
-  var nsVal = ns.data && ns.data.length > 0 ? ns.data[0].hm_akhir : null;
-  var lastHM = null;
-  if (puVal != null && nsVal != null) lastHM = Math.max(puVal, nsVal);
-  else if (puVal != null) lastHM = puVal;
-  else if (nsVal != null) lastHM = nsVal;
-  window._nseLastHM = lastHM;
-  if (lastHM != null) {
-    hintEl.innerHTML = '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:6px 10px;font-size:12px;color:#1D4ED8;">HM Terakhir unit ini: <strong>' + lastHM.toFixed(1) + '</strong></div>';
+  var seedEl = document.getElementById('nse-m-hmawal-seed');
+  if (!hintEl) return;
+  var dateVal = (document.getElementById('nse-m-date') || {}).value;
+  var sesiVal = parseInt((document.getElementById('nse-m-sesi') || {}).value);
+  if (!dateVal || isNaN(sesiVal)) {
+    hintEl.innerHTML = '';
+    window._nseDerivedHMAwal = null;
+    _nsePreviewUpdate();
+    return;
+  }
+  await _nseDeriveChain();
+  var pred = null;
+  for (var i = 0; i < _nseChainAll.length; i++) {
+    var r = _nseChainAll[i];
+    if (editingId && r.id === editingId) continue;
+    if (r.session_date < dateVal || (r.session_date === dateVal && r.session_num < sesiVal)) { pred = r; }
+    else break;
+  }
+  if (pred && pred.hm_akhir != null) {
+    window._nseDerivedHMAwal = pred.hm_akhir;
+    hintEl.innerHTML = '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:6px 10px;font-size:12px;color:#1D4ED8;">HM Awal (otomatis): <strong>' + pred.hm_akhir + '</strong> — dari sesi ' + pred.session_date + ' #' + pred.session_num + '</div><div id="nse-m-hmawal-seed-wrap" style="display:none;"></div>';
   } else {
-    hintEl.innerHTML = '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:6px 10px;font-size:12px;color:#64748B;">Belum ada data HM untuk unit ini.</div>';
+    window._nseDerivedHMAwal = null;
+    var seedPrefill = '';
+    if (editingId) { var es = nseData.find(function(x) { return x.id === editingId; }); if (es && es.hm_awal != null) seedPrefill = es.hm_awal; }
+    hintEl.innerHTML = '<div style="margin-bottom:6px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Awal (sesi pertama)</label><input type="number" step="0.1" id="nse-m-hmawal-seed" class="finput" value="' + seedPrefill + '" oninput="_nsePreviewUpdate()"></div>';
   }
   _nsePreviewUpdate();
+}
+
+function addNSESpanRow(startVal, endVal) {
+  var cont = document.getElementById('nse-m-spans');
+  if (!cont) return;
+  var rows = cont.querySelectorAll('.nse-span-row');
+  if (rows.length >= 5) return;
+  var idx = rows.length;
+  var div = document.createElement('div');
+  div.className = 'nse-span-row';
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;';
+  div.innerHTML = '<div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Jam Awal</label><input type="time" class="finput nse-span-start" value="' + (startVal || '') + '" oninput="_nsePreviewUpdate()"></div>' +
+    '<div><label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Jam Akhir</label><input type="time" class="finput nse-span-end" value="' + (endVal || '') + '" oninput="_nsePreviewUpdate()"></div>' +
+    '<button type="button" onclick="this.closest(\'.nse-span-row\').remove();_nsePreviewUpdate();_nseUpdateAddJamBtn();" style="' + (idx === 0 ? 'visibility:hidden;' : '') + 'background:#FEF2F2;border:1.5px solid #FECACA;color:#DC2626;font-size:13px;font-weight:700;padding:4px 8px;border-radius:6px;cursor:pointer;">×</button>';
+  cont.appendChild(div);
+  _nseUpdateAddJamBtn();
+}
+
+function _nseUpdateAddJamBtn() {
+  var cont = document.getElementById('nse-m-spans');
+  var btn = document.getElementById('nse-m-add-span-btn');
+  if (!cont || !btn) return;
+  var count = cont.querySelectorAll('.nse-span-row').length;
+  btn.style.display = count >= 5 ? 'none' : '';
 }
 
 async function openAddNSEModal() {
@@ -6096,18 +6155,12 @@ async function openAddNSEModal() {
   var modalHTML = '<div style="padding:24px;max-width:480px;width:100%;">' +
     '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:16px;">Tambah Sesi NSE</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tanggal *</label><input type="date" id="nse-m-date" class="finput" value="' + today + '"></div>' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Sesi *</label><select id="nse-m-sesi" class="finput"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tanggal *</label><input type="date" id="nse-m-date" class="finput" value="' + today + '" onchange="updateNSEHMAwal(null)"></div>' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Sesi *</label><select id="nse-m-sesi" class="finput" onchange="updateNSEHMAwal(null)"><option value="1">1</option><option value="2">2</option></select></div>' +
     '</div>' +
-    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Unit *</label><select id="nse-m-unit" class="finput" onchange="loadNSEUnitLastHM()"><option value="">-- Pilih Unit --</option>' + unitOpts + '</select></div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jam Mulai *</label><input type="time" id="nse-m-start" class="finput" oninput="_nsePreviewUpdate()"></div>' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jam Selesai *</label><input type="time" id="nse-m-end" class="finput" oninput="_nsePreviewUpdate()"></div>' +
-    '</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Awal</label><input type="number" step="0.1" id="nse-m-hmawal" class="finput" oninput="_nsePreviewUpdate()" placeholder="Opsional"></div>' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Akhir</label><input type="number" step="0.1" id="nse-m-hmakhir" class="finput" oninput="_nsePreviewUpdate()" placeholder="Opsional"></div>' +
-    '</div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Unit *</label><select id="nse-m-unit" class="finput"><option value="">-- Pilih Unit --</option>' + unitOpts + '</select></div>' +
+    '<div style="margin-bottom:8px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Waktu Kerja *</label><div id="nse-m-spans"></div><button type="button" id="nse-m-add-span-btn" onclick="addNSESpanRow()" style="background:#ECFDF5;border:1.5px dashed #6EE7B7;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;color:#059669;cursor:pointer;width:100%;">+ Tambah Jam</button></div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Akhir</label><input type="number" step="0.1" id="nse-m-hmakhir" class="finput" oninput="_nsePreviewUpdate()" placeholder="Opsional"></div>' +
     '<div id="nse-m-hm-hint" style="margin-bottom:8px;"></div>' +
     '<div id="nse-m-preview" style="margin-bottom:12px;"></div>' +
     '<div style="display:flex;gap:12px;margin-top:16px;">' +
@@ -6116,6 +6169,8 @@ async function openAddNSEModal() {
     '</div></div>';
   document.getElementById('modal-box').innerHTML = modalHTML;
   document.getElementById('modal-overlay').style.display = 'flex';
+  addNSESpanRow();
+  await updateNSEHMAwal(null);
 }
 
 async function openEditNSEModal(id) {
@@ -6127,23 +6182,15 @@ async function openEditNSEModal(id) {
     units = ur.data || [];
   }
   var unitOpts = units.map(function(u) { return '<option value="' + u.id + '" ' + (u.id === s.unit_id ? 'selected' : '') + '>' + u.code + (u.name ? ' — ' + u.name : '') + '</option>'; }).join('');
-  var startVal = s.start_time ? s.start_time.slice(0,5) : '';
-  var endVal = s.end_time ? s.end_time.slice(0,5) : '';
   var modalHTML = '<div style="padding:24px;max-width:480px;width:100%;">' +
     '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:16px;">Edit Sesi NSE</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tanggal *</label><input type="date" id="nse-m-date" class="finput" value="' + s.session_date + '"></div>' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Sesi *</label><select id="nse-m-sesi" class="finput"><option value="1" ' + (s.session_num===1?'selected':'') + '>1</option><option value="2" ' + (s.session_num===2?'selected':'') + '>2</option><option value="3" ' + (s.session_num===3?'selected':'') + '>3</option></select></div>' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tanggal *</label><input type="date" id="nse-m-date" class="finput" value="' + s.session_date + '" onchange="updateNSEHMAwal(\'' + id + '\')" ></div>' +
+    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Sesi *</label><select id="nse-m-sesi" class="finput" onchange="updateNSEHMAwal(\'' + id + '\')" ><option value="1" ' + (s.session_num===1?'selected':'') + '>1</option><option value="2" ' + (s.session_num===2?'selected':'') + '>2</option></select></div>' +
     '</div>' +
-    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Unit *</label><select id="nse-m-unit" class="finput" onchange="loadNSEUnitLastHM()"><option value="">-- Pilih Unit --</option>' + unitOpts + '</select></div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jam Mulai *</label><input type="time" id="nse-m-start" class="finput" value="' + startVal + '" oninput="_nsePreviewUpdate()"></div>' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jam Selesai *</label><input type="time" id="nse-m-end" class="finput" value="' + endVal + '" oninput="_nsePreviewUpdate()"></div>' +
-    '</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Awal</label><input type="number" step="0.1" id="nse-m-hmawal" class="finput" oninput="_nsePreviewUpdate()" value="' + (s.hm_awal != null ? s.hm_awal : '') + '"></div>' +
-    '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Akhir</label><input type="number" step="0.1" id="nse-m-hmakhir" class="finput" oninput="_nsePreviewUpdate()" value="' + (s.hm_akhir != null ? s.hm_akhir : '') + '"></div>' +
-    '</div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Unit *</label><select id="nse-m-unit" class="finput"><option value="">-- Pilih Unit --</option>' + unitOpts + '</select></div>' +
+    '<div style="margin-bottom:8px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Waktu Kerja *</label><div id="nse-m-spans"></div><button type="button" id="nse-m-add-span-btn" onclick="addNSESpanRow()" style="background:#ECFDF5;border:1.5px dashed #6EE7B7;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;color:#059669;cursor:pointer;width:100%;">+ Tambah Jam</button></div>' +
+    '<div style="margin-bottom:12px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">HM Akhir</label><input type="number" step="0.1" id="nse-m-hmakhir" class="finput" oninput="_nsePreviewUpdate()" value="' + (s.hm_akhir != null ? s.hm_akhir : '') + '"></div>' +
     '<div id="nse-m-hm-hint" style="margin-bottom:8px;"></div>' +
     '<div id="nse-m-preview" style="margin-bottom:12px;"></div>' +
     '<div style="display:flex;gap:12px;margin-top:16px;">' +
@@ -6152,7 +6199,9 @@ async function openEditNSEModal(id) {
     '</div></div>';
   document.getElementById('modal-box').innerHTML = modalHTML;
   document.getElementById('modal-overlay').style.display = 'flex';
-  setTimeout(function() { loadNSEUnitLastHM(); }, 50);
+  var spans = _nseSpans(s);
+  if (spans.length === 0) { addNSESpanRow(); } else { spans.forEach(function(sp) { addNSESpanRow(sp.start, sp.end); }); }
+  await updateNSEHMAwal(id);
 }
 
 function openEditStockpileModal(id) {
@@ -6294,16 +6343,29 @@ async function submitAddNSE() {
   var date = document.getElementById('nse-m-date').value;
   var sesi = parseInt(document.getElementById('nse-m-sesi').value);
   var unitId = document.getElementById('nse-m-unit').value;
-  var start = document.getElementById('nse-m-start').value;
-  var end = document.getElementById('nse-m-end').value;
-  var hmAwal = document.getElementById('nse-m-hmawal').value;
   var hmAkhir = document.getElementById('nse-m-hmakhir').value;
-  hmAwal = hmAwal !== '' ? parseFloat(hmAwal) : null;
   hmAkhir = hmAkhir !== '' ? parseFloat(hmAkhir) : null;
-  if (!date || !start || !end || !unitId) { showToast('Lengkapi semua field wajib'); return; }
-  if (hmAwal != null && hmAkhir != null && hmAkhir < hmAwal) { showToast('HM Akhir harus >= HM Awal'); return; }
+  var cont = document.getElementById('nse-m-spans');
+  var spanRows = cont ? cont.querySelectorAll('.nse-span-row') : [];
+  var spans = [];
+  var spanErr = false;
+  spanRows.forEach(function(row) {
+    var sv = row.querySelector('.nse-span-start').value;
+    var ev = row.querySelector('.nse-span-end').value;
+    if (sv && ev) { spans.push({ start: sv, end: ev }); }
+    else if (sv || ev) { spanErr = true; }
+  });
+  if (spanErr) { showToast('Setiap baris waktu harus diisi lengkap (Jam Awal dan Jam Akhir)'); return; }
+  if (spans.length === 0) { showToast('Minimal satu rentang waktu wajib diisi'); return; }
+  if (spans.length > 5) { showToast('Maksimal 5 rentang waktu per sesi'); return; }
+  if (!date || !unitId) { showToast('Lengkapi semua field wajib'); return; }
+  var seedEl = document.getElementById('nse-m-hmawal-seed');
+  var hmAwal = null;
+  if (seedEl) { hmAwal = seedEl.value !== '' ? parseFloat(seedEl.value) : null; }
   var monthYear = date.slice(0,7);
-  var res = await sb.from('nse_sessions').insert({ session_date:date, session_num:sesi, start_time:start+':00', end_time:end+':00', hm_awal:hmAwal, hm_akhir:hmAkhir, unit_id:unitId, month_year:monthYear });
+  var payload = { session_date:date, session_num:sesi, time_spans:spans, hm_akhir:hmAkhir, unit_id:unitId, month_year:monthYear };
+  if (seedEl) { payload.hm_awal = hmAwal; }
+  var res = await sb.from('nse_sessions').insert(payload);
   if (res.error) {
     if (res.error.code === '23505') { showToast('Sesi ' + sesi + ' untuk tanggal ini sudah ada'); }
     else { showToast('Gagal simpan: ' + res.error.message); }
@@ -6316,16 +6378,27 @@ async function submitEditNSE(id) {
   var date = document.getElementById('nse-m-date').value;
   var sesi = parseInt(document.getElementById('nse-m-sesi').value);
   var unitId = document.getElementById('nse-m-unit').value;
-  var start = document.getElementById('nse-m-start').value;
-  var end = document.getElementById('nse-m-end').value;
-  var hmAwal = document.getElementById('nse-m-hmawal').value;
   var hmAkhir = document.getElementById('nse-m-hmakhir').value;
-  hmAwal = hmAwal !== '' ? parseFloat(hmAwal) : null;
   hmAkhir = hmAkhir !== '' ? parseFloat(hmAkhir) : null;
-  if (!date || !start || !end || !unitId) { showToast('Lengkapi semua field wajib'); return; }
-  if (hmAwal != null && hmAkhir != null && hmAkhir < hmAwal) { showToast('HM Akhir harus >= HM Awal'); return; }
+  var cont = document.getElementById('nse-m-spans');
+  var spanRows = cont ? cont.querySelectorAll('.nse-span-row') : [];
+  var spans = [];
+  var spanErr = false;
+  spanRows.forEach(function(row) {
+    var sv = row.querySelector('.nse-span-start').value;
+    var ev = row.querySelector('.nse-span-end').value;
+    if (sv && ev) { spans.push({ start: sv, end: ev }); }
+    else if (sv || ev) { spanErr = true; }
+  });
+  if (spanErr) { showToast('Setiap baris waktu harus diisi lengkap (Jam Awal dan Jam Akhir)'); return; }
+  if (spans.length === 0) { showToast('Minimal satu rentang waktu wajib diisi'); return; }
+  if (spans.length > 5) { showToast('Maksimal 5 rentang waktu per sesi'); return; }
+  if (!date || !unitId) { showToast('Lengkapi semua field wajib'); return; }
+  var seedEl = document.getElementById('nse-m-hmawal-seed');
+  var hmAwal = seedEl ? (seedEl.value !== '' ? parseFloat(seedEl.value) : null) : null;
   var monthYear = date.slice(0,7);
-  var res = await sb.from('nse_sessions').update({ session_date:date, session_num:sesi, start_time:start+':00', end_time:end+':00', hm_awal:hmAwal, hm_akhir:hmAkhir, unit_id:unitId, month_year:monthYear }).eq('id', id);
+  var payload = { session_date:date, session_num:sesi, time_spans:spans, hm_awal:hmAwal, hm_akhir:hmAkhir, unit_id:unitId, month_year:monthYear };
+  var res = await sb.from('nse_sessions').update(payload).eq('id', id);
   if (res.error) {
     if (res.error.code === '23505') { showToast('Sesi ' + sesi + ' untuk tanggal ini sudah ada'); }
     else { showToast('Gagal simpan: ' + res.error.message); }
@@ -6378,6 +6451,7 @@ async function loadProyekRingkasan() {
     ]);
     if (projRes.error) throw projRes.error;
     var nseUnpaid = nseRes.data || [];
+    await _nseDeriveChain();
     renderProyekRingkasan(projRes.data || [], unitRes.data || [], kasbonRes.data || [], monthYear, staffRes.data || [], nseUnpaid);
   } catch(e) { panel.innerHTML = '<div style="color:#EF4444;padding:20px;">Error: ' + e.message + '</div>'; }
 }
@@ -6515,24 +6589,23 @@ function renderProyekRingkasan(projects, allUnits, kasbons, monthYear, fixedStaf
       var bh = '<div style="margin-bottom:12px;">';
       bh += '<div style="font-size:13px;font-weight:700;color:#9A3412;margin-bottom:8px;">' + label + '</div>';
       bh += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
-      bh += '<thead><tr style="background:#FFEDD5;"><th style="padding:7px 10px;text-align:left;">Tanggal</th><th style="padding:7px 10px;">Sesi</th><th style="padding:7px 10px;">Unit</th><th style="padding:7px 10px;">Mulai</th><th style="padding:7px 10px;">Selesai</th><th style="padding:7px 10px;text-align:right;">Billed Hrs</th><th style="padding:7px 10px;text-align:right;">Salary</th></tr></thead><tbody>';
+      bh += '<thead><tr style="background:#FFEDD5;"><th style="padding:7px 10px;text-align:left;">Tanggal</th><th style="padding:7px 10px;">Sesi</th><th style="padding:7px 10px;">Unit</th><th style="padding:7px 10px;">Jam</th><th style="padding:7px 10px;text-align:right;">Billed Hrs</th><th style="padding:7px 10px;text-align:right;">Salary</th></tr></thead><tbody>';
       var totalHrs = 0, totalSalary = 0;
       sessions.forEach(function(s) {
-        var hrs = _nseHrs(s.start_time, s.end_time);
+        var hrs = _nseTotalHrs(s);
         var salary = Math.round(hrs * 35000);
         totalHrs += hrs; totalSalary += salary;
-        var overnight = _isOvernight(s.start_time, s.end_time);
         var unitCode = s.units ? s.units.code : '?';
+        var jamLabel = _nseSpansLabel(s);
         bh += '<tr style="border-bottom:1px solid #FED7AA;">';
         bh += '<td style="padding:7px 10px;">' + s.session_date + '</td>';
         bh += '<td style="padding:7px 10px;text-align:center;">' + s.session_num + '</td>';
         bh += '<td style="padding:7px 10px;font-weight:700;">' + unitCode + '</td>';
-        bh += '<td style="padding:7px 10px;">' + s.start_time.slice(0,5) + '</td>';
-        bh += '<td style="padding:7px 10px;">' + s.end_time.slice(0,5) + (overnight ? ' &#8593;' : '') + '</td>';
+        bh += '<td style="padding:7px 10px;">' + jamLabel + '</td>';
         bh += '<td style="padding:7px 10px;text-align:right;">' + hrs.toFixed(1) + 'j</td>';
         bh += '<td style="padding:7px 10px;text-align:right;font-weight:700;">' + fmtRp(salary) + '</td></tr>';
       });
-      bh += '<tr style="background:#FFEDD5;font-weight:700;"><td colspan="5" style="padding:7px 10px;">Subtotal ' + label + '</td><td style="padding:7px 10px;text-align:right;">' + totalHrs.toFixed(1) + 'j</td><td style="padding:7px 10px;text-align:right;">' + fmtRp(totalSalary) + '</td></tr>';
+      bh += '<tr style="background:#FFEDD5;font-weight:700;"><td colspan="4" style="padding:7px 10px;">Subtotal ' + label + '</td><td style="padding:7px 10px;text-align:right;">' + totalHrs.toFixed(1) + 'j</td><td style="padding:7px 10px;text-align:right;">' + fmtRp(totalSalary) + '</td></tr>';
       bh += '</tbody></table></div>';
       bh += '<div style="margin-top:8px;"><button onclick="markNSEPaid(\'' + batchType + '\')" style="background:#EA580C;color:white;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">Tandai Lunas NSE ' + label + '</button></div>';
       bh += '</div>';
@@ -6745,6 +6818,7 @@ async function toggleKaryawanActive(id, newState) {
 async function exportNSESummary() {
   if (typeof ExcelJS === 'undefined') { showToast('ExcelJS tidak tersedia'); return; }
   if (!nseData || nseData.length === 0) { showToast('Tidak ada sesi NSE untuk diexport'); return; }
+  await _nseDeriveChain();
   var NF = '#,##0';
   var BDR = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
   var BULAN_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -6759,7 +6833,7 @@ async function exportNSESummary() {
   titleRow.font = { bold: true, size: 14 };
   ws.addRow(['Bulan: ' + periodeStr]);
   ws.addRow([]);
-  var COLS = ['Tanggal', 'Sesi', 'Unit', 'Jam Mulai', 'Jam Selesai', 'Overnight', 'Billed Hrs', 'HM Awal', 'HM Akhir', 'HM Gap', 'Salary (Rp)'];
+  var COLS = ['Tanggal', 'Sesi', 'Unit', 'Jam', 'Billed Hrs', 'HM Awal', 'HM Akhir', 'HM Gap', 'Salary (Rp)'];
   function _nseAddBatch(sessions, batchLabel) {
     if (sessions.length === 0) return;
     var batchHdr = ws.addRow([batchLabel]);
@@ -6771,35 +6845,34 @@ async function exportNSESummary() {
     colHdr.eachCell(function(cell) { cell.border = BDR; cell.alignment = { horizontal: 'center' }; });
     var totalHrs = 0, totalSalary = 0;
     sessions.forEach(function(s) {
-      var hrs = _nseHrs(s.start_time, s.end_time);
+      var hrs = _nseTotalHrs(s);
       var salary = Math.round(hrs * 35000);
       totalHrs += hrs; totalSalary += salary;
-      var overnight = _isOvernight(s.start_time, s.end_time);
-      var hmGap = (s.hm_awal != null && s.hm_akhir != null) ? +(s.hm_akhir - s.hm_awal).toFixed(1) : '';
+      var derivedHMAwal = _nseHMMap[s.id];
+      var hmGap = (derivedHMAwal != null && s.hm_akhir != null) ? +(s.hm_akhir - derivedHMAwal).toFixed(1) : '';
       var unitCode = s.units ? s.units.code : '?';
-      var row = ws.addRow([s.session_date, s.session_num, unitCode, s.start_time.slice(0,5), s.end_time.slice(0,5), overnight ? 'Ya' : 'Tidak', +hrs.toFixed(1), s.hm_awal, s.hm_akhir, hmGap, salary]);
-      row.getCell(11).numFmt = NF;
+      var jamLabel = _nseSpansLabel(s);
+      var row = ws.addRow([s.session_date, s.session_num, unitCode, jamLabel, +hrs.toFixed(1), derivedHMAwal != null ? derivedHMAwal : '', s.hm_akhir != null ? s.hm_akhir : '', hmGap, salary]);
+      row.getCell(9).numFmt = NF;
       row.eachCell(function(cell) { cell.border = BDR; });
-      if (overnight) { row.getCell(6).font = { color: { argb: 'FFB45309' }, bold: true }; }
     });
-    var subRow = ws.addRow(['SUBTOTAL ' + batchLabel, '', '', '', '', '', +totalHrs.toFixed(1), '', '', '', totalSalary]);
+    var subRow = ws.addRow(['SUBTOTAL ' + batchLabel, '', '', '', +totalHrs.toFixed(1), '', '', '', totalSalary]);
     subRow.font = { bold: true };
     subRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFED7AA' } };
-    subRow.getCell(11).numFmt = NF;
+    subRow.getCell(9).numFmt = NF;
     subRow.eachCell(function(cell) { cell.border = BDR; });
     ws.addRow([]);
   }
   _nseAddBatch(batch16, 'Batch 16 (Tgl 1-15)');
   _nseAddBatch(batch31, 'Batch 31 (Tgl 16-31)');
-  var grandHrs = nseData.reduce(function(a, s) { return a + _nseHrs(s.start_time, s.end_time); }, 0);
-  var grandSalary = nseData.reduce(function(a, s) { return a + Math.round(_nseHrs(s.start_time, s.end_time) * 35000); }, 0);
-  var grandRow = ws.addRow(['GRAND TOTAL', '', '', '', '', '', +grandHrs.toFixed(1), '', '', '', grandSalary]);
+  var grandHrs = nseData.reduce(function(a, s) { return a + _nseTotalHrs(s); }, 0);
+  var grandSalary = nseData.reduce(function(a, s) { return a + Math.round(_nseTotalHrs(s) * 35000); }, 0);
+  var grandRow = ws.addRow(['GRAND TOTAL', '', '', '', +grandHrs.toFixed(1), '', '', '', grandSalary]);
   grandRow.eachCell(function(cell) { cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }; cell.border = BDR; cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF9A3412' } }; });
-  grandRow.getCell(11).numFmt = NF;
+  grandRow.getCell(9).numFmt = NF;
   ws.getColumn(1).width = 14; ws.getColumn(2).width = 6; ws.getColumn(3).width = 8;
-  ws.getColumn(4).width = 10; ws.getColumn(5).width = 10; ws.getColumn(6).width = 10;
-  ws.getColumn(7).width = 11; ws.getColumn(8).width = 10; ws.getColumn(9).width = 10;
-  ws.getColumn(10).width = 10; ws.getColumn(11).width = 16;
+  ws.getColumn(4).width = 22; ws.getColumn(5).width = 11; ws.getColumn(6).width = 10;
+  ws.getColumn(7).width = 10; ws.getColumn(8).width = 10; ws.getColumn(9).width = 16;
   var buffer = await wb.xlsx.writeBuffer();
   var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   var url = URL.createObjectURL(blob);
@@ -7000,17 +7073,17 @@ async function exportBatchExcel(batchType) {
   var _batchNseIds = batchType === 'mid_month' ? (panel._nseBatch16Ids || []) : (panel._nseBatch31Ids || []);
   var _batchNseSessions = (panel._allNseSessions || []).filter(function(s) { return _batchNseIds.indexOf(s.id) >= 0; });
   if (_batchNseSessions.length > 0) {
-    var _bNseRows = [['Tanggal','Sesi','Unit','Jam Mulai','Jam Selesai','Overnight','Billed Hrs','HM Awal','HM Akhir','HM Gap','Salary']];
+    var _bNseRows = [['Tanggal','Sesi','Unit','Jam','Billed Hrs','HM Awal','HM Akhir','HM Gap','Salary']];
     var _bNseGrandHrs = 0, _bNseGrandSalary = 0;
     _batchNseSessions.forEach(function(s) {
-      var hrs = _nseHrs(s.start_time, s.end_time);
+      var hrs = _nseTotalHrs(s);
       var salary = Math.round(hrs * 35000);
       _bNseGrandHrs += hrs; _bNseGrandSalary += salary;
-      var overnight = _isOvernight(s.start_time, s.end_time);
-      var hmGap = (s.hm_awal != null && s.hm_akhir != null) ? s.hm_akhir - s.hm_awal : null;
-      _bNseRows.push([s.session_date, s.session_num, s.units ? s.units.code : '?', s.start_time.slice(0,5), s.end_time.slice(0,5), overnight ? 'Ya' : 'Tidak', +hrs.toFixed(1), s.hm_awal, s.hm_akhir, hmGap, salary]);
+      var derivedHMAwal = _nseHMMap[s.id];
+      var hmGap = (derivedHMAwal != null && s.hm_akhir != null) ? s.hm_akhir - derivedHMAwal : null;
+      _bNseRows.push([s.session_date, s.session_num, s.units ? s.units.code : '?', _nseSpansLabel(s), +hrs.toFixed(1), derivedHMAwal != null ? derivedHMAwal : null, s.hm_akhir, hmGap, salary]);
     });
-    _bNseRows.push(['TOTAL', '', '', '', '', '', +_bNseGrandHrs.toFixed(1), '', '', '', _bNseGrandSalary]);
+    _bNseRows.push(['TOTAL', '', '', '', +_bNseGrandHrs.toFixed(1), '', '', '', _bNseGrandSalary]);
     wb.addWorksheet('NSE');
     var _bNseWs = wb.getWorksheet('NSE');
     _bNseRows.forEach(function(row) { _bNseWs.addRow(row); });
@@ -7056,7 +7129,7 @@ async function exportProyekExcel() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stkRows), 'Stockpile');
   // Sheet NSE
   var _nseExSessions = panel._allNseSessions || [];
-  var nseRows = [['Tanggal','Sesi','Unit','Jam Mulai','Jam Selesai','Overnight','Billed Hrs','HM Awal','HM Akhir','HM Gap','Salary']];
+  var nseRows = [['Tanggal','Sesi','Unit','Jam','Billed Hrs','HM Awal','HM Akhir','HM Gap','Salary']];
   var _nseExDateGroups = {}, _nseExDateOrder = [];
   _nseExSessions.forEach(function(s) {
     if (!_nseExDateGroups[s.session_date]) { _nseExDateGroups[s.session_date] = []; _nseExDateOrder.push(s.session_date); }
@@ -7067,17 +7140,17 @@ async function exportProyekExcel() {
     var sessList = _nseExDateGroups[date];
     var dayHrs = 0, daySalary = 0;
     sessList.forEach(function(s) {
-      var hrs = _nseHrs(s.start_time, s.end_time);
+      var hrs = _nseTotalHrs(s);
       var salary = Math.round(hrs * 35000);
       dayHrs += hrs; daySalary += salary;
-      var overnight = _isOvernight(s.start_time, s.end_time);
-      var hmGap = (s.hm_awal != null && s.hm_akhir != null) ? s.hm_akhir - s.hm_awal : null;
-      nseRows.push([s.session_date, s.session_num, s.units ? s.units.code : '?', s.start_time.slice(0,5), s.end_time.slice(0,5), overnight ? 'Ya' : 'Tidak', +hrs.toFixed(1), s.hm_awal, s.hm_akhir, hmGap, salary]);
+      var derivedHMAwal = _nseHMMap[s.id];
+      var hmGap = (derivedHMAwal != null && s.hm_akhir != null) ? s.hm_akhir - derivedHMAwal : null;
+      nseRows.push([s.session_date, s.session_num, s.units ? s.units.code : '?', _nseSpansLabel(s), +hrs.toFixed(1), derivedHMAwal != null ? derivedHMAwal : null, s.hm_akhir, hmGap, salary]);
     });
     _nseExGrandHrs += dayHrs; _nseExGrandSalary += daySalary;
-    nseRows.push(['Subtotal ' + date, '', '', '', '', '', +dayHrs.toFixed(1), '', '', '', daySalary]);
+    nseRows.push(['Subtotal ' + date, '', '', '', +dayHrs.toFixed(1), '', '', '', daySalary]);
   });
-  if (_nseExSessions.length > 0) nseRows.push(['GRAND TOTAL', '', '', '', '', '', +_nseExGrandHrs.toFixed(1), '', '', '', _nseExGrandSalary]);
+  if (_nseExSessions.length > 0) nseRows.push(['GRAND TOTAL', '', '', '', +_nseExGrandHrs.toFixed(1), '', '', '', _nseExGrandSalary]);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(nseRows), 'NSE');
   // Sheet 3 - Salary Summary
   const salRows = [['Unit','Operator','Gaji Kapal','Gaji Stockpile','HM Stockpile','Total Kerja','Gaji Pokok','Grand Total']];
