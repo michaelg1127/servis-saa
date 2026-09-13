@@ -192,10 +192,12 @@
         <div style="font-size:13px;font-weight:700;color:#92400E;">Edit HM Unit</div>
         <div id="op-hm-today-status" style="font-size:12px;color:#16A34A;font-weight:600;"></div>
       </div>
+      <div id="op-hm-current-display" style="font-size:12px;color:#6B7280;margin-bottom:6px;font-weight:600;"></div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <input type="number" id="op-hm-input" class="finput" placeholder="Masukkan HM" step="1" style="flex:1;width:auto;min-width:0;padding:10px 12px;font-size:15px;">
+        <input type="number" id="op-hm-input" class="finput" placeholder="Masukkan HM (cth: 7817.4)" step="0.1" oninput="onOpHMInput(this.value)" style="flex:1;width:auto;min-width:0;padding:10px 12px;font-size:15px;">
         <button onclick="submitHMUpdate()" class="btn-primary" style="width:auto;flex-shrink:0;padding:10px 18px;font-size:15px;white-space:nowrap;">Update</button>
       </div>
+      <div id="op-hm-delta-preview" style="font-size:12px;margin-top:5px;font-weight:600;min-height:16px;"></div>
     </div>
     <!-- Maintenance Schedule -->
     <div style="padding:0 14px 8px;font-size:13px;font-weight:700;color:#374151;">Jadwal Maintenance</div>
@@ -431,7 +433,8 @@
         </div>
         <div style="margin-bottom:18px;">
           <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">HM Baru</label>
-          <input type="number" id="spv-hm-input" class="finput" placeholder="Masukkan HM baru" step="1">
+          <input type="number" id="spv-hm-input" class="finput" placeholder="Masukkan HM baru (cth: 7817.4)" step="0.1" oninput="onSPVHMInput(this.value)">
+          <div id="spv-hm-delta-preview" style="font-size:12px;margin-top:5px;font-weight:600;min-height:16px;"></div>
         </div>
         <button onclick="submitSPVHMUpdate()" class="btn-primary" style="width:100%;">Update HM</button>
       </div>
@@ -1003,7 +1006,7 @@ const FUEL_TANKS = [{name:'hijau',label:'Tanki Hijau',cap:8000,color:'#16A34A'},
 // UTILITY FUNCTIONS
 // ============================================================
 function mStatus(interval_hm, last_hm, current_hm) {
-  if (last_hm == null) return 'NO DATA';
+  if (last_hm == null || last_hm === 0) return 'NO DATA';
   const remaining = (last_hm + interval_hm) - current_hm;
   if (remaining < 0) return 'OVERDUE';
   if (remaining < interval_hm * 0.15) return 'DUE SOON';
@@ -1257,6 +1260,8 @@ async function loadOperatorData() {
       document.getElementById('op-unit-hm').textContent = fmtHM(currentUnit.current_hm);
       document.getElementById('op-req-unit-label').innerHTML = `Unit: ${currentUnit.code} &mdash; ${currentUnit.name}`;
       document.getElementById('op-hm-banner').style.display = 'block';
+      const _hmDisp = document.getElementById('op-hm-current-display');
+      if (_hmDisp) _hmDisp.textContent = 'HM saat ini: ' + fmtHM(currentUnit.current_hm);
       await checkHMUpdateToday();
       await loadOpSchedule();
     } else {
@@ -1279,11 +1284,17 @@ async function checkHMUpdateToday() {
 
 async function submitHMUpdate() {
   if (!currentUnit) { showToast('Belum ada unit yang ditugaskan.'); return; }
-  const val = parseInt(document.getElementById('op-hm-input').value);
-  if (!val || val <= 0) { showToast('Masukkan nilai HM yang valid.'); return; }
+  const val = parseFloat(document.getElementById('op-hm-input').value);
+  if (!val || val <= 0 || isNaN(val)) { showToast('Masukkan nilai HM yang valid.'); return; }
   const prev = currentUnit.current_hm || 0;
   if (val <= prev) { showToast(`HM harus lebih dari HM sekarang (${fmtHM(prev)}).`); return; }
-  if (val > prev + 200) { showToast(`Maksimal 200 HM di atas HM sekarang. Batas: ${fmtHM(prev + 200)}.`); return; }
+  const delta = val - prev;
+  if (prev === 0) {
+    if (!confirm(`HM unit belum pernah diisi.\nApakah benar HM saat ini adalah ${fmtHM(val)}?\nTekan OK untuk konfirmasi.`)) return;
+  } else if (delta > 24) {
+    showToast(`\u26a0 Selisih ${fmtHM(delta)} HM terlalu besar (maks 24 jam/hari). Periksa kembali input Anda.`);
+    return;
+  }
   try {
     const { error: e1 } = await sb.from('hm_updates').insert({ unit_id: currentUnit.id, hm_value: val, recorded_by: currentProfile.id, recorded_at: new Date().toISOString() });
     if (e1) throw e1;
@@ -1292,7 +1303,11 @@ async function submitHMUpdate() {
     const newHm = refreshed?.current_hm ?? val;
     currentUnit.current_hm = newHm;
     document.getElementById('op-unit-hm').textContent = fmtHM(newHm);
+    const hmDisp = document.getElementById('op-hm-current-display');
+    if (hmDisp) hmDisp.textContent = 'HM saat ini: ' + fmtHM(newHm);
     document.getElementById('op-hm-input').value = '';
+    const dpEl = document.getElementById('op-hm-delta-preview');
+    if (dpEl) dpEl.textContent = '';
     const status = document.getElementById('op-hm-today-status');
     if (status) status.textContent = 'Sudah update hari ini';
     showToast('HM berhasil diupdate!', 'success');
@@ -2668,19 +2683,27 @@ async function loadSPVHMUnitInfo(unitId) {
 async function submitSPVHMUpdate() {
   const sel = document.getElementById('spv-hm-unit');
   const unitId = sel.value;
-  const val = parseInt(document.getElementById('spv-hm-input').value);
+  const val = parseFloat(document.getElementById('spv-hm-input').value);
   if (!unitId) { showToast('Pilih unit terlebih dahulu.'); return; }
-  if (!val || val <= 0) { showToast('Masukkan nilai HM yang valid.'); return; }
+  if (!val || val <= 0 || isNaN(val)) { showToast('Masukkan nilai HM yang valid.'); return; }
   try {
     const { data: unit } = await sb.from('units').select('current_hm, code').eq('id', unitId).single();
     const prev = unit?.current_hm || 0;
     if (val <= prev) { showToast(`HM harus lebih dari HM sekarang (${fmtHM(prev)}).`); return; }
-    if (val > prev + 200) { showToast(`Maksimal 200 HM di atas HM sekarang. Batas: ${fmtHM(prev + 200)}.`); return; }
+    const delta = val - prev;
+    if (prev === 0) {
+      if (!confirm(`HM unit ${unit.code} belum pernah diisi.\nApakah benar HM saat ini adalah ${fmtHM(val)}?\nTekan OK untuk konfirmasi.`)) return;
+    } else if (delta > 24) {
+      showToast(`\u26a0 Selisih ${fmtHM(delta)} HM terlalu besar (maks 24 jam/hari). Periksa kembali input Anda.`);
+      return;
+    }
     const { error } = await sb.from('hm_updates').insert({ unit_id: unitId, hm_value: val, recorded_by: currentProfile.id, recorded_at: new Date().toISOString() });
     if (error) throw error;
     await sb.from('units').update({ current_hm: val }).eq('id', unitId).lt('current_hm', val);
     showToast(`HM ${unit.code} berhasil diupdate ke ${fmtHM(val)}.`, 'success');
     document.getElementById('spv-hm-input').value = '';
+    const _spvDp = document.getElementById('spv-hm-delta-preview');
+    if (_spvDp) _spvDp.textContent = '';
     document.getElementById('spv-hm-current-val').textContent = fmtHM(val) + ' HM';
     document.getElementById('spv-hm-today-note').textContent = 'Sudah update hari ini';
     // refresh the unit dropdown data-hm
@@ -2689,6 +2712,46 @@ async function submitSPVHMUpdate() {
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
 
+
+function onOpHMInput(rawVal) {
+  const val = parseFloat(rawVal);
+  const prev = currentUnit ? (currentUnit.current_hm || 0) : 0;
+  const el = document.getElementById('op-hm-delta-preview');
+  if (!el) return;
+  if (!rawVal || isNaN(val)) { el.textContent = ''; return; }
+  const delta = val - prev;
+  if (delta <= 0) {
+    el.style.color = '#DC2626';
+    el.textContent = '\u26a0 HM tidak boleh lebih kecil dari sekarang';
+  } else if (prev > 0 && delta > 24) {
+    el.style.color = '#DC2626';
+    el.textContent = `\u26a0 Selisih ${delta.toFixed(1)} HM \u2014 terlalu besar, periksa kembali`;
+  } else {
+    el.style.color = '#16A34A';
+    el.textContent = `Jam kerja hari ini: +${delta.toFixed(1)} HM`;
+  }
+}
+
+function onSPVHMInput(rawVal) {
+  const val = parseFloat(rawVal);
+  const sel = document.getElementById('spv-hm-unit');
+  const opt = sel ? sel.options[sel.selectedIndex] : null;
+  const prev = opt ? parseFloat(opt.dataset.hm || 0) : 0;
+  const el = document.getElementById('spv-hm-delta-preview');
+  if (!el) return;
+  if (!rawVal || isNaN(val)) { el.textContent = ''; return; }
+  const delta = val - prev;
+  if (delta <= 0) {
+    el.style.color = '#DC2626';
+    el.textContent = '\u26a0 HM tidak boleh lebih kecil dari sekarang';
+  } else if (prev > 0 && delta > 24) {
+    el.style.color = '#DC2626';
+    el.textContent = `\u26a0 Selisih ${delta.toFixed(1)} HM \u2014 terlalu besar, periksa kembali`;
+  } else {
+    el.style.color = '#16A34A';
+    el.textContent = `Jam kerja hari ini: +${delta.toFixed(1)} HM`;
+  }
+}
 
 // ============================================================
 // ADMIN CATAT SERVIS
