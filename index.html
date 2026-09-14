@@ -5244,6 +5244,28 @@ function formatStockpileCode(prefix, seq) {
   return prefix.toUpperCase().trim() + '-' + String(seq).padStart(3, '0');
 }
 
+async function getNextStockpileSeq(prefix) {
+  if (!prefix) return 1;
+  const { data } = await sb.from('projects')
+    .select('code_seq')
+    .eq('type', 'stockpile')
+    .eq('code_prefix', prefix.toUpperCase().trim())
+    .order('code_seq', { ascending: false })
+    .limit(1);
+  if (!data || data.length === 0) return 1;
+  return (data[0].code_seq || 0) + 1;
+}
+
+async function onStockpilePrefixBlur() {
+  const prefixEl = document.getElementById('stk-add-prefix');
+  const seqEl = document.getElementById('stk-add-seq');
+  if (!prefixEl || !seqEl) return;
+  const prefix = prefixEl.value.trim().toUpperCase();
+  if (!prefix) return;
+  const next = await getNextStockpileSeq(prefix);
+  seqEl.value = next;
+}
+
 function fmtRp(n) {
   if (n == null || isNaN(n)) return 'Rp 0';
   return 'Rp ' + Math.round(n).toLocaleString('id-ID');
@@ -5798,7 +5820,7 @@ function openAddStockpileModal() {
     + '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:16px;">Tambah Proyek Stockpile</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Pemberi Kerja</label><input type="text" id="stk-add-pemberi" class="finput" placeholder="KCN"></div>'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Prefix Kode *</label><input type="text" id="stk-add-prefix" class="finput" placeholder="KCN" maxlength="6" oninput="this.value=this.value.toUpperCase()"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Prefix Kode *</label><input type="text" id="stk-add-prefix" class="finput" placeholder="KCN" maxlength="6" oninput="this.value=this.value.toUpperCase()" onblur="onStockpilePrefixBlur()"></div>'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Nomor Urut *</label><input type="number" id="stk-add-seq" class="finput" placeholder="1" min="1" step="1"></div>'
     + '</div>'
     + '<div style="margin-bottom:16px;"><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Mulai *</label><input type="date" id="stk-add-start" class="finput" value="' + today + '"></div>'
@@ -5901,7 +5923,14 @@ async function submitAddStockpile() {
     closeModal();
     showToast('Proyek ' + projectCode + ' berhasil disimpan!', 'success');
     loadProyekStockpile();
-  } catch(e) { showToast('Gagal simpan: ' + e.message); }
+  } catch(e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    if (/duplicate key|projects_project_code_key|23505/i.test(msg)) {
+      showToast('Kode proyek ' + projectCode + ' sudah ada. Naikkan Nomor Urut.');
+    } else {
+      showToast('Gagal simpan: ' + msg);
+    }
+  }
 }
 
 async function deleteKapalProject(id, code) {
