@@ -5963,8 +5963,8 @@ async function openEditKapalModal(id) {
   let unitRowsHTML = '';
   units.forEach(function(u, i) {
     const unitCode = u.units ? u.units.code : '?';
-    unitRowsHTML += '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;margin-bottom:8px;">';
-    unitRowsHTML += '<div style="font-size:12px;font-weight:700;color:#1E293B;margin-bottom:8px;">' + unitCode + '</div>';
+    unitRowsHTML += '<div id="kapal-eu-row-' + i + '" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;margin-bottom:8px;">';
+    unitRowsHTML += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:12px;font-weight:700;color:#1E293B;">' + unitCode + '</span><button type="button" onclick="removeExistingKapalUnit(' + i + ', \'' + unitCode + '\')" style="font-size:14px;color:#EF4444;background:none;border:none;cursor:pointer;line-height:1;" title="Hapus unit dari proyek">&#10005;</button></div>';
     unitRowsHTML += '<div style="display:grid;grid-template-columns:80px 80px 60px 60px 80px;gap:8px;">';
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Awal</label><input type="number" id="kapal-eu-hmawal-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + u.hm_awal + '"></div>';
     unitRowsHTML += '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Akhir</label><input type="number" id="kapal-eu-hmakhir-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + (u.hm_akhir != null ? u.hm_akhir : '') + '" placeholder="Opsional"></div>';
@@ -6053,6 +6053,16 @@ async function addNewKapalUnitRow() {
   countEl.value = idx + 1;
 }
 function removeKapalNewUnitRow(idx) { var el = document.getElementById('kapal-en-row-' + idx); if (el) el.remove(); }
+function removeExistingKapalUnit(i, code) {
+  if (!confirm('Hapus unit ' + code + ' dari proyek ini?')) return;
+  var el = document.getElementById('kapal-eu-row-' + i);
+  if (el) el.remove();
+}
+function removeExistingWlUnit(i, code) {
+  if (!confirm('Hapus unit ' + code + ' dari proyek ini?')) return;
+  var el = document.getElementById('wledit-row-' + i);
+  if (el) el.remove();
+}
 
 async function addWlNewUnitRow() {
   var units = (allUnits && allUnits.length > 0) ? allUnits : [];
@@ -6105,6 +6115,7 @@ async function submitEditKapal(projId) {
   const existingUnits = p.project_units || [];
   const unitUpdates = [];
   for (let i = 0; i < unitCount; i++) {
+    if (!document.getElementById('kapal-eu-row-' + i)) continue;
     const hmAwal = parseFloat(document.getElementById('kapal-eu-hmawal-' + i)?.value);
     const hmAkhir = parseFloat(document.getElementById('kapal-eu-hmakhir-' + i)?.value);
     const sAwal = parseInt(document.getElementById('kapal-eu-sawal-' + i)?.value);
@@ -6132,6 +6143,7 @@ async function submitEditKapal(projId) {
     }
     unitUpdates.push({ unit_id: newUnitId, hm_awal: newHmAwal, hm_akhir: null, solar_awal_pct: isNaN(newSAwal) ? 100 : newSAwal, solar_akhir_pct: null, hm_gap_reason: null });
   }
+  if (unitUpdates.length === 0) { showToast('Proyek harus punya minimal 1 unit'); return; }
   try {
     const { error: pe } = await sb.from('projects').update({
       nama_kapal: namaKapal || null, pemberi_kerja: pemberiKerja || null,
@@ -7872,8 +7884,8 @@ async function openEditWoodlogKapalModal(id) {
     const unitCode = pu.units ? pu.units.code : '?';
     const fillL = unitFills[pu.unit_id];
     const sisiDisplay = fillL != null ? fillL.toFixed(1) + ' L (aktual)' : '—';
-    return '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;margin-bottom:8px;">' +
-      '<div style="font-size:12px;font-weight:700;color:#1E293B;margin-bottom:8px;">' + unitCode + '</div>' +
+    return '<div id="wledit-row-' + i + '" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;margin-bottom:8px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:12px;font-weight:700;color:#1E293B;">' + unitCode + '</span><button type="button" onclick="removeExistingWlUnit(' + i + ', \'' + unitCode + '\')" style="font-size:14px;color:#EF4444;background:none;border:none;cursor:pointer;line-height:1;" title="Hapus unit dari proyek">&#10005;</button></div>' +
       '<div style="display:grid;grid-template-columns:80px 80px 60px 60px 80px;gap:8px;">' +
       '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Awal</label><input type="number" id="wledit-hmawal-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + (pu.hm_awal != null ? pu.hm_awal : '') + '" step="0.1"></div>' +
       '<div><label style="font-size:11px;font-weight:600;color:#64748B;display:block;margin-bottom:3px;">HM Akhir</label><input type="number" id="wledit-hmakhir-' + i + '" class="finput" style="font-size:12px;padding:6px 8px;" value="' + (pu.hm_akhir != null ? pu.hm_akhir : '') + '" placeholder="Opsional" step="0.1"></div>' +
@@ -8024,7 +8036,9 @@ async function submitEditWoodlogKapal(id) {
   const units = p.project_units || [];
   const unitCount = parseInt((document.getElementById('wledit-unitcount') || {}).value) || 0;
   const unitUpdates = [];
+  const removedUnitIds = [];
   for (let i = 0; i < unitCount; i++) {
+    if (!document.getElementById('wledit-row-' + i)) { if (units[i]) removedUnitIds.push(units[i].unit_id); continue; }
     const hmAwal = parseFloat((document.getElementById('wledit-hmawal-' + i) || {}).value);
     const hmAkhir = parseFloat((document.getElementById('wledit-hmakhir-' + i) || {}).value);
     const sAwal = parseFloat((document.getElementById('wledit-sawal-' + i) || {}).value);
@@ -8053,6 +8067,10 @@ async function submitEditWoodlogKapal(id) {
     const ton = parseFloat(inp ? inp.value : '') || 0;
     if (ton > 0) salaryInserts.push({ project_id: id, operator_name: op, unit_type: 'std', tonnage_mt: ton, salary_amount: Math.round(ton * 800) });
   });
+  const newCountPre = parseInt((document.getElementById('wlen-count') || {}).value) || 0;
+  let newCountAlive = 0;
+  for (let j = 0; j < newCountPre; j++) { if (document.getElementById('wlen-row-' + j)) newCountAlive++; }
+  if (unitUpdates.length + newCountAlive === 0) { showToast('Proyek harus punya minimal 1 unit'); _wlEditKapalSaving = false; return; }
   try {
     const { error: pe } = await sb.from('projects').update({
       nama_kapal: namaKapal || null, pemberi_kerja: pemberi || null,
@@ -8060,6 +8078,10 @@ async function submitEditWoodlogKapal(id) {
       total_mt_m3: bl, unit_price: rate, harga_solar_rpl: solar, notes: notes || null
     }).eq('id', id);
     if (pe) throw pe;
+    if (removedUnitIds.length > 0) {
+      const { error: dre } = await sb.from('project_units').delete().eq('project_id', id).in('unit_id', removedUnitIds);
+      if (dre) throw dre;
+    }
     // Update project_units
     await Promise.all(unitUpdates.map(function(u) {
       return sb.from('project_units').update({
