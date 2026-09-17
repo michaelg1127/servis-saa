@@ -1001,6 +1001,8 @@ let _proyekStockpileCache = {};
 let proyekHMUnitId = null;
 let proyekAnalisisFilter = 'semua';
 let proyekAnalisisExpanded = new Set();
+let proyekAnalisisSort = 'asc';
+const MIKE_EMAIL = 'michael.gunawan1995@gmail.com';
 const FUEL_TANKS = [{name:'hijau',label:'Tanki Hijau',cap:8000,color:'#16A34A'},{name:'merah',label:'Tanki Merah',cap:1500,color:'#DC2626'},{name:'kuning',label:'Tanki Kuning',cap:1500,color:'#CA8A04'}];
 
 // ============================================================
@@ -7325,6 +7327,10 @@ function renderProyekAnalisis(projects, fillMap) {
   let filtered = projects;
   if (proyekAnalisisFilter === 'open') filtered = projects.filter(p => !p.invoice_number);
   if (proyekAnalisisFilter === 'closed') filtered = projects.filter(p => p.invoice_number);
+  filtered = filtered.slice().sort(function(a, b) {
+    const cmp = String(a.project_code || '').localeCompare(String(b.project_code || ''));
+    return proyekAnalisisSort === 'desc' ? -cmp : cmp;
+  });
   let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">';
   h += '<div style="font-size:15px;font-weight:700;color:#1E293B;">Analisis Biaya Kapal</div>';
   h += '<input type="month" class="finput" style="padding:6px 10px;font-size:13px;" value="' + proyekMonthFilter + '" onchange="proyekMonthFilter=this.value;loadProyekAnalisis();">';
@@ -7343,8 +7349,13 @@ function renderProyekAnalisis(projects, fillMap) {
   }
   h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
   h += '<thead><tr style="background:#F1F5F9;">';
-  ['Invoice#','Kode','Nama Kapal','Pemberi Kerja','Kade','HM Total','Income','Biaya Solar','Biaya Tenaga','Profit','Yield/HM','Status',''].forEach(col => {
-    h += '<th style="padding:8px 10px;text-align:' + (['Income','Biaya Solar','Biaya Tenaga','Profit','Yield/HM','HM Total'].includes(col) ? 'right' : 'left') + ';font-weight:700;color:#475569;white-space:nowrap;">' + col + '</th>';
+  ['Invoice#','Kode','Nama Kapal','Pemberi Kerja','Kade','HM Total','Income','Biaya Solar','Biaya Tenaga','Profit','Yield/HM','Status','Mike Check',''].forEach(col => {
+    let inner = col;
+    if (col === 'Kode') {
+      const arrow = proyekAnalisisSort === 'asc' ? '▲' : '▼';
+      inner = '<button onclick="toggleProyekAnalisisSort()" style="background:none;border:none;color:#475569;font-weight:700;cursor:pointer;padding:0;font-size:12px;">Kode ' + arrow + '</button>';
+    }
+    h += '<th style="padding:8px 10px;text-align:' + (['Income','Biaya Solar','Biaya Tenaga','Profit','Yield/HM','HM Total'].includes(col) ? 'right' : 'left') + ';font-weight:700;color:#475569;white-space:nowrap;">' + inner + '</th>';
   });
   h += '</tr></thead><tbody>';
   let sumIncome = 0, sumFuel = 0, sumLabor = 0, sumProfit = 0, sumHM = 0;
@@ -7380,23 +7391,56 @@ function renderProyekAnalisis(projects, fillMap) {
     h += '<td style="padding:8px 10px;text-align:right;font-weight:700;color:' + (profit >= 0 ? '#16A34A' : '#EF4444') + ';">' + fmtRp(profit) + '</td>';
     h += '<td style="padding:8px 10px;text-align:right;">' + fmtRp(yieldPerHM) + '/HM</td>';
     h += '<td style="padding:8px 10px;"><span style="background:' + (isClosed ? '#DCFCE7' : '#FEF9C3') + ';color:' + (isClosed ? '#16A34A' : '#CA8A04') + ';font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;">' + (isClosed ? 'CLOSED' : 'OPEN') + '</span></td>';
+    h += '<td style="padding:8px 10px;text-align:center;">' + renderMikeCheckCell(p) + '</td>';
     const _detailOpen = proyekAnalisisExpanded.has(p.id);
     h += '<td style="padding:8px 10px;white-space:nowrap;">';
     h += '<button onclick="toggleProyekAnalisisDetail(\'' + p.id + '\')" style="background:#F1F5F9;border:1px solid #CBD5E1;color:#475569;font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;cursor:pointer;margin-right:4px;">' + (_detailOpen ? '▾' : '▸') + ' Detail</button>';
     if (!isClosed) h += '<button onclick="openAddInvoice(\'' + p.id + '\')" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;">Add Invoice</button>';
     h += '</td>';
     h += '</tr>';
-    h += '<tr id="proy-edit-' + p.id + '" style="display:none;background:#F0F9FF;"><td colspan="13" style="padding:8px 16px;"><div id="proy-edit-inner-' + p.id + '"></div></td></tr>';
-    h += '<tr id="proy-detail-' + p.id + '" style="display:' + (_detailOpen ? '' : 'none') + ';background:#FAFAFA;"><td colspan="13" style="padding:12px 16px;">' + renderProyekAnalisisDetail(p, fMap) + '</td></tr>';
+    h += '<tr id="proy-edit-' + p.id + '" style="display:none;background:#F0F9FF;"><td colspan="14" style="padding:8px 16px;"><div id="proy-edit-inner-' + p.id + '"></div></td></tr>';
+    h += '<tr id="proy-detail-' + p.id + '" style="display:' + (_detailOpen ? '' : 'none') + ';background:#FAFAFA;"><td colspan="14" style="padding:12px 16px;">' + renderProyekAnalisisDetail(p, fMap) + '</td></tr>';
     if (!isClosed) {
-      h += '<tr id="inv-input-' + p.id + '" style="display:none;background:#FFFBEB;"><td colspan="13" style="padding:8px 16px;">';
+      h += '<tr id="inv-input-' + p.id + '" style="display:none;background:#FFFBEB;"><td colspan="14" style="padding:8px 16px;">';
       h += '<div style="display:flex;gap:8px;align-items:center;"><input type="text" id="inv-num-' + p.id + '" class="finput" style="max-width:260px;padding:6px 10px;font-size:13px;" placeholder="Nomor Invoice (contoh: INV-2026-08-001)"><button onclick="submitInvoiceNumber(\'' + p.id + '\')" class="btn-primary" style="padding:6px 14px;font-size:13px;">Simpan</button><button onclick="document.getElementById(\'inv-input-' + p.id + '\').style.display=\'none\';" class="btn-secondary" style="padding:6px 12px;font-size:13px;">Batal</button></div>';
       h += '</td></tr>';
     }
   });
-  h += '<tr style="background:#F1F5F9;font-weight:800;"><td colspan="5" style="padding:8px 10px;">TOTAL</td><td style="padding:8px 10px;text-align:right;">' + sumHM.toFixed(1) + '</td><td style="padding:8px 10px;text-align:right;">' + fmtRp(sumIncome) + '</td><td style="padding:8px 10px;text-align:right;color:#EF4444;">' + fmtRp(sumFuel) + '</td><td style="padding:8px 10px;text-align:right;color:#F59E0B;">' + fmtRp(sumLabor) + '</td><td style="padding:8px 10px;text-align:right;color:' + (sumProfit >= 0 ? '#16A34A' : '#EF4444') + ';">' + fmtRp(sumProfit) + '</td><td style="padding:8px 10px;text-align:right;">' + fmtRp(sumHM > 0 ? sumProfit/sumHM : 0) + '/HM</td><td colspan="2"></td></tr>';
+  h += '<tr style="background:#F1F5F9;font-weight:800;"><td colspan="5" style="padding:8px 10px;">TOTAL</td><td style="padding:8px 10px;text-align:right;">' + sumHM.toFixed(1) + '</td><td style="padding:8px 10px;text-align:right;">' + fmtRp(sumIncome) + '</td><td style="padding:8px 10px;text-align:right;color:#EF4444;">' + fmtRp(sumFuel) + '</td><td style="padding:8px 10px;text-align:right;color:#F59E0B;">' + fmtRp(sumLabor) + '</td><td style="padding:8px 10px;text-align:right;color:' + (sumProfit >= 0 ? '#16A34A' : '#EF4444') + ';">' + fmtRp(sumProfit) + '</td><td style="padding:8px 10px;text-align:right;">' + fmtRp(sumHM > 0 ? sumProfit/sumHM : 0) + '/HM</td><td colspan="3"></td></tr>';
   h += '</tbody></table></div>';
   panel.innerHTML = h;
+}
+
+function toggleProyekAnalisisSort() {
+  proyekAnalisisSort = proyekAnalisisSort === 'asc' ? 'desc' : 'asc';
+  const panel = document.getElementById('proyek-panel-analisis');
+  if (panel && panel._analisisProjects) renderProyekAnalisis(panel._analisisProjects, panel._fillMap || {});
+}
+
+function renderMikeCheckCell(p) {
+  const isMike = currentUser && currentUser.email === MIKE_EMAIL;
+  const checked = !!p.mike_checked;
+  if (isMike) {
+    return '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="setMikeChecked(\'' + p.id + '\', this.checked)" style="width:18px;height:18px;cursor:pointer;">';
+  }
+  return checked ? '<span style="color:#16A34A;font-size:16px;font-weight:800;">✓</span>' : '<span style="color:#CBD5E1;">—</span>';
+}
+
+async function setMikeChecked(pid, checked) {
+  const panel = document.getElementById('proyek-panel-analisis');
+  const projects = (panel && panel._analisisProjects) || [];
+  const p = projects.find(function(x) { return String(x.id) === String(pid); });
+  if (!p) return;
+  const prev = p.mike_checked;
+  p.mike_checked = !!checked;
+  try {
+    const { error } = await sb.from('projects').update({ mike_checked: !!checked }).eq('id', pid);
+    if (error) throw error;
+  } catch(e) {
+    p.mike_checked = prev;
+    renderProyekAnalisis(projects, panel._fillMap || {});
+    showToast('Gagal simpan Mike Check: ' + e.message);
+  }
 }
 
 function renderProyekAnalisisDetail(p, fMap) {
