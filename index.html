@@ -1292,8 +1292,8 @@ async function submitHMUpdate() {
   const delta = val - prev;
   if (prev === 0) {
     if (!confirm(`HM unit belum pernah diisi.\nApakah benar HM saat ini adalah ${fmtHM(val)}?\nTekan OK untuk konfirmasi.`)) return;
-  } else if (delta > 24) {
-    showToast(`\u26a0 Selisih ${fmtHM(delta)} HM terlalu besar (maks 24 jam/hari). Periksa kembali input Anda.`);
+  } else if (delta > 100) {
+    showToast(`\u26a0 Selisih ${fmtHM(delta)} HM terlalu besar (maks 100 HM sejak update terakhir). Periksa kembali input Anda.`);
     return;
   }
   try {
@@ -2694,8 +2694,8 @@ async function submitSPVHMUpdate() {
     const delta = val - prev;
     if (prev === 0) {
       if (!confirm(`HM unit ${unit.code} belum pernah diisi.\nApakah benar HM saat ini adalah ${fmtHM(val)}?\nTekan OK untuk konfirmasi.`)) return;
-    } else if (delta > 24) {
-      showToast(`\u26a0 Selisih ${fmtHM(delta)} HM terlalu besar (maks 24 jam/hari). Periksa kembali input Anda.`);
+    } else if (delta > 100) {
+      showToast(`\u26a0 Selisih ${fmtHM(delta)} HM terlalu besar (maks 100 HM sejak update terakhir). Periksa kembali input Anda.`);
       return;
     }
     const { error } = await sb.from('hm_updates').insert({ unit_id: unitId, hm_value: val, recorded_by: currentProfile.id, recorded_at: new Date().toISOString() });
@@ -2724,7 +2724,7 @@ function onOpHMInput(rawVal) {
   if (delta <= 0) {
     el.style.color = '#DC2626';
     el.textContent = '\u26a0 HM tidak boleh lebih kecil dari sekarang';
-  } else if (prev > 0 && delta > 24) {
+  } else if (prev > 0 && delta > 100) {
     el.style.color = '#DC2626';
     el.textContent = `\u26a0 Selisih ${delta.toFixed(1)} HM \u2014 terlalu besar, periksa kembali`;
   } else {
@@ -2745,7 +2745,7 @@ function onSPVHMInput(rawVal) {
   if (delta <= 0) {
     el.style.color = '#DC2626';
     el.textContent = '\u26a0 HM tidak boleh lebih kecil dari sekarang';
-  } else if (prev > 0 && delta > 24) {
+  } else if (prev > 0 && delta > 100) {
     el.style.color = '#DC2626';
     el.textContent = `\u26a0 Selisih ${delta.toFixed(1)} HM \u2014 terlalu besar, periksa kembali`;
   } else {
@@ -2863,7 +2863,7 @@ async function initSPVCatat() {
   } catch (e) {}
 }
 
-const COMMON_MAINTENANCE_TYPES = ['Filter Hidrolik','Filter Oli Mesin','Filter Solar','Filter Udara','Greasing','Oli Final Drive','Oli Hidrolik','Oli Mesin','Oli Swing','Racor'];
+const COMMON_MAINTENANCE_TYPES = ['Air Radiator','Filter Hidrolik','Filter Oli Mesin','Filter Solar','Filter Udara','Greasing','Oli Final Drive','Oli Hidrolik','Oli Mesin','Oli Swing','Racor'];
 
 async function loadSPVCatatTypes(unitId) {
   const dl = document.getElementById('spv-types-datalist');
