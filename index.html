@@ -985,6 +985,7 @@ let adminJadwalMKNSort = 'mkn';
 let mknJOSubTab = 'menunggu';
 let mknAlatSubTab = 'riwayat';
 let mknRiwayatUnitId = null;
+let mknAlertSort = 'hm';
 let adminRiwayatUnit = null;
 let additionalMaintTypes = [];
 let adminUserRoleFilter = 'all';
@@ -3239,6 +3240,12 @@ async function loadMknAlat() {
   await Promise.all([loadMknRiwayat(), loadMknAlerts()]);
 }
 
+function setMknAlertSort(s) {
+  if (s !== 'hm' && s !== 'type' && s !== 'unit') return;
+  mknAlertSort = s;
+  loadMknAlerts();
+}
+
 function switchMknAlatSubTab(tab) {
   mknAlatSubTab = tab;
   ['riwayat','overdue','duesoon'].forEach(function(t) {
@@ -3357,8 +3364,13 @@ async function loadMknAlerts() {
       if (st === 'OVERDUE') overdueRows.push(rowData);
       else if (st === 'DUE SOON') duesoonRows.push(rowData);
     });
-    overdueRows.sort(function(a, b) { return a.remaining - b.remaining; });
-    duesoonRows.sort(function(a, b) { return a.remaining - b.remaining; });
+    const cmpFn = mknAlertSort === 'type'
+      ? function(a, b) { return String(a.type_name).localeCompare(String(b.type_name)) || a.remaining - b.remaining; }
+      : mknAlertSort === 'unit'
+      ? function(a, b) { return String(a.unit_code).localeCompare(String(b.unit_code)) || a.remaining - b.remaining; }
+      : function(a, b) { return a.remaining - b.remaining; };
+    overdueRows.sort(cmpFn);
+    duesoonRows.sort(cmpFn);
     const overdueBadge = document.getElementById('mkn-count-overdue');
     const duesoonBadge = document.getElementById('mkn-count-duesoon');
     if (overdueBadge) overdueBadge.textContent = overdueRows.length;
@@ -3374,8 +3386,15 @@ async function loadMknAlerts() {
         '<div style="font-size:13px;font-weight:600;color:#1E293B;">' + r.type_name + '</div>' +
         '<div style="font-size:15px;font-weight:800;color:' + sisaColor + ';margin-top:2px;">Sisa: ' + sisaText + ' HM</div></div>';
     }
-    overdueEl.innerHTML = overdueRows.length === 0 ? '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada Overdue.</div>' : overdueRows.map(function(r, i) { return renderRow(r, i, 'mknov'); }).join('');
-    duesoonEl.innerHTML = duesoonRows.length === 0 ? '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada Due Soon.</div>' : duesoonRows.map(function(r, i) { return renderRow(r, i, 'mknds'); }).join('');
+    function sortPillsHTML() {
+      const pills = [{k:'hm',l:'Sisa HM'},{k:'type',l:'Tipe'},{k:'unit',l:'Unit'}];
+      return '<div style="display:flex;gap:6px;padding:8px 0 10px;position:sticky;top:0;background:#F8FAFC;z-index:5;">' + pills.map(function(p) {
+        const on = mknAlertSort === p.k;
+        return '<button onclick="setMknAlertSort(\'' + p.k + '\')" style="padding:5px 12px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:' + (on ? '#1D4ED8' : '#F1F5F9') + ';color:' + (on ? '#fff' : '#64748B') + ';">' + p.l + '</button>';
+      }).join('') + '</div>';
+    }
+    overdueEl.innerHTML = sortPillsHTML() + (overdueRows.length === 0 ? '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada Overdue.</div>' : overdueRows.map(function(r, i) { return renderRow(r, i, 'mknov'); }).join(''));
+    duesoonEl.innerHTML = sortPillsHTML() + (duesoonRows.length === 0 ? '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada Due Soon.</div>' : duesoonRows.map(function(r, i) { return renderRow(r, i, 'mknds'); }).join(''));
   } catch(e) {
     overdueEl.innerHTML = '<div style="color:#EF4444;padding:8px;">Error: ' + e.message + '</div>';
     duesoonEl.innerHTML = '<div style="color:#EF4444;padding:8px;">Error: ' + e.message + '</div>';
