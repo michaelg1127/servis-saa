@@ -9639,7 +9639,8 @@ async function _fetchPbmPeriod(startDate, endDate) {
   var seen = {};
   (res.data || []).forEach(function(row) {
     var id = row.pbm_staff_id;
-    var key = id + '|' + row.shift_date + '|' + row.shift_num;
+    var payrollShift = row.shift_num === 1 ? 1 : 2;
+    var key = id + '|' + row.shift_date + '|' + payrollShift;
     if (seen[key]) return;
     seen[key] = true;
     var name = (row.pbm_staff && row.pbm_staff.name) ? row.pbm_staff.name : '\u2014';
@@ -9648,7 +9649,7 @@ async function _fetchPbmPeriod(startDate, endDate) {
     var label = (row.sof_projects && row.sof_projects.label) ? row.sof_projects.label : '\u2014';
     var kapal = label.split(' / ')[0];
     var d = row.shift_date ? row.shift_date.slice(8,10) + '/' + row.shift_date.slice(5,7) : '\u2014';
-    map[id].details.push({ date: d, shiftNum: row.shift_num || '\u2014', kapal: kapal });
+    map[id].details.push({ date: d, shiftNum: payrollShift, kapal: kapal });
   });
   return Object.values(map).sort(function(a, b) { return a.name.localeCompare(b.name); });
 }
@@ -9752,7 +9753,8 @@ async function openPbmDrilldown(staffId, staffName, startDate, endDate) {
   var seen = {};
   (res.data || []).forEach(function(row) {
     // 1 absensi per (staff, date, shift) \u2014 collapse activity-log duplicates
-    var key = row.sof_project_id + '|' + row.shift_date + '|' + row.shift_num;
+    var payrollShift = row.shift_num === 1 ? 1 : 2;
+    var key = row.sof_project_id + '|' + row.shift_date + '|' + payrollShift;
     if (seen[key]) return;
     seen[key] = true;
     var proj = (row.sof_projects && row.sof_projects.projects) ? row.sof_projects.projects : null;
