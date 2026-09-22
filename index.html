@@ -3375,9 +3375,12 @@ async function loadMknAlerts() {
     const duesoonBadge = document.getElementById('mkn-count-duesoon');
     if (overdueBadge) overdueBadge.textContent = overdueRows.length;
     if (duesoonBadge) duesoonBadge.textContent = duesoonRows.length;
+    function _alertRegister(k, r) {
+      _alertData[k] = { typeName: r.type_name, lastHm: r.last_hm, lastDate: null, intervalHm: r.interval_hm, currentHm: r.current_hm, remaining: r.remaining, status: r.status, unitId: r.unit_id, unitCode: r.unit_code, role: 'mkn' };
+    }
     function renderRow(r, idx, prefix) {
       const k = prefix + '-' + idx;
-      _alertData[k] = { typeName: r.type_name, lastHm: r.last_hm, lastDate: null, intervalHm: r.interval_hm, currentHm: r.current_hm, remaining: r.remaining, status: r.status, unitId: r.unit_id, unitCode: r.unit_code, role: 'mkn' };
+      _alertRegister(k, r);
       const sisaText = r.remaining < 0 ? '(' + Math.abs(r.remaining) + ')' : r.remaining;
       const sisaColor = r.status === 'OVERDUE' ? '#DC2626' : '#D97706';
       const rowBg = r.status === 'OVERDUE' ? '#FFF1F2' : '#FFFBEB';
@@ -3386,6 +3389,38 @@ async function loadMknAlerts() {
         '<div style="font-size:13px;font-weight:600;color:#1E293B;">' + r.type_name + '</div>' +
         '<div style="font-size:15px;font-weight:800;color:' + sisaColor + ';margin-top:2px;">Sisa: ' + sisaText + ' HM</div></div>';
     }
+    function renderGrouped(rows, prefix) {
+      if (rows.length === 0) return '';
+      const groupKey = mknAlertSort === 'unit' ? 'unit_code' : 'type_name';
+      const otherLabel = mknAlertSort === 'unit' ? 'type_name' : 'unit_code';
+      const headerPrefix = mknAlertSort === 'unit' ? 'Unit ' : '';
+      const groups = {};
+      const order = [];
+      rows.forEach(function(r, i) {
+        const gk = r[groupKey];
+        if (!groups[gk]) { groups[gk] = []; order.push(gk); }
+        groups[gk].push({ row: r, idx: i });
+      });
+      return order.map(function(gk) {
+        const items = groups[gk];
+        const rowsHTML = items.map(function(it, j) {
+          const k = prefix + '-' + it.idx;
+          _alertRegister(k, it.row);
+          const r = it.row;
+          const sisaText = r.remaining < 0 ? '(' + Math.abs(r.remaining) + ')' : r.remaining;
+          const sisaColor = r.status === 'OVERDUE' ? '#DC2626' : '#D97706';
+          const rowBg = r.status === 'OVERDUE' ? '#FFF1F2' : '#FFFBEB';
+          return '<div onclick="openAlertDetailModal(\'' + k + '\')" style="background:' + rowBg + ';padding:10px 14px;' + (j > 0 ? 'border-top:1px solid #F1F5F9;' : '') + 'cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;">' +
+            '<div style="font-size:13px;font-weight:600;color:#1E293B;flex:1;min-width:0;">' + r[otherLabel] + '</div>' +
+            '<div style="font-size:14px;font-weight:800;color:' + sisaColor + ';white-space:nowrap;">Sisa: ' + sisaText + ' HM</div>' +
+            '</div>';
+        }).join('');
+        return '<div style="background:white;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05);overflow:hidden;margin-bottom:10px;">' +
+          '<div style="background:#EFF6FF;padding:8px 14px;font-size:13px;font-weight:800;color:#1E3A8A;border-bottom:1px solid #DBEAFE;">' + headerPrefix + gk + ' <span style="font-weight:600;color:#64748B;">· ' + items.length + '</span></div>' +
+          rowsHTML +
+          '</div>';
+      }).join('');
+    }
     function sortPillsHTML() {
       const pills = [{k:'hm',l:'Sisa HM'},{k:'type',l:'Tipe'},{k:'unit',l:'Unit'}];
       return '<div style="display:flex;gap:6px;padding:8px 0 10px;position:sticky;top:0;background:#F8FAFC;z-index:5;">' + pills.map(function(p) {
@@ -3393,8 +3428,13 @@ async function loadMknAlerts() {
         return '<button onclick="setMknAlertSort(\'' + p.k + '\')" style="padding:5px 12px;border-radius:99px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:' + (on ? '#1D4ED8' : '#F1F5F9') + ';color:' + (on ? '#fff' : '#64748B') + ';">' + p.l + '</button>';
       }).join('') + '</div>';
     }
-    overdueEl.innerHTML = sortPillsHTML() + (overdueRows.length === 0 ? '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada Overdue.</div>' : overdueRows.map(function(r, i) { return renderRow(r, i, 'mknov'); }).join(''));
-    duesoonEl.innerHTML = sortPillsHTML() + (duesoonRows.length === 0 ? '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada Due Soon.</div>' : duesoonRows.map(function(r, i) { return renderRow(r, i, 'mknds'); }).join(''));
+    function renderList(rows, prefix, emptyMsg) {
+      if (rows.length === 0) return '<div style="padding:20px;text-align:center;color:#94A3B8;">' + emptyMsg + '</div>';
+      if (mknAlertSort === 'type' || mknAlertSort === 'unit') return renderGrouped(rows, prefix);
+      return rows.map(function(r, i) { return renderRow(r, i, prefix); }).join('');
+    }
+    overdueEl.innerHTML = sortPillsHTML() + renderList(overdueRows, 'mknov', 'Tidak ada Overdue.');
+    duesoonEl.innerHTML = sortPillsHTML() + renderList(duesoonRows, 'mknds', 'Tidak ada Due Soon.');
   } catch(e) {
     overdueEl.innerHTML = '<div style="color:#EF4444;padding:8px;">Error: ' + e.message + '</div>';
     duesoonEl.innerHTML = '<div style="color:#EF4444;padding:8px;">Error: ' + e.message + '</div>';
