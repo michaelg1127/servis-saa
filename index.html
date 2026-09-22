@@ -3777,22 +3777,39 @@ async function renderAdminJadwal() {
     });
     if (filterVal) data = data.filter(d => d.status === filterVal);
     if (data.length === 0) { wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#94A3B8;">Tidak ada data.</div>'; return; }
-    if (adminJadwalMode === 'unit') data.sort((a,b) => (a.units?.code||'').localeCompare(b.units?.code||''));
-    else data.sort((a,b) => a.type_name.localeCompare(b.type_name));
-    wrap.innerHTML = `<table class="dt">
-      <thead><tr><th>Unit</th><th>Tipe Maintenance</th><th>Interval (HM)</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>HM Due</th><th>HM Sekarang</th><th>Sisa HM</th><th>Status</th></tr></thead>
-      <tbody>${data.map(d => `<tr class="${d.status === 'OVERDUE' ? 'row-overdue' : d.status === 'DUE SOON' ? 'row-duesoon' : ''}">
-        <td style="font-weight:600;">${d.units ? d.units.code : '&mdash;'}</td>
-        <td>${d.type_name}</td>
-        <td>${fmtHM(d.interval_hm)}</td>
-        <td>${fmtHM(d.effHm)}</td>
-        <td>${formatDate(d.last_date)}</td>
-        <td>${d.hm_due != null ? fmtHM(d.hm_due) : '&mdash;'}</td>
-        <td>${fmtHM(d.hm)}</td>
-        <td style="font-weight:700;color:${d.remaining == null ? '#94A3B8' : d.remaining < 0 ? '#DC2626' : '#374151'};">${d.remaining == null ? '&mdash;' : d.remaining < 0 ? '(' + fmtHM(Math.abs(d.remaining)) + ')' : fmtHM(d.remaining)}</td>
-        <td>${badge(d.status)}</td>
-      </tr>`).join('')}</tbody>
-    </table>`;
+    if (adminJadwalMode === 'unit') data.sort((a,b) => (a.units?.code||'').localeCompare(b.units?.code||'') || a.type_name.localeCompare(b.type_name));
+    else data.sort((a,b) => a.type_name.localeCompare(b.type_name) || (a.units?.code||'').localeCompare(b.units?.code||''));
+    const groupBy = adminJadwalMode === 'unit' ? 'unit' : 'tipe';
+    const groups = {}; const order = [];
+    data.forEach(function(d) {
+      const gk = groupBy === 'unit' ? (d.units ? d.units.code : '\u2014') : d.type_name;
+      if (!groups[gk]) { groups[gk] = []; order.push(gk); }
+      groups[gk].push(d);
+    });
+    const headerLabel = groupBy === 'unit' ? 'Unit' : 'Tipe';
+    let bodyHTML = '';
+    order.forEach(function(gk) {
+      bodyHTML += '<tr class="grp"><td colspan="9" style="background:#EFF6FF;color:#1D4ED8;font-weight:800;padding:8px 10px;border-top:2px solid #DBEAFE;border-bottom:1px solid #DBEAFE;">' + headerLabel + ' ' + gk + ' <span style="font-weight:600;color:#64748B;">\u00b7 ' + groups[gk].length + '</span></td></tr>';
+      groups[gk].forEach(function(d) {
+        const cls = d.status === 'OVERDUE' ? 'row-overdue' : d.status === 'DUE SOON' ? 'row-duesoon' : '';
+        const unitCell = groupBy === 'unit' ? '' : (d.units ? d.units.code : '\u2014');
+        const typeCell = groupBy === 'tipe' ? '' : d.type_name;
+        bodyHTML += '<tr class="' + cls + '">' +
+          '<td style="font-weight:600;color:#94A3B8;">' + unitCell + '</td>' +
+          '<td' + (groupBy === 'tipe' ? ' style="color:#94A3B8;"' : '') + '>' + typeCell + '</td>' +
+          '<td>' + fmtHM(d.interval_hm) + '</td>' +
+          '<td>' + fmtHM(d.effHm) + '</td>' +
+          '<td>' + formatDate(d.last_date) + '</td>' +
+          '<td>' + (d.hm_due != null ? fmtHM(d.hm_due) : '\u2014') + '</td>' +
+          '<td>' + fmtHM(d.hm) + '</td>' +
+          '<td style="font-weight:700;color:' + (d.remaining == null ? '#94A3B8' : d.remaining < 0 ? '#DC2626' : '#374151') + ';">' + (d.remaining == null ? '\u2014' : d.remaining < 0 ? '(' + fmtHM(Math.abs(d.remaining)) + ')' : fmtHM(d.remaining)) + '</td>' +
+          '<td>' + badge(d.status) + '</td>' +
+          '</tr>';
+      });
+    });
+    wrap.innerHTML = '<table class="dt">' +
+      '<thead><tr><th>Unit</th><th>Tipe Maintenance</th><th>Interval (HM)</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>HM Due</th><th>HM Sekarang</th><th>Sisa HM</th><th>Status</th></tr></thead>' +
+      '<tbody>' + bodyHTML + '</tbody></table>';
   } catch (e) { showToast('Error jadwal: ' + e.message); }
 }
 
