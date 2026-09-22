@@ -9745,11 +9745,16 @@ function _pbmRowClick(el) {
 
 async function openPbmDrilldown(staffId, staffName, startDate, endDate) {
   var res = await sb.from('sof_shifts')
-    .select('sof_project_id, sof_projects(project_id, projects(project_code, nama_kapal))')
+    .select('sof_project_id, shift_date, shift_num, sof_projects(project_id, projects(project_code, nama_kapal))')
     .eq('pbm_staff_id', staffId).gte('shift_date', startDate).lte('shift_date', endDate);
   if (res.error) { console.error('drilldown:', res.error); return; }
   var map = {};
+  var seen = {};
   (res.data || []).forEach(function(row) {
+    // 1 absensi per (staff, date, shift) \u2014 collapse activity-log duplicates
+    var key = row.sof_project_id + '|' + row.shift_date + '|' + row.shift_num;
+    if (seen[key]) return;
+    seen[key] = true;
     var proj = (row.sof_projects && row.sof_projects.projects) ? row.sof_projects.projects : null;
     var code  = proj ? (proj.project_code || '\u2014') : '\u2014';
     var kapal = proj ? (proj.nama_kapal   || '\u2014') : '\u2014';
