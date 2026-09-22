@@ -9619,8 +9619,12 @@ async function _fetchPbmPeriod(startDate, endDate) {
     .order('shift_date').order('shift_num');
   if (res.error) { console.error('_fetchPbmPeriod:', res.error); return []; }
   var map = {};
+  var seen = {};
   (res.data || []).forEach(function(row) {
     var id = row.pbm_staff_id;
+    var key = id + '|' + row.shift_date + '|' + row.shift_num;
+    if (seen[key]) return;
+    seen[key] = true;
     var name = (row.pbm_staff && row.pbm_staff.name) ? row.pbm_staff.name : '\u2014';
     if (!map[id]) map[id] = { id: id, name: name, shifts: 0, details: [] };
     map[id].shifts++;
