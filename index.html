@@ -3628,7 +3628,7 @@ function _renderJadwalkanBtn() {
   if (mknBtn) mknBtn.style.display = (cnt > 0 && onMknOverdue) ? 'block' : 'none';
   const jadwalWrap = document.getElementById('adm-jadwal-table-wrap');
   const adminView = document.getElementById('view-admin');
-  const onAdminJadwal = jadwalWrap && adminView && adminView.style.display !== 'none';
+  const onAdminJadwal = jadwalWrap && adminView && adminView.style.display !== 'none' && adminJadwalFilter === 'Overdue';
   if (adminBtn) adminBtn.style.display = (cnt > 0 && onAdminJadwal) ? 'block' : 'none';
 }
 
@@ -3676,7 +3676,6 @@ function openJadwalkanModal() {
   const modal = document.createElement('div');
   modal.id = 'jadwalkan-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;';
-  const closeId = 'jadwalkan-modal';
   modal.innerHTML = '<div style="background:white;border-radius:16px;width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #E2E8F0;">' +
       '<div style="font-size:16px;font-weight:700;color:#1E293B;">Jadwal Servis Hari Ini</div>' +
@@ -4123,24 +4122,18 @@ async function renderAdminJadwal() {
     let bodyHTML = '';
     order.forEach(function(gk) {
       const grpItems = groups[gk];
-      bodyHTML += '<tr class="grp"><td colspan="' + colSpan + '" style="background:#EFF6FF;color:#1D4ED8;font-weight:800;padding:8px 10px;border-top:2px solid #DBEAFE;border-bottom:1px solid #DBEAFE;">' + headerLabel + ' ' + gk + ' <span style="font-weight:600;color:#64748B;">· ' + grpItems.length + '</span></td></tr>';
+      // Count effective rows: bundle expands to its members.length, not 1 object
+      const effCount = grpItems.reduce(function(acc, d) { return acc + (d._is_bundle ? d._bundle.members.length : 1); }, 0);
+      bodyHTML += '<tr class="grp"><td colspan="' + colSpan + '" style="background:#EFF6FF;color:#1D4ED8;font-weight:800;padding:8px 10px;border-top:2px solid #DBEAFE;border-bottom:1px solid #DBEAFE;">' + headerLabel + ' ' + gk + ' <span style="font-weight:600;color:#64748B;">· ' + effCount + '</span></td></tr>';
       grpItems.forEach(function(d) {
         if (d._is_bundle) {
           const b = d._bundle;
           const bKey = b.unit_id + '|Oli Mesin Set';
           const bChecked = jadwalkanChecked.has(bKey);
-          const overdueMbrs = b.members.filter(function(m) { return m.status === 'OVERDUE'; });
-          const sisaAbs = b.worst_remaining != null ? Math.abs(b.worst_remaining) : 0;
-          bodyHTML += '<tr class="row-overdue">' +
-            (isOverdueFilter ? '<td><input type="checkbox" ' + (bChecked ? 'checked' : '') + ' onclick="_toggleJadwalCheck(\'' + bKey + '\',this)" style="width:16px;height:16px;cursor:pointer;" /></td>' : '<td></td>') +
-            '<td colspan="2" style="font-weight:800;color:#1D4ED8;">' + b.unit_code + ' · Oli Mesin Set <span style="font-size:11px;font-weight:600;color:#64748B;">' + b.member_count + ' dari 4</span></td>' +
-            '<td>' + fmtHM(b.interval_hm) + '</td>' +
-            '<td>' + fmtHM(b.worst_last_hm) + '</td>' +
-            '<td>—</td><td>—</td>' +
-            '<td>' + fmtHM(b.current_hm) + '</td>' +
-            '<td style="font-weight:700;color:#DC2626;">(' + fmtHM(sisaAbs) + ')</td>' +
-            '<td>' + badge('OVERDUE') + '</td>' +
-          '</tr>';
+          // Spec section 4: bundle is its own blue grp group-header row
+          bodyHTML += '<tr class="grp"><td colspan="' + colSpan + '" style="background:#DBEAFE;color:#1D4ED8;font-weight:800;padding:7px 10px;border-top:1px solid #BFDBFE;border-bottom:1px solid #BFDBFE;">' +
+            (isOverdueFilter ? '<span style="margin-right:8px;"><input type="checkbox" ' + (bChecked ? 'checked' : '') + ' onclick="event.stopPropagation();_toggleJadwalCheck(\'' + bKey + '\',this)" style="width:15px;height:15px;cursor:pointer;vertical-align:middle;" /></span>' : '') +
+            b.unit_code + ' · Oli Mesin Set · <span style="font-weight:600;color:#374151;">' + b.member_count + ' dari 4</span></td></tr>';
           b.members.forEach(function(m) {
             const isOv = m.status === 'OVERDUE';
             const mCls = isOv ? 'row-overdue' : '';
@@ -4180,7 +4173,7 @@ async function renderAdminJadwal() {
     wrap.innerHTML = '<table class="dt">' +
       '<thead><tr><th style="width:36px;"></th><th>Unit</th><th>Tipe Maintenance</th><th>Interval (HM)</th><th>HM Terakhir</th><th>Tgl Terakhir</th><th>HM Due</th><th>HM Sekarang</th><th>Sisa HM</th><th>Status</th></tr></thead>' +
       '<tbody>' + bodyHTML + '</tbody></table>';
-    if (isOverdueFilter) _renderJadwalkanBtn();
+    _renderJadwalkanBtn();
   } catch (e) { showToast('Error jadwal: ' + e.message); }
 }
 
