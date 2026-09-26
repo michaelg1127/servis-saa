@@ -1996,7 +1996,7 @@ async function loadSPVUnitList() {
       const worst = statuses.includes('OVERDUE') ? 'OVERDUE' : statuses.includes('DUE SOON') ? 'DUE SOON' : 'OK';
       const alertItems = schedsWithMeta.filter(s => s.status !== 'OK' && s.status !== 'NO DATA').sort((a, b) => (a.remaining ?? 999999) - (b.remaining ?? 999999));
       const okCount = schedsWithMeta.filter(s => s.status === 'OK' || s.status === 'NO DATA').length;
-      return { ...u, worst, alertItems, okCount };
+      return { ...u, worst, alertItems, okCount, schedsWithMeta };
     });
     enriched.sort((a, b) => (sortOrder[a.worst] - sortOrder[b.worst]) || a.code.localeCompare(b.code));
     container.innerHTML = enriched.map(u => {
@@ -2007,7 +2007,7 @@ async function loadSPVUnitList() {
       const _spvOverdueMapped = u.alertItems
         .filter(function(s) { return s.status === 'OVERDUE'; })
         .map(function(s) { return Object.assign({}, s, { unit_id: u.id, unit_code: u.code, current_hm: u.current_hm || 0 }); });
-      const _spvAllMapped = schedsWithMeta.map(function(s) { return Object.assign({}, s, { unit_id: u.id, unit_code: u.code, current_hm: u.current_hm || 0 }); });
+      const _spvAllMapped = (u.schedsWithMeta || []).map(function(s) { return Object.assign({}, s, { unit_id: u.id, unit_code: u.code, current_hm: u.current_hm || 0 }); });
       const _spvBundleDet = _detectOliMesinSet(_spvOverdueMapped, _spvAllMapped);
       const rows = u.alertItems.map((s, idx) => {
         const isOverdue = s.status === 'OVERDUE';
