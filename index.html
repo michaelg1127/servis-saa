@@ -2000,7 +2000,7 @@ async function loadSPVUnitList() {
     });
     enriched.sort((a, b) => (sortOrder[a.worst] - sortOrder[b.worst]) || a.code.localeCompare(b.code));
     container.innerHTML = enriched.map(u => {
-      const opName = u.profiles ? u.profiles.name : (u.operator_name || '—');
+      const opName = (u.profiles && u.profiles.name) || u.operator_name || '—';
       const headerBg = u.worst === 'OVERDUE' ? '#7F1D1D' : u.worst === 'DUE SOON' ? '#78350F' : '#064E3B';
       const subColor  = u.worst === 'OVERDUE' ? '#FCA5A5' : u.worst === 'DUE SOON' ? '#FCD34D' : '#6EE7B7';
       // Detect bundle for this unit (text summary only, no checkboxes on SPV)
