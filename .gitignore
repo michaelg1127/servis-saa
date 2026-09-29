@@ -1,0 +1,17 @@
+# Dependencies / tooling
+node_modules/
+.gstack/
+supabase/.temp/
+
+# Credentials & sensitive data (repo is PUBLIC — never commit)
+Credentials.xlsx
+_create_user_resp.json
+update_bank_info.js
+*.env
+.env*
+
+# Raw source data
+import_templates/*.xlsx
+import_templates/*.txt
+verify_sal5.js
+migrate_salary_formulas.js

@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.112.4",
+    "acorn": "^8.18.0"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
