@@ -1809,6 +1809,21 @@ async function loadSPVData() {
   await Promise.all([loadSPVStats(), loadSPVUnitList(), loadSPVPermintaan(), loadSPVJadwal(), loadSPVPenugasan()]);
 }
 
+// Supabase caps every response at 1000 rows (server max_rows). Use this for any
+// unfiltered query on a table that can grow past that. buildQuery must return a
+// fresh query each call and include a deterministic .order() (end with 'id').
+async function fetchAllRows(buildQuery) {
+  const PAGE = 1000;
+  let all = [];
+  for (let page = 0; ; page++) {
+    const { data, error } = await buildQuery().range(page * PAGE, page * PAGE + PAGE - 1);
+    if (error) return { data: null, error };
+    all = all.concat(data || []);
+    if (!data || data.length < PAGE) break;
+  }
+  return { data: all, error: null };
+}
+
 async function fetchServiceLogMap() {
   const logMap = {};
   let page = 0;
@@ -4982,10 +4997,11 @@ function initFuelBBM() {
 
 async function calcTankLevels() {
   const [bunkRes, transRes, ttRes] = await Promise.all([
-    sb.from('fuel_bunkers').select('tank_name, total_liters'),
-    sb.from('fuel_transfers').select('volume_liters, bunker_id, fuel_bunkers(tank_name)'),
-    sb.from('fuel_tank_transfers').select('from_tank, to_tank, volume_liters'),
+    fetchAllRows(() => sb.from('fuel_bunkers').select('tank_name, total_liters').order('id')),
+    fetchAllRows(() => sb.from('fuel_transfers').select('volume_liters, bunker_id, fuel_bunkers(tank_name)').order('id')),
+    fetchAllRows(() => sb.from('fuel_tank_transfers').select('from_tank, to_tank, volume_liters').order('id')),
   ]);
+  if (bunkRes.error || transRes.error || ttRes.error) throw (bunkRes.error || transRes.error || ttRes.error);
   const levels = { hijau: 0, merah: 0, kuning: 0 };
   (bunkRes.data || []).forEach(b => { levels[b.tank_name] = (levels[b.tank_name] || 0) + Number(b.total_liters); });
   (transRes.data || []).forEach(t => {
@@ -5585,15 +5601,15 @@ async function loadFuelRiwayat() {
   el.innerHTML = '<div style="padding:20px;text-align:center;"><div class="spinner"></div></div>';
   try {
     const [{ data: dispenses, error: e1 }, { data: xfers, error: e2 }, { data: bunkers, error: e3 }] = await Promise.all([
-      sb.from('fuel_dispenses')
+      fetchAllRows(() => sb.from('fuel_dispenses')
         .select('id, dispense_date, dispense_time, hm_at_fill, liters_dispensed, l_per_hr, gauge_pct, project, project_id, notes, units(id, code, name), fuel_transfers(id, transfer_code, drum_name, fuel_bunkers(bunker_code)), projects(project_code, nama_kapal)')
-        .order('dispense_date', { ascending: false }).order('created_at', { ascending: false }),
-      sb.from('fuel_tank_transfers')
+        .order('dispense_date', { ascending: false }).order('created_at', { ascending: false }).order('id')),
+      fetchAllRows(() => sb.from('fuel_tank_transfers')
         .select('id, from_tank, to_tank, volume_liters, transfer_date, notes, bunker_id, created_at')
-        .order('created_at', { ascending: false }),
-      sb.from('fuel_bunkers')
+        .order('created_at', { ascending: false }).order('id')),
+      fetchAllRows(() => sb.from('fuel_bunkers')
         .select('id, bunker_code, tank_name, total_liters, delivery_date')
-        .order('delivery_date', { ascending: false }),
+        .order('delivery_date', { ascending: false }).order('id')),
     ]);
     if (e1) throw e1;
     if (e2) throw e2;
