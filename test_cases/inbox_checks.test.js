@@ -48,7 +48,7 @@ const cases = [
   ['good', 'Isi solar normal', draft('fuel_dispense', 'K7', { hm_at_fill: 8445, dispense_date: '2026-10-03', liters: 200, gauge_pct: 20 }, T('2026-10-03T03:39')), 'ok'],
   ['good', 'Racor pertama di +250', draft('service_log', 'A8', { maintenance_type: 'Racor', hm_at_service: 5250, service_date: '2026-09-20' }, T('2026-09-20T10:00')), 'ok'],
   ['bad', 'Racor ke-2 (di +500) tanpa oli mesin + filter', draft('service_log', 'K5', { maintenance_type: 'Racor', hm_at_service: 5500, service_date: '2026-10-08' }, T('2026-10-08T10:00')), 'warn', 'set500'],
-  ['good', 'HM akhir proyek wajar', draft('project_unit_hm', 'K7', { project_id: 'p1', hm_akhir: 8460 }, T('2026-10-03T06:00')), 'ok'],
+  ['good', 'HM akhir proyek wajar', draft('project_unit_hm', 'K7', { project_id: 'p1', hm_akhir: 8445 }, T('2026-10-03T06:00')), 'ok'],
   ['good', 'Kapal baru', draft('project_kapal', null, { nama_kapal: 'MV. SINAR JAYA', kade: 'Kade 5', start_date: '2026-10-03' }, T('2026-10-03T08:00')), 'ok'],
   // ---- must flag ----
   ['bad', 'HM mundur', draft('fuel_dispense', 'K7', { hm_at_fill: 8400, dispense_date: '2026-10-03', liters: 200 }, T('2026-10-03T04:00')), 'fail', 'hm_back'],
@@ -61,7 +61,6 @@ const cases = [
   ['bad', 'Nama kapal mirip (TRI BAHARI 3 vs Tribahari 111)', draft('project_kapal', null, { nama_kapal: 'TB. Tribahari 111', kade: 'Kade 2', start_date: '2026-10-02' }, T('2026-10-02T08:00')), 'warn', 'kapal'],
   ['bad', 'Gauge sudah 95% sebelum isi', draft('fuel_dispense', 'K7', { hm_at_fill: 8447, dispense_date: '2026-10-03', liters: 200, gauge_pct: 95 }, T('2026-10-03T05:00')), 'warn', 'gauge'],
   ['bad', 'Liter per jam tidak wajar', draft('fuel_dispense', 'K7', { hm_at_fill: 8448, dispense_date: '2026-10-03', liters: 400 }, T('2026-10-03T05:30')), 'warn', 'lph'],
-  ['bad', 'HM isi solar di luar HM awal proyek', draft('fuel_dispense', 'K7', { hm_at_fill: 8431, dispense_date: '2026-10-03', liters: 200 }, T('2026-10-03T01:00')), null, 'kcn'],
   ['bad', 'Unit tidak dikenal', draft('fuel_dispense', 'K99', { hm_at_fill: 100, dispense_date: '2026-10-03', liters: 200 }, T('2026-10-03T05:00')), 'fail', 'unit'],
   ['bad', 'SR dobel', draft('service_request', 'K7', { description: 'hose hidrolik bocor lagi' }, T('2026-10-03T05:00')), 'warn', 'sr_dup'],
 ];

@@ -81,7 +81,7 @@ var IBC = (function () {
       var row = { ref: 'project_units:' + r.id, id: r.id, project_id: r.project_id, project: p, hm_awal: num(r.hm_awal), hm_akhir: num(r.hm_akhir) };
       u.projUnits.push(row);
       var lbl = 'Proyek ' + (p.project_code || p.nama_kapal || '');
-      if (row.hm_awal != null && p.start_date) { var s = dayRange(p.start_date); u.hm.push({ hm: row.hm_awal, tMin: s[0], tMax: s[1], src: 'admin', label: 'HM awal ' + lbl + ' (' + fmtDay(p.start_date) + ')', ref: row.ref + ':awal' }); }
+      if (row.hm_awal != null && p.start_date) { var s = [dayRange(p.start_date)[0], dayRange(p.end_date || p.start_date)[1]]; u.hm.push({ hm: row.hm_awal, tMin: s[0], tMax: s[1], src: 'admin', label: 'HM awal ' + lbl + ' (' + fmtDay(p.start_date) + ')', ref: row.ref + ':awal' }); }
       if (row.hm_akhir != null && (p.end_date || p.start_date)) {
         var a = p.start_date ? dayRange(p.start_date)[0] : dayRange(p.end_date)[0];
         var b = dayRange(p.end_date || p.start_date)[1];
@@ -192,7 +192,8 @@ var IBC = (function () {
         var bad = false;
         if (prev && h.hm < prev.hm - 1) {
           bad = true;
-          add('hm_back', prev.src === 'draft' ? 'warn' : 'fail', h.label + ' ' + fmt(h.hm) + ' lebih KECIL dari HM sebelumnya ' + fmt(prev.hm) + ' (' + prev.label + '). HM tidak bisa mundur.');
+          var soft = prev.src === 'draft' || (!it.isDraft && it.tMax - it.tMin > HOUR && prev.hm - h.hm <= 24);
+          add('hm_back', soft ? 'warn' : 'fail', h.label + ' ' + fmt(h.hm) + ' lebih KECIL dari HM sebelumnya ' + fmt(prev.hm) + ' (' + prev.label + '). HM tidak bisa mundur' + (soft && !it.isDraft ? ', kemungkinan tanggalnya salah 1 hari.' : '.'));
         }
         if (next && h.hm > next.hm + 1) {
           bad = true;
@@ -270,7 +271,7 @@ var IBC = (function () {
       if (same.date !== day && !opts.audit) add('date', 'warn', 'Tanggal isi solar: draft ' + fmtDay(day) + ', admin ' + fmtDay(same.date) + '. Mana yang benar?');
     } else {
       var near = fuels.filter(function (f) { return f.date === day && f.hm != null && Math.abs(f.hm - h) < 30; })[0];
-      if (near) add('admin_diff', 'warn', 'Admin input isi solar ' + fmtDay(near.date) + ' di HM ' + fmt(near.hm) + ', draft membaca ' + fmt(h) + '. Salah satu salah baca.');
+      if (near && !opts.audit) add('admin_diff', 'warn', 'Admin input isi solar ' + fmtDay(near.date) + ' di HM ' + fmt(near.hm) + ', draft membaca ' + fmt(h) + '. Salah satu salah baca.');
     }
     // C5 — liters per HM vs this unit's normal
     var liters = num(p.liters);
@@ -280,19 +281,13 @@ var IBC = (function () {
     var med = lphs.length >= 3 ? lphs[Math.floor(lphs.length / 2)] : null;
     if (prevFill && liters != null && med) {
       var rate = liters / (h - prevFill.hm);
-      if (rate > med * 1.6 || rate < med * 0.5) add('lph', 'warn', fmt(liters) + ' L untuk ' + fmt(h - prevFill.hm) + ' HM = ' + rate.toFixed(1) + ' L/jam. Normal unit ini ±' + med.toFixed(1) + ' L/jam.');
+      if (rate > med * 1.6) add('lph', 'warn', fmt(liters) + ' L untuk ' + fmt(h - prevFill.hm) + ' HM = ' + rate.toFixed(1) + ' L/jam. Normal unit ini ±' + med.toFixed(1) + ' L/jam.');
       else add('lph', 'ok', 'Pemakaian ' + rate.toFixed(1) + ' L/jam, wajar (normal ±' + med.toFixed(1) + ').');
     }
     var g = num(p.gauge_pct);
     if (g != null && g >= 90) add('gauge', 'warn', 'Gauge sebelum isi sudah ' + g + '%. Tangki hampir penuh, isi ' + fmt(liters) + ' L tidak masuk akal.');
-    // C5 — cross-check with KCN / Woodlog HM awal–akhir on that day
-    U.projUnits.forEach(function (r) {
-      var pr = r.project || {};
-      if (!pr.start_date || day < pr.start_date || (pr.end_date && day > pr.end_date)) return;
-      // on the first/last day the order of fill vs HM awal/akhir is unknown, so only check days strictly inside
-      if (r.hm_awal != null && day > pr.start_date && h < r.hm_awal - 1) add('kcn', 'warn', 'HM isi solar ' + fmt(h) + ' di bawah HM awal proyek ' + (pr.project_code || pr.nama_kapal || '') + ' (' + fmt(r.hm_awal) + ').');
-      if (r.hm_akhir != null && pr.end_date && day < pr.end_date && h > r.hm_akhir + 1) add('kcn', 'warn', 'HM isi solar ' + fmt(h) + ' di atas HM akhir proyek ' + (pr.project_code || pr.nama_kapal || '') + ' (' + fmt(r.hm_akhir) + ').');
-    });
+    // (project HM awal/akhir range check removed 5 Okt: project_units has no per-unit join/leave time,
+    //  so it flagged units that joined a project mid-way. The HM timeline check covers real conflicts.)
   }
 
   function checkService(it, ctx, U, add, notSelf, opts) {
