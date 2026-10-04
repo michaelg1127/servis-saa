@@ -185,8 +185,10 @@ var IBC = (function () {
       itemHms(it).forEach(function (h) {
         var before = events.filter(function (e) { return e.tMax < it.tMin; });
         var after = events.filter(function (e) { return e.tMin > it.tMax; });
-        var prev = before.reduce(function (m, e) { return (!m || e.hm > m.hm) ? e : m; }, null);
-        var next = after.reduce(function (m, e) { return (!m || e.hm < m.hm) ? e : m; }, null);
+        // compare with the NEAREST readings in time (not the highest ever): one old typo (e.g. HM 7.798.179)
+        // must not make every later reading look like it went backwards
+        var prev = before.reduce(function (m, e) { return (!m || e.tMax > m.tMax || (e.tMax === m.tMax && e.hm > m.hm)) ? e : m; }, null);
+        var next = after.reduce(function (m, e) { return (!m || e.tMin < m.tMin || (e.tMin === m.tMin && e.hm < m.hm)) ? e : m; }, null);
         var bad = false;
         if (prev && h.hm < prev.hm - 1) {
           bad = true;

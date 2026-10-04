@@ -119,6 +119,16 @@ console.log('\nAudit of existing data (dobel Racor K5 24 & 25 Sep)');
   ok(clean.length === 0, '[audit] isi solar K7 yang wajar tidak ditandai', JSON.stringify(clean.map(f => f.result.checks)));
 })();
 
+console.log('\nOld typo in history does not poison later readings');
+(function () {
+  const r3 = JSON.parse(JSON.stringify(raw));
+  r3.hm_updates.push({ id: 'h-typo', unit_id: 'u-k7', hm_value: 7798179, recorded_at: '2026-06-24T10:00:00+07:00' });
+  const d = draft('fuel_dispense', 'K7', { hm_at_fill: 8445, dispense_date: '2026-10-03', liters: 200, gauge_pct: 20 }, T('2026-10-03T03:39'));
+  const ctx = IBC.buildContext(Object.assign({}, r3, { drafts: [d] }));
+  const res = IBC.check(IBC.draftToItem(d, ctx), ctx, {});
+  ok(res.verdict === 'ok', '[lolos] isi solar normal walau ada HM salah ketik bulan Juni', res.checks.map(x => x.level + ':' + x.code + ' ' + x.msg).join('\n        '));
+})();
+
 console.log('\nScorecard');
 (function () {
   const s = IBC.score([
