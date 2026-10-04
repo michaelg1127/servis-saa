@@ -15,3 +15,6 @@ import_templates/*.xlsx
 import_templates/*.txt
 verify_sal5.js
 migrate_salary_formulas.js
+
+# WhatsApp Web lock (local coordination state, not source)
+docs/wa-web-lock.json

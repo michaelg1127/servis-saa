@@ -1,7 +1,0 @@
-{
-  "holder": null,
-  "task": null,
-  "since": null,
-  "expires": "2026-10-04T15:30:00+07:00",
-  "rules": "See docs/wa-inbox-runbook.md > 'WhatsApp Web lock'. Read before opening web.whatsapp.com; take it (expires = now + 30 min) only if holder is null or expires has passed; release when done."
-}
