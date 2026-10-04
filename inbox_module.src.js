@@ -82,6 +82,7 @@ async function loadAdminInbox() {
     return;
   }
   inboxState.rows = res.data || [];
+  if (typeof ibcRunPending === 'function') { try { await ibcRunPending(inboxState.rows); } catch (e) { console.warn('Supervisor gagal:', e); } }
   renderInboxFilters();
   renderInboxList();
   refreshInboxBadge();
@@ -117,7 +118,8 @@ function renderInboxList() {
   var wrap = document.getElementById('adm-inbox-list');
   if (!wrap) return;
   var rows = inboxState.rows.filter(function(r) {
-    return (!inboxState.group || r.source_group === inboxState.group) && (!inboxState.unit || r.unit_code === inboxState.unit);
+    return (!inboxState.group || r.source_group === inboxState.group) && (!inboxState.unit || r.unit_code === inboxState.unit)
+      && (typeof ibcState === 'undefined' || !ibcState.onlyFlagged || (r._chk && r._chk.verdict !== 'ok'));
   });
   if (!rows.length) {
     wrap.innerHTML = '<div style="background:white;border-radius:14px;padding:32px;text-align:center;color:#94A3B8;font-size:14px;">Tidak ada draft.</div>';
@@ -190,6 +192,7 @@ function renderInboxCard(r, kids, parent) {
     + '</div>'
     + '<div style="font-size:13px;color:#334155;margin-top:6px;">' + ibSummary(r) + '</div>'
     + issues
+    + (typeof ibcBlock === 'function' ? ibcBlock(r) : '')
     + '<div style="font-size:12px;color:#64748B;margin-top:6px;">' + ibEsc(r.source_group) + ' · ' + ibEsc(r.wa_sender || '?') + ' · ' + ibFmtTime(r.photo_taken_at || r.wa_sent_at) + '</div>'
     + (r.wa_text ? '<div style="font-size:12px;color:#475569;background:#F8FAFC;border-radius:8px;padding:6px 10px;margin-top:6px;white-space:pre-wrap;">“' + ibEsc(r.wa_text) + '”</div>' : '')
     + actions + '</div>' + kidsHtml;
@@ -202,6 +205,7 @@ function ibBanner(r) {
     + '<b>Dari Inbox WA</b> · ' + ibEsc(r.source_group) + ' · ' + ibEsc(r.wa_sender || '') + ' · ' + ibFmtTime(r.photo_taken_at || r.wa_sent_at)
     + (r.wa_text ? '<br>“' + ibEsc(r.wa_text) + '”' : '')
     + (iss.length ? '<br><b style="color:#B45309;">⚠ ' + iss.map(ibEsc).join(' · ') + '</b>' : '')
+    + (typeof ibcBannerLine === 'function' ? ibcBannerLine(r) : '')
     + ' <a href="#" onclick="ibCancel();return false;" style="margin-left:6px;color:#DC2626;font-weight:700;">batal</a></div>';
 }
 function ibClearBanners() { document.querySelectorAll('.ib-banner').forEach(function(b) { b.remove(); }); }
