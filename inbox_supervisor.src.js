@@ -20,13 +20,13 @@ function ibcDaysAgo(n) { return IBC.jktDate(Date.now() - n * 86400000); }
 async function ibcLoadRaw(unitIds, days) {
   days = days || 120;
   var since = ibcDaysAgo(days);
-  var units = (typeof ibUnits !== 'undefined' && ibUnits.length) ? ibUnits : ((await sb.from('units').select('id, code, name, current_hm')).data || []);
+  var units = (typeof ibUnits !== 'undefined' && ibUnits.length) ? ibUnits : ((await sb.from('units').select('id, code, name, model, current_hm')).data || []);
   var ids = unitIds && unitIds.length ? unitIds : units.map(function (u) { return u.id; });
   if (!ids.length) return { units: units };
   var r = await Promise.all([
     ibcFetchAll(function () { return sb.from('projects').select('id, project_code, type, nama_kapal, kade, start_date, end_date').gte('start_date', since).order('start_date'); }),
     ibcFetchAll(function () { return sb.from('project_units').select('id, project_id, unit_id, hm_awal, hm_akhir, projects!inner(id, project_code, type, nama_kapal, kade, start_date, end_date)').in('unit_id', ids).gte('projects.start_date', since).order('id'); }),
-    ibcFetchAll(function () { return sb.from('fuel_dispenses').select('id, unit_id, hm_at_fill, dispense_date, dispense_time, liters_dispensed, l_per_hr').in('unit_id', ids).gte('dispense_date', since).order('id'); }),
+    ibcFetchAll(function () { return sb.from('fuel_dispenses').select('id, unit_id, hm_at_fill, dispense_date, dispense_time, liters_dispensed, l_per_hr, transfer_id, fuel_transfers(bunker_id, fuel_bunkers(bunker_code))').in('unit_id', ids).gte('dispense_date', since).order('id'); }),
     ibcFetchAll(function () { return sb.from('service_log').select('id, unit_id, maintenance_type, hm_at_service, service_date').in('unit_id', ids).order('id'); }),
     ibcFetchAll(function () { return sb.from('maintenance_schedules').select('unit_id, type_name, interval_hm, last_hm, last_date').in('unit_id', ids).order('unit_id'); }),
     ibcFetchAll(function () { return sb.from('hm_updates').select('id, unit_id, hm_value, recorded_at').in('unit_id', ids).gte('recorded_at', since).order('id'); }),

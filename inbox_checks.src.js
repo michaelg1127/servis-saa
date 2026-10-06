@@ -8,6 +8,9 @@ var IBC = (function () {
   // done together with the 2nd Racor change.
   var CYCLE = { 'Racor': 250, 'Oli Mesin': 500, 'Filter Oli Mesin': 500, 'Filter Solar': 500 };
   var SET500 = ['Racor', 'Oli Mesin', 'Filter Oli Mesin', 'Filter Solar'];
+  // Kobelco SK200-8 (K1, K5, K7) has TWO Racors (Michael, 6 Okt 2026): Racor LUAR every 250 HM,
+  // Racor DALAM changed together with the 500 set (oli mesin + filter oli + filter solar).
+  function dualRacor(U) { return !!(U && U.unit && /SK\s*200\s*-?\s*8(?!\d)/i.test(String(U.unit.model || ''))); }
   var SR_CLOSED = ['done', 'done_confirm', 'rejected'];
   var HOUR = 3600000;
 
@@ -91,7 +94,7 @@ var IBC = (function () {
     (raw.fuel_dispenses || []).forEach(function (r) {
       var u = U(r.unit_id); if (!u) return;
       var sp = span(r.dispense_date, r.dispense_time); if (!sp) return;
-      var f = { ref: 'fuel_dispenses:' + r.id, id: r.id, hm: num(r.hm_at_fill), date: r.dispense_date, time: r.dispense_time, liters: num(r.liters_dispensed), lph: num(r.l_per_hr), tMin: sp[0], tMax: sp[1] };
+      var f = { ref: 'fuel_dispenses:' + r.id, id: r.id, hm: num(r.hm_at_fill), date: r.dispense_date, time: r.dispense_time, liters: num(r.liters_dispensed), lph: num(r.l_per_hr), tMin: sp[0], tMax: sp[1], bunker: bunkerOf(r) };
       u.fuels.push(f);
       if (f.hm != null) u.hm.push({ hm: f.hm, tMin: f.tMin, tMax: f.tMax, src: 'admin', label: 'isi solar ' + fmtDay(f.date) + (f.time ? ' ' + String(f.time).slice(0, 5) : ''), ref: f.ref });
     });
@@ -113,6 +116,14 @@ var IBC = (function () {
     });
     (raw.service_requests || []).forEach(function (r) { var u = U(r.unit_id); if (u) u.srs.push(r); });
     return ctx;
+  }
+
+  // bunker code of a fuel_dispenses row (via fuel_transfers -> fuel_bunkers), or null when not loaded
+  function bunkerOf(r) {
+    var t = r && r.fuel_transfers; if (!t) return r && r.bunker_code ? String(r.bunker_code) : null;
+    if (Array.isArray(t)) t = t[0]; if (!t) return null;
+    var b = t.fuel_bunkers; if (Array.isArray(b)) b = b[0];
+    return (b && b.bunker_code) ? String(b.bunker_code) : (t.bunker_id ? String(t.bunker_id) : null);
   }
 
   // ============ items (a draft, or an existing record re-checked in audit mode) ============
@@ -264,7 +275,15 @@ var IBC = (function () {
     var day = p.dispense_date || jktDate(it.tMin);
     var fuels = U.fuels.filter(notSelf);
     // C6 — already entered / dry-run match
-    var same = fuels.filter(function (f) { return f.hm != null && Math.abs(f.hm - h) <= 0.5; })[0];
+    // Split fill (Michael, 6 Okt 2026): one fill at the same HM taken from two bunkers = the rest of the
+    // old bunker + the new bunker (e.g. K5 21/9: 80 L X44 + 130 L X43). Different bunker code = not a duplicate.
+    var myBunker = p.bunker_code || null;
+    var splits = fuels.filter(function (f) { return f.hm != null && Math.abs(f.hm - h) <= 0.5 && myBunker && f.bunker && f.bunker !== myBunker; });
+    var same = fuels.filter(function (f) { return f.hm != null && Math.abs(f.hm - h) <= 0.5 && splits.indexOf(f) < 0; })[0];
+    if (splits.length) {
+      var tot = splits.reduce(function (s, f) { return s + (f.liters || 0); }, num(p.liters) || 0);
+      add('split', 'ok', 'Isi dari 2 bunker di HM yang sama: ' + fmt(p.liters) + ' L ' + myBunker + ' + ' + splits.map(function (f) { return fmt(f.liters) + ' L ' + f.bunker; }).join(' + ') + ' = ' + fmt(tot) + ' L (sisa bunker lama + bunker baru), bukan dobel.');
+    }
     if (same) {
       if (opts.audit) add('dup', 'fail', 'Dobel: isi solar HM ' + fmt(same.hm) + ' sudah ada (' + fmtDay(same.date) + ', ' + fmt(same.liters) + ' L).');
       else add('match', 'match', 'Sudah ada di BBM: HM ' + fmt(same.hm) + ', ' + fmtDay(same.date) + ', ' + fmt(same.liters) + ' L' + (same.date !== day ? '. Tanggal beda: draft ' + fmtDay(day) + ' vs admin ' + fmtDay(same.date) : '') + '.');
@@ -275,6 +294,7 @@ var IBC = (function () {
     }
     // C5 — liters per HM vs this unit's normal
     var liters = num(p.liters);
+    if (liters != null && splits.length) liters += splits.reduce(function (s, f) { return s + (f.liters || 0); }, 0);
     var prevFill = fuels.filter(function (f) { return f.tMax < it.tMin && f.hm != null && f.hm < h - 0.5; })
                         .reduce(function (m, f) { return (!m || f.hm > m.hm) ? f : m; }, null);
     var lphs = fuels.map(function (f) { return f.lph; }).filter(function (v) { return v != null && v > 0; }).sort(function (a, b) { return a - b; });
@@ -304,7 +324,18 @@ var IBC = (function () {
       return services.some(function (s) { return s.type === t && s.hm != null && Math.abs(s.hm - h) <= tol; }) ||
              drafts.some(function (o) { var op = o.payload; var ts = [normType(op.maintenance_type)].concat(typesIn(op.parts_used), typesIn(op.notes)); return ts.indexOf(t) >= 0 && Math.abs(num(op.hm_at_service) - h) <= tol; });
     }
+    var dual = dualRacor(U);
+    var SETX = ['Oli Mesin', 'Filter Oli Mesin', 'Filter Solar'];
+    var withSet = types.some(function (t) { return SETX.indexOf(t) >= 0; }) || SETX.some(function (t) { return doneNear(t, 10); });
+    // dual-Racor unit: a Racor recorded with the 500 set is the inner one, unless the outer one was also due
+    function isInnerRacor(s) {
+      if (!SETX.some(function (t) { return services.some(function (x) { return x.type === t && x.hm != null && Math.abs(x.hm - s.hm) <= 10; }); })) return false;
+      return services.some(function (x) { return x.type === 'Racor' && x !== s && x.hm != null && x.hm < s.hm - 5 && x.hm > s.hm - 200; });
+    }
+    var innerHere = dual && types.indexOf('Racor') >= 0 && withSet &&
+      services.some(function (x) { return x.type === 'Racor' && x.hm != null && x.hm < h - 5 && x.hm > h - 200; });
     types.forEach(function (t) {
+      if (t === 'Racor' && innerHere) { add('cycle', 'ok', 'Racor dalam (SK200-8) diganti bersama servis 500. Racor luar tetap tiap 250 HM.'); return; }
       var I = CYCLE[t] || (U.sched[t] && U.sched[t].interval) || null;
       var same = services.filter(function (s) { return s.type === t && s.hm != null && Math.abs(s.hm - h) <= 5; })[0];
       if (same) {
@@ -313,17 +344,22 @@ var IBC = (function () {
         return;
       }
       if (!I) return;
-      var last = services.filter(function (s) { return s.type === t && s.hm != null && s.hm < h - 5; })
+      var last = services.filter(function (s) { return s.type === t && s.hm != null && s.hm < h - 5 && !(t === 'Racor' && dual && isInnerRacor(s)); })
                          .reduce(function (m, s) { return (!m || s.hm > m.hm) ? s : m; }, null);
       var sc = U.sched[t];
-      if (sc && sc.last_hm != null && sc.last_hm < h - 5 && (!last || sc.last_hm > last.hm)) last = { hm: sc.last_hm, date: sc.last_date, fromSched: true };
+      if (sc && sc.last_hm != null && sc.last_hm < h - 5 && (!last || sc.last_hm > last.hm) && !(t === 'Racor' && dual && last)) last = { hm: sc.last_hm, date: sc.last_date, fromSched: true };
       if (!last) { add('cycle', 'info', 'Belum ada riwayat ' + t + ' untuk ' + it.unit_code + '; interval ' + I + ' HM tidak bisa dicek.'); return; }
       var since = h - last.hm;
-      var lastTxt = t + ' terakhir di HM ' + fmt(last.hm) + (last.date ? ' (' + fmtDay(last.date) + ')' : '');
-      if (since < I * 0.5) add('cycle', 'fail', t + ' baru ' + fmt(since) + ' HM sejak ganti terakhir (interval ' + I + '). ' + lastTxt + '. Kemungkinan dobel.');
-      else if (since < I * 0.8) add('cycle', 'warn', t + ' lebih cepat dari jadwal: ' + fmt(since) + ' HM dari interval ' + I + '. ' + lastTxt + '.');
-      else if (since > I * 1.1) add('cycle', 'warn', t + ' terlambat ' + fmt(since - I) + ' HM (sudah ' + fmt(since) + ' HM, interval ' + I + '). ' + lastTxt + '.');
-      else add('cycle', 'ok', t + ' sesuai jadwal: ' + fmt(since) + ' HM sejak ganti terakhir (interval ' + I + ').');
+      var tn = (t === 'Racor' && dual) ? 'Racor luar' : t;
+      var lastTxt = tn + ' terakhir di HM ' + fmt(last.hm) + (last.date ? ' (' + fmtDay(last.date) + ')' : '');
+      if (since < I * 0.5) add('cycle', 'fail', tn + ' baru ' + fmt(since) + ' HM sejak ganti terakhir (interval ' + I + '). ' + lastTxt + '. Kemungkinan dobel.');
+      else if (since < I * 0.8) add('cycle', 'warn', tn + ' lebih cepat dari jadwal: ' + fmt(since) + ' HM dari interval ' + I + '. ' + lastTxt + '.');
+      else if (since > I * 1.1) {
+        // audit = a change that was already done, measured back to the previous one (not what is overdue today: see Jadwal Maintenance)
+        if (opts.audit) add('cycle', 'warn', tn + ' diganti ' + fmt(since) + ' HM setelah yang sebelumnya (interval ' + I + ', telat ' + fmt(since - I) + ' HM). ' + lastTxt + '. Telat servis, atau ada penggantian yang belum dicatat?');
+        else add('cycle', 'warn', tn + ' terlambat ' + fmt(since - I) + ' HM (sudah ' + fmt(since) + ' HM, interval ' + I + '). ' + lastTxt + '.');
+      }
+      else add('cycle', 'ok', tn + ' sesuai jadwal: ' + fmt(since) + ' HM sejak ganti terakhir (interval ' + I + ').');
     });
     // 500 set: Racor (2nd) + Oli Mesin + Filter Oli Mesin + Filter Solar together
     var has500 = types.some(function (t) { return t !== 'Racor' && SET500.indexOf(t) >= 0; });
@@ -331,11 +367,13 @@ var IBC = (function () {
       var missing = SET500.filter(function (t) { return types.indexOf(t) < 0 && !doneNear(t, 10); });
       if (missing.length) add('set500', 'warn', 'Servis 500 HM harus lengkap. Belum tercatat: ' + missing.join(', ') + '.');
       else add('set500', 'ok', 'Servis 500 lengkap (Racor, oli mesin, filter oli, filter solar).');
-    } else if (types.indexOf('Racor') >= 0) {
+    } else if (types.indexOf('Racor') >= 0 && !innerHere) {
       var lastOil = services.filter(function (s) { return s.type === 'Oli Mesin' && s.hm != null && s.hm < h - 5; })
                             .reduce(function (m, s) { return (!m || s.hm > m.hm) ? s : m; }, null);
       if (lastOil && h - lastOil.hm >= 400 && !doneNear('Oli Mesin', 10))
-        add('set500', 'warn', 'Racor ini jatuh di ' + fmt(h - lastOil.hm) + ' HM sejak oli mesin terakhir: ini Racor ke-2, harusnya sekalian oli mesin + filter oli + filter solar.');
+        add('set500', 'warn', dual
+          ? 'Racor luar ini jatuh di ' + fmt(h - lastOil.hm) + ' HM sejak oli mesin terakhir: servis 500 (oli mesin, filter oli, filter solar + Racor dalam) juga sudah jatuh tempo.'
+          : 'Racor ini jatuh di ' + fmt(h - lastOil.hm) + ' HM sejak oli mesin terakhir: ini Racor ke-2, harusnya sekalian oli mesin + filter oli + filter solar.');
     }
   }
 
@@ -391,7 +429,7 @@ var IBC = (function () {
       var u = ctx.units[r.unit_id]; if (!u) return;
       var sp = span(r.dispense_date, r.dispense_time);
       items.push({ id: 'fuel_dispenses:' + r.id, kind: 'fuel_dispense', unit_id: r.unit_id, unit_code: u.unit.code, tMin: sp[0], tMax: sp[1],
-                   payload: { hm_at_fill: r.hm_at_fill, dispense_date: r.dispense_date, liters: r.liters_dispensed },
+                   payload: { hm_at_fill: r.hm_at_fill, dispense_date: r.dispense_date, liters: r.liters_dispensed, bunker_code: bunkerOf(r) },
                    selfRefs: ['fuel_dispenses:' + r.id], label: 'Isi solar · HM ' + fmt(r.hm_at_fill) + ' · ' + fmtDay(r.dispense_date) + ' · ' + fmt(r.liters_dispensed) + ' L' });
     });
     (raw.project_units || []).forEach(function (r) {

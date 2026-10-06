@@ -128,6 +128,54 @@ console.log('\nOld typo in history does not poison later readings');
   ok(res.verdict === 'ok', '[lolos] isi solar normal walau ada HM salah ketik bulan Juni', res.checks.map(x => x.level + ':' + x.code + ' ' + x.msg).join('\n        '));
 })();
 
+console.log('\nSK200-8: two Racors (luar 250 HM, dalam with the 500 set) — Michael 6 Okt');
+(function () {
+  const r = { units: [{ id: 'u-k1', code: 'K1', model: 'SK200-8', current_hm: 21750 }], projects: [], project_units: [], fuel_dispenses: [], hm_updates: [], maintenance_schedules: [], service_requests: [],
+    service_log: [
+      { id: 'k1', unit_id: 'u-k1', maintenance_type: 'Racor', hm_at_service: 21000, service_date: '2026-08-01' },
+      { id: 'k2', unit_id: 'u-k1', maintenance_type: 'Oli Mesin', hm_at_service: 21000, service_date: '2026-08-01' },
+      { id: 'k3', unit_id: 'u-k1', maintenance_type: 'Filter Oli Mesin', hm_at_service: 21000, service_date: '2026-08-01' },
+      { id: 'k4', unit_id: 'u-k1', maintenance_type: 'Filter Solar', hm_at_service: 21000, service_date: '2026-08-01' },
+      { id: 'k5', unit_id: 'u-k1', maintenance_type: 'Racor', hm_at_service: 21250, service_date: '2026-08-20' },
+      { id: 'k6', unit_id: 'u-k1', maintenance_type: 'Racor', hm_at_service: 21440, service_date: '2026-09-24' },
+      { id: 'k7', unit_id: 'u-k1', maintenance_type: 'Racor', hm_at_service: 21500, service_date: '2026-10-01' },
+      { id: 'k8', unit_id: 'u-k1', maintenance_type: 'Oli Mesin', hm_at_service: 21500, service_date: '2026-10-01' },
+      { id: 'k9', unit_id: 'u-k1', maintenance_type: 'Filter Oli Mesin', hm_at_service: 21500, service_date: '2026-10-01' },
+      { id: 'k10', unit_id: 'u-k1', maintenance_type: 'Filter Solar', hm_at_service: 21500, service_date: '2026-10-01' },
+    ] };
+  const ctx = IBC.buildContext(r);
+  const found = IBC.audit(r, ctx, '2026-09-20');
+  const inner = found.filter(f => f.item.id === 'service_log:k7');
+  ok(inner.length === 0, '[lolos] Racor dalam bersama set 500, 60 HM setelah Racor luar', JSON.stringify(inner.map(f => f.result.checks)));
+  const d = draft('service_log', 'K1', { maintenance_type: 'Racor', hm_at_service: 21690, service_date: '2026-10-12' }, T('2026-10-12T09:00'));
+  const c2 = IBC.buildContext(Object.assign({}, r, { drafts: [d] }));
+  const res = IBC.check(IBC.draftToItem(d, c2), c2, {});
+  ok(res.verdict === 'ok', '[lolos] Racor luar 250 HM setelah Racor luar terakhir (bukan dari Racor dalam)', res.checks.map(x => x.level + ':' + x.code + ' ' + x.msg).join('\n        '));
+  const d2 = draft('service_log', 'K1', { maintenance_type: 'Racor', hm_at_service: 21460, service_date: '2026-09-26' }, T('2026-09-26T09:00'));
+  const c3 = IBC.buildContext(Object.assign({}, r, { drafts: [d2] }));
+  const res2 = IBC.check(IBC.draftToItem(d2, c3), c3, {});
+  ok(res2.checks.some(x => x.code === 'cycle' && x.level === 'fail'), '[tangkap] Racor luar dobel tanpa set 500 tetap ketahuan', res2.checks.map(x => x.level + ':' + x.code + ' ' + x.msg).join('\n        '));
+})();
+
+console.log('\nSplit fill from two bunkers (sisa bunker lama + bunker baru) — Michael 6 Okt');
+(function () {
+  const bk = (code) => ({ bunker_id: 'b-' + code, fuel_bunkers: { bunker_code: code } });
+  const r = { units: [{ id: 'u-k5', code: 'K5', model: 'SK200-8', current_hm: 21700 }], projects: [], project_units: [], service_log: [], hm_updates: [], maintenance_schedules: [], service_requests: [],
+    fuel_dispenses: [
+      { id: 'a', unit_id: 'u-k5', hm_at_fill: 21645.9, dispense_date: '2026-09-20', liters_dispensed: 200, l_per_hr: 19.3, fuel_transfers: bk('X43') },
+      { id: 'b', unit_id: 'u-k5', hm_at_fill: 21655.1, dispense_date: '2026-09-21', liters_dispensed: 130, l_per_hr: 21.2, fuel_transfers: bk('X43') },
+      { id: 'c', unit_id: 'u-k5', hm_at_fill: 21655.2, dispense_date: '2026-09-21', liters_dispensed: 80, l_per_hr: 20, fuel_transfers: bk('X44') },
+      { id: 'e', unit_id: 'u-k5', hm_at_fill: 21700, dispense_date: '2026-09-23', liters_dispensed: 200, l_per_hr: 20, fuel_transfers: bk('X44') },
+      { id: 'f', unit_id: 'u-k5', hm_at_fill: 21700.2, dispense_date: '2026-09-23', liters_dispensed: 200, l_per_hr: 20, fuel_transfers: bk('X44') },
+    ] };
+  const ctx = IBC.buildContext(r);
+  const found = IBC.audit(r, ctx, '2026-09-20');
+  const dupSplit = found.filter(f => (f.item.id === 'fuel_dispenses:b' || f.item.id === 'fuel_dispenses:c') && f.result.checks.some(x => x.code === 'dup'));
+  ok(dupSplit.length === 0, '[lolos] 130 L X43 + 80 L X44 di HM sama = 1 isi dari 2 bunker', JSON.stringify(dupSplit.map(f => f.result.checks)));
+  const dupReal = found.filter(f => f.item.id === 'fuel_dispenses:f' && f.result.checks.some(x => x.code === 'dup' && x.level === 'fail'));
+  ok(dupReal.length === 1, '[tangkap] bunker sama di HM sama tetap dobel', JSON.stringify(found.map(f => [f.item.id, f.result.checks])));
+})();
+
 console.log('\nScorecard');
 (function () {
   const s = IBC.score([

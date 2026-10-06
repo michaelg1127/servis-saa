@@ -52,7 +52,7 @@ function ibRow(id) { return inboxState.rows.find(function(x) { return x.id === i
 
 async function ibLoadUnits() {
   if (ibUnits.length) return;
-  var res = await sb.from('units').select('id, code, name, current_hm').order('code');
+  var res = await sb.from('units').select('id, code, name, model, current_hm').order('code');
   ibUnits = res.data || [];
 }
 
