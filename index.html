@@ -6749,7 +6749,17 @@ async function addWlNewUnitRow() {
 }
 function removeWlNewUnitRow(idx) { var el = document.getElementById('wlen-row-' + idx); if (el) el.remove(); }
 
+// Double-submit guard: the save below is delete-then-insert on project_units, so two
+// overlapping runs (double-click on Simpan) would insert every unit twice.
+var _editKapalSaving = false;
 async function submitEditKapal(projId) {
+  if (_editKapalSaving) return;
+  _editKapalSaving = true;
+  try { await _submitEditKapalInner(projId); }
+  finally { _editKapalSaving = false; }
+}
+
+async function _submitEditKapalInner(projId) {
   const p = proyekKapalData.find(function(x) { return x.id === projId; });
   if (!p) { showToast('Data tidak ditemukan'); return; }
   const namaKapal = document.getElementById('kapal-e-namakapal')?.value.trim();
@@ -7052,7 +7062,17 @@ function markStkUnitDeleted(i) {
   el.appendChild(overlay);
 }
 
+// Double-submit guard: the save below is delete-then-insert on project_units, so two
+// overlapping runs (double-click on Simpan) would insert every unit twice.
+var _editStockpileSaving = false;
 async function submitEditStockpile(projId) {
+  if (_editStockpileSaving) return;
+  _editStockpileSaving = true;
+  try { await _submitEditStockpileInner(projId); }
+  finally { _editStockpileSaving = false; }
+}
+
+async function _submitEditStockpileInner(projId) {
   const p = proyekStockpileData.find(function(x) { return x.id === projId; });
   if (!p) { showToast('Data tidak ditemukan'); return; }
   const pemberiKerja = document.getElementById('stk-e-pemberi')?.value.trim();
