@@ -9351,6 +9351,7 @@ function renderWoodlogRingkasan(salaryRows, allProjects, prevRetainer, kasbonMap
     '<div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
     '<label style="font-size:13px;font-weight:700;">Bulan:</label>' +
     '<input type="month" id="wl-ring-month" class="finput" style="width:160px;" value="' + monthYear + '" onchange="_wlRingkasanMonthFilter=this.value;loadWoodlogRingkasan()">' +
+    '<button onclick="downloadWoodlogGajiCSV()" style="margin-left:auto;padding:6px 14px;border-radius:8px;border:1px solid #16A34A;background:#F0FDF4;color:#16A34A;cursor:pointer;font-size:13px;font-weight:700;">⬇ Download CSV</button>' +
     '</div>' +
     '<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:16px;margin-bottom:20px;">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
@@ -9372,6 +9373,63 @@ function renderWoodlogRingkasan(salaryRows, allProjects, prevRetainer, kasbonMap
     tbl31(opMap31) +
     '<div style="margin-top:12px;"><button onclick="markWLPaid(\'end_of_month\')" class="btn-primary" style="background:#16A34A;">Tandai Lunas Batch 31</button></div>' +
     '</div>';
+}
+
+// Per-operator salary breakdown for one month: tonnage salary per batch, basic salary, kasbon, final.
+// salaryRows must hold paid and unpaid rows, so the file stays complete after "Tandai Lunas".
+function buildWoodlogGajiRows(salaryRows, batch16Ids, batch31Ids, projects, kasbonMap) {
+  const projMap = {};
+  (projects || []).forEach(function(p) { projMap[p.id] = p; });
+  const in16 = new Set(batch16Ids || []), in31 = new Set(batch31Ids || []);
+  const ops = {};
+  WL_BANGAU_OPS.concat(WL_STD_OPS).forEach(function(op) { ops[op] = { b16: 0, b31: 0, detail: [] }; });
+  (salaryRows || []).forEach(function(s) {
+    const is16 = in16.has(s.project_id), is31 = in31.has(s.project_id);
+    if (!is16 && !is31) return;
+    const amt = Number(s.salary_amount) || 0;
+    if (!ops[s.operator_name]) ops[s.operator_name] = { b16: 0, b31: 0, detail: [] };
+    const o = ops[s.operator_name];
+    if (is16) o.b16 += amt; else o.b31 += amt;
+    const p = projMap[s.project_id];
+    if (amt > 0) o.detail.push({ sort: (p ? (p.end_date || '') + (p.project_code || '') : ''), text: (p ? ((p.project_code || '') + ' ' + (p.nama_kapal || '')).trim() : s.project_id) + ': ' + Math.round(amt).toLocaleString('id') });
+  });
+  const rows = [['Operator','Tipe','Gaji Tonase Batch 16 (Rp)','Gaji Tonase Batch 31 (Rp)','Total Gaji Tonase (Rp)','Gaji Pokok (Rp)','Kasbon (Rp)','Gaji Akhir (Rp)','Detail Proyek']];
+  const t = { b16: 0, b31: 0, ton: 0, pokok: 0, kb: 0, akhir: 0 };
+  Object.keys(ops).forEach(function(name) {
+    const o = ops[name];
+    const isListed = WL_BANGAU_OPS.includes(name) || WL_STD_OPS.includes(name);
+    if (!isListed && o.b16 + o.b31 <= 0) return;
+    const ton = o.b16 + o.b31;
+    const pokok = 3100000;
+    const kb = (kasbonMap && kasbonMap[name]) ? (Number(kasbonMap[name].amount != null ? kasbonMap[name].amount : kasbonMap[name]) || 0) : 0;
+    const akhir = ton + pokok - kb;
+    t.b16 += o.b16; t.b31 += o.b31; t.ton += ton; t.pokok += pokok; t.kb += kb; t.akhir += akhir;
+    const detail = o.detail.sort(function(a, b) { return a.sort.localeCompare(b.sort); }).map(function(d) { return d.text; }).join('; ');
+    rows.push([name, WL_BANGAU_OPS.includes(name) ? 'Bangau' : (WL_STD_OPS.includes(name) ? 'Standard' : ''), Math.round(o.b16), Math.round(o.b31), Math.round(ton), pokok, Math.round(kb), Math.round(akhir), detail]);
+  });
+  rows.push(['TOTAL', '', Math.round(t.b16), Math.round(t.b31), Math.round(t.ton), t.pokok, Math.round(t.kb), Math.round(t.akhir), '']);
+  return rows;
+}
+
+async function downloadWoodlogGajiCSV() {
+  const el = document.getElementById('wl-panel-ringkasan');
+  if (!el || !el._wlMonthYear) { showToast('Data belum dimuat'); return; }
+  const monthYear = el._wlMonthYear;
+  const batch16Ids = el._wlBatch16Ids || [], batch31Ids = el._wlBatch31Ids || [];
+  const ids = Array.from(new Set(batch16Ids.concat(batch31Ids)));
+  try {
+    let salaryRows = [];
+    if (ids.length > 0) {
+      const sr = await fetchAllRows(function() { return sb.from('woodlog_operator_salary').select('project_id, operator_name, salary_amount').in('project_id', ids).order('id'); });
+      if (sr.error) throw sr.error;
+      salaryRows = sr.data || [];
+    }
+    const { data: kasbons, error: ke } = await sb.from('woodlog_kasbon').select('operator_name, amount').eq('month_year', monthYear);
+    if (ke) throw ke;
+    const kasbonMap = {};
+    (kasbons || []).forEach(function(k) { kasbonMap[k.operator_name] = { amount: Number(k.amount) }; });
+    _downloadCSV('WoodlogGaji_' + monthYear + '.csv', buildWoodlogGajiRows(salaryRows, batch16Ids, batch31Ids, el._wlAllProjects || [], kasbonMap));
+  } catch(e) { showToast('Gagal download: ' + e.message); }
 }
 
 async function markWLPaid(paymentType) {
