@@ -2861,6 +2861,7 @@ async function loadAdminCatatTypes(unitId) {
       types = [...new Set((all || []).map(s => s.type_name))];
     }
     if (types.length === 0) types = COMMON_MAINTENANCE_TYPES;
+    types = withExtraServiceTypes(types);
     sel.innerHTML = types.map(t => '<option value="' + t + '">' + t + '</option>').join('');
   } catch (e) {
     sel.innerHTML = COMMON_MAINTENANCE_TYPES.map(t => '<option value="' + t + '">' + t + '</option>').join('');
@@ -2939,7 +2940,10 @@ async function initSPVCatat() {
   } catch (e) {}
 }
 
-const COMMON_MAINTENANCE_TYPES = ['Air Radiator','Filter Hidrolik','Filter Oli Mesin','Filter Solar','Filter Udara','Greasing','Oli Final Drive','Oli Hidrolik','Oli Mesin','Oli Swing','Racor'];
+const COMMON_MAINTENANCE_TYPES = ['Air Radiator','Aki','Filter Hidrolik','Filter Oli Mesin','Filter Solar','Filter Udara','Greasing','Oli Final Drive','Oli Hidrolik','Oli Mesin','Oli Swing','Racor'];
+// Parts tracked in Riwayat Servis without an HM interval (no Jadwal Maintenance row). Michael 8 Okt 2026: track aki.
+const EXTRA_SERVICE_TYPES = ['Aki'];
+function withExtraServiceTypes(types) { const out = types.slice(); EXTRA_SERVICE_TYPES.forEach(t => { if (out.indexOf(t) < 0) out.push(t); }); return out; }
 
 const MAINTENANCE_BUNDLES = {
   'Oli Mesin Set': {
@@ -3003,6 +3007,7 @@ async function loadSPVCatatTypes(unitId) {
       types = [...new Set((all || []).map(s => s.type_name))];
     }
     if (types.length === 0) types = COMMON_MAINTENANCE_TYPES;
+    types = withExtraServiceTypes(types);
     dl.innerHTML = types.map(t => `<option value="${t}">`).join('');
   } catch (e) {
     dl.innerHTML = COMMON_MAINTENANCE_TYPES.map(t => `<option value="${t}">`).join('');
