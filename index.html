@@ -8021,16 +8021,17 @@ function renderProyekAnalisis(projects, fillMap) {
   }
   h += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
   h += '<thead><tr style="background:#F1F5F9;">';
-  ['Invoice#','Kode','Nama Kapal','Pemberi Kerja','Kade','HM Total','Income','Biaya Solar','Biaya Tenaga','Profit','Yield/HM','Status','Mike Check',''].forEach(col => {
+  ['Invoice#','Kode','Nama Kapal','Pemberi Kerja','Kade','Tonnage','HM Total','Income','Biaya Solar','Biaya Tenaga','Profit','Yield/HM','Status','Mike Check',''].forEach(col => {
     let inner = col;
     if (col === 'Kode') {
       const arrow = proyekAnalisisSort === 'asc' ? '▲' : '▼';
       inner = '<button onclick="toggleProyekAnalisisSort()" style="background:none;border:none;color:#475569;font-weight:700;cursor:pointer;padding:0;font-size:12px;">Kode ' + arrow + '</button>';
     }
-    h += '<th style="padding:8px 10px;text-align:' + (['Income','Biaya Solar','Biaya Tenaga','Profit','Yield/HM','HM Total'].includes(col) ? 'right' : 'left') + ';font-weight:700;color:#475569;white-space:nowrap;">' + inner + '</th>';
+    h += '<th style="padding:8px 10px;text-align:' + (['Income','Biaya Solar','Biaya Tenaga','Profit','Yield/HM','HM Total','Tonnage'].includes(col) ? 'right' : 'left') + ';font-weight:700;color:#475569;white-space:nowrap;">' + inner + '</th>';
   });
   h += '</tr></thead><tbody>';
   let sumIncome = 0, sumFuel = 0, sumLabor = 0, sumProfit = 0, sumHM = 0;
+  const sumTon = { MT: 0, M3: 0 };
   filtered.forEach(p => {
     const units = p.project_units || [];
     const totalHM = units.reduce((s, u) => s + (u.hm_akhir != null ? u.hm_akhir - u.hm_awal : 0), 0);
@@ -8056,6 +8057,10 @@ function renderProyekAnalisis(projects, fillMap) {
     h += '<td style="padding:8px 10px;">' + (p.nama_kapal || '\u2014') + '</td>';
     h += '<td style="padding:8px 10px;">' + p.pemberi_kerja + '</td>';
     h += '<td style="padding:8px 10px;">' + (p.kade || '\u2014') + '</td>';
+    const _ton = Number(p.total_mt_m3) || 0;
+    const _tonUnit = p.bl_unit === 'M3' ? 'M3' : 'MT';
+    sumTon[_tonUnit] += _ton;
+    h += '<td style="padding:8px 10px;text-align:right;white-space:nowrap;">' + _ton.toLocaleString('id-ID') + ' ' + _tonUnit + '<br><button onclick="event.stopPropagation();proyekAnalisisEdit(\'' + p.id + '\',\'total_mt_m3\')" style="margin-top:4px;background:#F0FDF4;border:1px solid #BBF7D0;color:#15803D;font-size:10px;padding:2px 7px;border-radius:5px;cursor:pointer;">✎ Tonnage</button></td>';
     h += '<td style="padding:8px 10px;text-align:right;">' + totalHM.toFixed(1) + '</td>';
     h += '<td style="padding:8px 10px;text-align:right;">' + fmtRp(income) + '<br><button onclick="event.stopPropagation();proyekAnalisisEdit(\'' + p.id + '\',\'unit_price\')" style="margin-top:4px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:10px;padding:2px 7px;border-radius:5px;cursor:pointer;">✎ Price/MT</button></td>';
     h += '<td style="padding:8px 10px;text-align:right;color:#EF4444;">' + fmtRp(fuelCost) + (p.harga_solar_rpl ? '<br><span style="font-size:10px;color:#94A3B8;">' + Math.round(usedSolarL) + 'L (isi+tangki)</span>' : '') + '<br><button onclick="event.stopPropagation();proyekAnalisisEdit(\'' + p.id + '\',\'harga_solar_rpl\')" style="margin-top:4px;background:#FFF7ED;border:1px solid #FED7AA;color:#EA580C;font-size:10px;padding:2px 7px;border-radius:5px;cursor:pointer;">✎ Rp/L</button></td>';
@@ -8070,15 +8075,15 @@ function renderProyekAnalisis(projects, fillMap) {
     if (!isClosed) h += '<button onclick="openAddInvoice(\'' + p.id + '\')" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;">Add Invoice</button>';
     h += '</td>';
     h += '</tr>';
-    h += '<tr id="proy-edit-' + p.id + '" style="display:none;background:#F0F9FF;"><td colspan="14" style="padding:8px 16px;"><div id="proy-edit-inner-' + p.id + '"></div></td></tr>';
-    h += '<tr id="proy-detail-' + p.id + '" style="display:' + (_detailOpen ? '' : 'none') + ';background:#FAFAFA;"><td colspan="14" style="padding:12px 16px;">' + renderProyekAnalisisDetail(p, fMap) + '</td></tr>';
+    h += '<tr id="proy-edit-' + p.id + '" style="display:none;background:#F0F9FF;"><td colspan="15" style="padding:8px 16px;"><div id="proy-edit-inner-' + p.id + '"></div></td></tr>';
+    h += '<tr id="proy-detail-' + p.id + '" style="display:' + (_detailOpen ? '' : 'none') + ';background:#FAFAFA;"><td colspan="15" style="padding:12px 16px;">' + renderProyekAnalisisDetail(p, fMap) + '</td></tr>';
     if (!isClosed) {
-      h += '<tr id="inv-input-' + p.id + '" style="display:none;background:#FFFBEB;"><td colspan="14" style="padding:8px 16px;">';
+      h += '<tr id="inv-input-' + p.id + '" style="display:none;background:#FFFBEB;"><td colspan="15" style="padding:8px 16px;">';
       h += '<div style="display:flex;gap:8px;align-items:center;"><input type="text" id="inv-num-' + p.id + '" class="finput" style="max-width:260px;padding:6px 10px;font-size:13px;" placeholder="Nomor Invoice (contoh: INV-2026-08-001)"><button onclick="submitInvoiceNumber(\'' + p.id + '\')" class="btn-primary" style="padding:6px 14px;font-size:13px;">Simpan</button><button onclick="document.getElementById(\'inv-input-' + p.id + '\').style.display=\'none\';" class="btn-secondary" style="padding:6px 12px;font-size:13px;">Batal</button></div>';
       h += '</td></tr>';
     }
   });
-  h += '<tr style="background:#F1F5F9;font-weight:800;"><td colspan="5" style="padding:8px 10px;">TOTAL</td><td style="padding:8px 10px;text-align:right;">' + sumHM.toFixed(1) + '</td><td style="padding:8px 10px;text-align:right;">' + fmtRp(sumIncome) + '</td><td style="padding:8px 10px;text-align:right;color:#EF4444;">' + fmtRp(sumFuel) + '</td><td style="padding:8px 10px;text-align:right;color:#F59E0B;">' + fmtRp(sumLabor) + '</td><td style="padding:8px 10px;text-align:right;color:' + (sumProfit >= 0 ? '#16A34A' : '#EF4444') + ';">' + fmtRp(sumProfit) + '</td><td style="padding:8px 10px;text-align:right;">' + fmtRp(sumHM > 0 ? sumProfit/sumHM : 0) + '/HM</td><td colspan="3"></td></tr>';
+  h += '<tr style="background:#F1F5F9;font-weight:800;"><td colspan="5" style="padding:8px 10px;">TOTAL</td><td style="padding:8px 10px;text-align:right;white-space:nowrap;">' + ['MT','M3'].filter(function(k) { return sumTon[k] > 0; }).map(function(k) { return sumTon[k].toLocaleString('id-ID') + ' ' + k; }).join('<br>') + '</td><td style="padding:8px 10px;text-align:right;">' + sumHM.toFixed(1) + '</td><td style="padding:8px 10px;text-align:right;">' + fmtRp(sumIncome) + '</td><td style="padding:8px 10px;text-align:right;color:#EF4444;">' + fmtRp(sumFuel) + '</td><td style="padding:8px 10px;text-align:right;color:#F59E0B;">' + fmtRp(sumLabor) + '</td><td style="padding:8px 10px;text-align:right;color:' + (sumProfit >= 0 ? '#16A34A' : '#EF4444') + ';">' + fmtRp(sumProfit) + '</td><td style="padding:8px 10px;text-align:right;">' + fmtRp(sumHM > 0 ? sumProfit/sumHM : 0) + '/HM</td><td colspan="3"></td></tr>';
   h += '</tbody></table></div>';
   panel.innerHTML = h;
 }
@@ -8306,7 +8311,7 @@ function proyekAnalisisEdit(pid, field) {
   const projects = panel._analisisProjects || [];
   const p = projects.find(function(x) { return String(x.id) === String(pid); });
   const curVal = p ? (p[field] || '') : '';
-  const label = field === 'unit_price' ? 'Price/MT (Rp/MT)' : 'Harga Solar (Rp/L)';
+  const label = field === 'unit_price' ? 'Price/MT (Rp/MT)' : field === 'total_mt_m3' ? 'Tonnage (' + (p && p.bl_unit === 'M3' ? 'M3' : 'MT') + ')' : 'Harga Solar (Rp/L)';
   inner.innerHTML = '<div style="display:flex;gap:8px;align-items:center;padding:4px 0;"><span style="font-size:13px;font-weight:600;">' + label + ':</span><input type="number" id="proy-edit-val-' + pid + '" value="' + curVal + '" style="width:160px;padding:5px 8px;font-size:13px;border:1px solid #BFDBFE;border-radius:6px;"><button onclick="proyekAnalisisSave(\'' + pid + '\',\'' + field + '\')" class="btn-primary" style="padding:5px 14px;font-size:13px;">Simpan</button><button onclick="document.getElementById(\'proy-edit-' + pid + '\').style.display=\'none\';" class="btn-secondary" style="padding:5px 12px;">Batal</button></div>';
   editRow.style.display = '';
 }
@@ -8316,6 +8321,7 @@ async function proyekAnalisisSave(pid, field) {
   if (!input) return;
   const val = parseFloat(input.value);
   if (isNaN(val) || val < 0) { alert('Nilai tidak valid.'); return; }
+  if (field === 'total_mt_m3' && val <= 0) { alert('Tonnage harus lebih dari 0.'); return; }
   const upd = {};
   upd[field] = val;
   const { error } = await sb.from('projects').update(upd).eq('id', pid);
@@ -9021,6 +9027,8 @@ async function submitEditWoodlogKapal(id) {
     closeModal();
     showToast('Proyek berhasil diperbarui!', 'success');
     await loadWoodlogKapal();
+    const _wlaPanel = document.getElementById('wl-panel-analisis');
+    if (_wlaPanel && _wlaPanel.style.display !== 'none') await loadWoodlogAnalisis();
   } catch(e) { showToast('Gagal simpan: ' + e.message); }
   finally { _wlEditKapalSaving = false; }
 }
@@ -9568,7 +9576,8 @@ function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
     return '<tr id="wla-row-' + p.id + '" style="cursor:pointer;border-bottom:2px solid #F1F5F9;" onclick="toggleWLAnalisis(\'' + p.id + '\')">' +
       '<td style="font-weight:700;color:#1D4ED8;">' + p.project_code + ' ' + statusBadge + '</td>' +
       '<td>' + (p.nama_kapal || '—') + '</td>' +
-      '<td>' + formatDate(p.end_date) + '<br><span style="font-size:11px;color:#94A3B8;">' + (p.total_mt_m3 ? Number(p.total_mt_m3).toLocaleString('id') + ' MT' : '—') + '</span></td>' +
+      '<td>' + formatDate(p.end_date) + '<br><span style="font-size:11px;color:#94A3B8;">' + (p.total_mt_m3 ? Number(p.total_mt_m3).toLocaleString('id') + ' MT' : '—') + '</span>' +
+      (p.type === 'woodlog_kapal' ? '<br><button onclick="event.stopPropagation();wlAnalisisEditTonnage(\'' + p.id + '\')" style="font-size:10px;color:#15803D;background:none;border:none;cursor:pointer;padding:0;">✎ Tonnage</button>' : '') + '</td>' +
       '<td style="text-align:right;"><div>' + fmtRp(income) + '</div>' +
       '<button onclick="event.stopPropagation();wlEditField(\'' + p.id + '\',\'unit_price\')" style="font-size:10px;color:#1D4ED8;background:none;border:none;cursor:pointer;padding:0;">✎ Rate/MT</button></td>' +
       '<td style="text-align:right;color:#D97706;"><div>' + Math.round(totalBBM).toLocaleString('id') + ' L</div><div>' + fmtRp(fuelCost) + '</div>' +
@@ -9647,6 +9656,17 @@ function toggleWLAnalisis(pid) {
       '</div>' +
       '<div id="wl-sync-result-' + pid + '" style="margin-top:10px;"></div>';
   }
+}
+
+// Tonnage on a woodlog kapal project also sets the stored operator salaries (calculated from BL),
+// so it is changed through the full edit form, not a single-field update.
+async function wlAnalisisEditTonnage(pid) {
+  const { data: p, error } = await sb.from('projects')
+    .select('*, project_units(*, units(code, name, operator_name))')
+    .eq('id', pid).single();
+  if (error || !p) { showToast('Gagal memuat proyek' + (error ? ': ' + error.message : '')); return; }
+  _wlKapalCache[pid] = p;
+  await openEditWoodlogKapalModal(pid);
 }
 
 function wlEditField(pid, field) {
