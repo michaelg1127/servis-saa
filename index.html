@@ -2940,9 +2940,9 @@ async function initSPVCatat() {
   } catch (e) {}
 }
 
-const COMMON_MAINTENANCE_TYPES = ['Air Radiator','Aki','Filter Hidrolik','Filter Oli Mesin','Filter Solar','Filter Udara','Greasing','Oli Final Drive','Oli Hidrolik','Oli Mesin','Oli Swing','Racor'];
+const COMMON_MAINTENANCE_TYPES = ['Air Radiator','Aki','Filter Hidrolik','Filter Oli Mesin','Filter Solar','Filter Udara','Greasing','Oli Final Drive','Oli Hidrolik','Oli Mesin','Oli Swing','Racor','Seal Arm','Seal Boom','Seal Bucket'];
 // Parts tracked in Riwayat Servis without an HM interval (no Jadwal Maintenance row). Michael 8 Okt 2026: track aki.
-const EXTRA_SERVICE_TYPES = ['Aki'];
+const EXTRA_SERVICE_TYPES = ['Aki', 'Seal Boom', 'Seal Arm', 'Seal Bucket']; // seal kit silinder (Michael 9 Okt 2026)
 function withExtraServiceTypes(types) { const out = types.slice(); EXTRA_SERVICE_TYPES.forEach(t => { if (out.indexOf(t) < 0) out.push(t); }); return out; }
 
 const MAINTENANCE_BUNDLES = {
