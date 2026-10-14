@@ -6648,7 +6648,7 @@ async function openEditKapalModal(id) {
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Kade</label><input type="text" id="kapal-e-kade" class="finput" value="' + (p.kade || '') + '"></div>'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Jenis Kargo</label><input type="text" id="kapal-e-cargo" class="finput" value="' + (p.cargo_type || '') + '"></div>'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Total MT/M3 *</label><input type="number" id="kapal-e-mt" class="finput" value="' + (p.total_mt_m3 || '') + '" min="0" step="0.01"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Total MT/M3</label><input type="number" id="kapal-e-mt" class="finput" value="' + (p.total_mt_m3 || '') + '" min="0" step="0.01"></div>'
     + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Harga (Rp/MT)</label><input type="number" id="kapal-e-unitprice" class="finput" value="' + (p.unit_price || '') + '" min="0"></div>'
@@ -6657,7 +6657,7 @@ async function openEditKapalModal(id) {
     + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Mulai *</label><input type="date" id="kapal-e-start" class="finput" value="' + (p.start_date || '') + '"></div>'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Selesai *</label><input type="date" id="kapal-e-end" class="finput" value="' + (p.end_date || '') + '"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Selesai</label><input type="date" id="kapal-e-end" class="finput" value="' + (p.end_date || '') + '"></div>'
     + '</div>'
     + '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Unit yang Mengerjakan (' + units.length + ' unit)</div>'
     + unitRowsHTML
@@ -6775,11 +6775,14 @@ async function _submitEditKapalInner(projId) {
   const unitPrice = parseFloat(document.getElementById('kapal-e-unitprice')?.value);
   const solarPrice = parseFloat(document.getElementById('kapal-e-solarprice')?.value) || null;
   const startDate = document.getElementById('kapal-e-start')?.value;
-  const endDate = document.getElementById('kapal-e-end')?.value;
+  const endDate = document.getElementById('kapal-e-end')?.value || null;
   const notes = document.getElementById('kapal-e-notes')?.value.trim();
   const unitCount = parseInt(document.getElementById('kapal-e-unitcount')?.value) || 0;
-  if (!totalMt || totalMt <= 0) { showToast('Total MT/M3 wajib diisi'); return; }
-  if (!startDate || !endDate) { showToast('Tanggal wajib diisi'); return; }
+  // Total MT/M3 is only known once unloading is done, so a running ship may be saved without it.
+  if (!isNaN(totalMt) && totalMt <= 0) { showToast('Total MT/M3 harus lebih dari 0'); return; }
+  // End date stays empty while the project is still running; it is filled in when it finishes.
+  if (!startDate) { showToast('Tanggal Mulai wajib diisi'); return; }
+  if (endDate && endDate < startDate) { showToast('Tgl Selesai tidak boleh sebelum Tgl Mulai'); return; }
   const existingUnits = p.project_units || [];
   const unitUpdates = [];
   for (let i = 0; i < unitCount; i++) {
@@ -6815,7 +6818,7 @@ async function _submitEditKapalInner(projId) {
   try {
     const { error: pe } = await sb.from('projects').update({
       nama_kapal: namaKapal || null, pemberi_kerja: pemberiKerja || null,
-      kade: kade || null, cargo_type: cargo || null, total_mt_m3: totalMt,
+      kade: kade || null, cargo_type: cargo || null, total_mt_m3: isNaN(totalMt) ? null : totalMt,
       unit_price: unitPrice || null, harga_solar_rpl: solarPrice,
       start_date: startDate, end_date: endDate, notes: notes || null
     }).eq('id', projId);
@@ -7002,7 +7005,7 @@ function openEditStockpileModal(id) {
     + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">'
     + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Mulai *</label><input type="date" id="stk-e-start" class="finput" value="' + (p.start_date || '') + '"></div>'
-    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Selesai *</label><input type="date" id="stk-e-end" class="finput" value="' + (p.end_date || '') + '"></div>'
+    + '<div><label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Tgl Selesai</label><input type="date" id="stk-e-end" class="finput" value="' + (p.end_date || '') + '"></div>'
     + '</div>'
     + '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Unit yang Mengerjakan (' + units.length + ' unit)</div>'
     + unitRowsHTML
@@ -7082,9 +7085,11 @@ async function _submitEditStockpileInner(projId) {
   if (!p) { showToast('Data tidak ditemukan'); return; }
   const pemberiKerja = document.getElementById('stk-e-pemberi')?.value.trim();
   const startDate = document.getElementById('stk-e-start')?.value;
-  const endDate = document.getElementById('stk-e-end')?.value;
+  const endDate = document.getElementById('stk-e-end')?.value || null;
   const unitCount = parseInt(document.getElementById('stk-e-unitcount')?.value) || 0;
-  if (!startDate || !endDate) { showToast('Tanggal wajib diisi'); return; }
+  // End date stays empty while the project is still running; it is filled in when it finishes.
+  if (!startDate) { showToast('Tanggal Mulai wajib diisi'); return; }
+  if (endDate && endDate < startDate) { showToast('Tgl Selesai tidak boleh sebelum Tgl Mulai'); return; }
   const existingUnits = p.project_units || [];
   const unitUpdates = [];
   for (let i = 0; i < unitCount; i++) {
