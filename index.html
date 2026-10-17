@@ -8473,6 +8473,21 @@ function initProyekModule() {
 // ============================================================
 const WL_BANGAU_OPS = ['Andi', 'Iman', 'Riski', 'Purwanto'];
 const WL_STD_OPS = ['Erwin', 'Uncong', 'Valdo', 'Andre', 'Alif', 'Rudianto'];
+// Monitoring spelling -> SAA name.
+const WL_NAME_ALIAS = { Rizki: 'Riski' };
+
+// STD salary per MT: Bangau operators who also ran STD trucks get Rp 200/MT, STD operators Rp 800/MT.
+function wlStdRate(op) { return WL_BANGAU_OPS.indexOf(op) !== -1 ? 200 : 800; }
+
+// Monitoring bonMuat with names mapped to SAA spelling (counts merged).
+function wlNormBon(bon) {
+  const out = {};
+  Object.keys(bon || {}).forEach(function(op) {
+    const n = WL_NAME_ALIAS[op] || op;
+    out[n] = (out[n] || 0) + Number(bon[op] || 0);
+  });
+  return out;
+}
 
 // STD tonnage per operator from Monitoring bon muat. SAA BL is always used (SAA is the source of truth).
 function wlStdTonnage(saaBl, totalRitase, bon) {
@@ -8482,11 +8497,17 @@ function wlStdTonnage(saaBl, totalRitase, bon) {
 
 // Compares one ship's saved STD rows with Monitoring. stdRows: [{operator_name, tonnage_mt}] (unit_type std only).
 function wlCompareStd(saaBl, mon, stdRows) {
-  const res = { status: 'ok', diffs: [], unknown: [], blMon: Number(mon.blQuantity || 0), blDiffers: false };
+  const res = { status: 'ok', diffs: [], rateDiffs: [], unknown: [], blMon: Number(mon.blQuantity || 0), blDiffers: false };
   res.blDiffers = res.blMon > 0 && saaBl > 0 && Math.abs(res.blMon - saaBl) > 0.005;
   const saa = {};
-  (stdRows || []).forEach(function(r) { saa[r.operator_name] = (saa[r.operator_name] || 0) + Number(r.tonnage_mt || 0); });
-  const bon = mon.bonMuat || {};
+  (stdRows || []).forEach(function(r) {
+    saa[r.operator_name] = (saa[r.operator_name] || 0) + Number(r.tonnage_mt || 0);
+    if (r.salary_amount != null) {
+      const want = Math.round(Number(r.tonnage_mt || 0) * wlStdRate(r.operator_name));
+      if (Math.abs(Number(r.salary_amount) - want) > 1) res.rateDiffs.push({ op: r.operator_name, saa: Number(r.salary_amount), want: want, rate: wlStdRate(r.operator_name) });
+    }
+  });
+  const bon = wlNormBon(mon.bonMuat);
   const exp = {};
   Object.keys(bon).forEach(function(op) {
     exp[op] = wlStdTonnage(saaBl, mon.totalRitase, bon[op]);
@@ -8498,7 +8519,7 @@ function wlCompareStd(saaBl, mon, stdRows) {
   });
   if (!mon.totalRitase) res.status = 'no_trucks';
   else if (Object.keys(saa).length === 0) res.status = 'std_missing';
-  else if (res.diffs.length > 0) res.status = 'diff';
+  else if (res.diffs.length > 0 || res.rateDiffs.length > 0) res.status = 'diff';
   return res;
 }
 
@@ -8510,7 +8531,7 @@ function wlEditStdRowHTML(op, ton, note) {
   return '<div id="wledit-std-row-' + sid + '" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
     '<span style="width:100px;font-size:13px;font-weight:600;">' + op + '</span>' +
     '<input type="number" id="wledit-std-ton-' + sid + '" data-op="' + op + '" class="finput" style="width:110px;font-size:13px;" placeholder="Tonnage MT" min="0" value="' + (ton > 0 ? ton : '') + '" oninput="wlEditSalaryPreview()">' +
-    '<span id="wledit-std-sal-' + sid + '" style="font-size:13px;font-weight:700;color:#1D4ED8;width:120px;">Rp ' + Math.round((ton || 0) * 800).toLocaleString('id') + '</span>' + tag +
+    '<span id="wledit-std-sal-' + sid + '" style="font-size:13px;font-weight:700;color:#1D4ED8;width:120px;">Rp ' + Math.round((ton || 0) * wlStdRate(op)).toLocaleString('id') + '</span>' + tag +
     '</div>';
 }
 
@@ -8867,7 +8888,7 @@ async function openEditWoodlogKapalModal(id) {
   const stdNames = WL_STD_OPS.concat(Object.keys(stdByOp).filter(function(n) { return WL_STD_OPS.indexOf(n) === -1; }));
   const stdRows = stdNames.map(function(op) {
     const existing = stdByOp[op];
-    return wlEditStdRowHTML(op, existing ? Number(existing.tonnage_mt || 0) : 0, WL_STD_OPS.indexOf(op) === -1 ? 'tambahan' : '');
+    return wlEditStdRowHTML(op, existing ? Number(existing.tonnage_mt || 0) : 0, WL_BANGAU_OPS.indexOf(op) !== -1 ? 'Bangau \u00b7 Rp 200/MT' : (WL_STD_OPS.indexOf(op) === -1 ? 'tambahan' : ''));
   }).join('');
   const modalHTML = '<div style="padding:24px;max-width:700px;width:100%;max-height:85vh;overflow-y:auto;">' +
     '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:4px;">Edit Proyek: ' + p.project_code + '</div>' +
@@ -8918,7 +8939,7 @@ function wlEditSalaryPreview() {
   wlEditStdInputs().forEach(function(inp) {
     const ton = parseFloat(inp.value) || 0;
     const salEl = document.getElementById('wledit-std-sal-' + wlSafeId(inp.dataset.op));
-    if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 800).toLocaleString('id');
+    if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * wlStdRate(inp.dataset.op)).toLocaleString('id');
   });
 }
 
@@ -8946,7 +8967,7 @@ async function wlEditSyncFromMonitoring(code) {
     if (!data.totalRitase || data.totalRitase === 0) {
       notes.push('<div style="color:#D97706;font-size:12px;">Total ritase = 0 di Monitoring, tonase STD tidak diubah.</div>');
     } else {
-      var bonMuat = data.bonMuat || {};
+      var bonMuat = wlNormBon(data.bonMuat);
       var filled = [], cleared = [], added = [], unknown = [];
       wlEditStdInputs().forEach(function(inp) {
         var op = inp.dataset.op;
@@ -8957,7 +8978,7 @@ async function wlEditSyncFromMonitoring(code) {
         var inp = document.getElementById('wledit-std-ton-' + wlSafeId(op));
         var known = WL_STD_OPS.indexOf(op) !== -1 || WL_BANGAU_OPS.indexOf(op) !== -1;
         if (!inp && known) {
-          document.getElementById('wledit-std-rows').insertAdjacentHTML('beforeend', wlEditStdRowHTML(op, 0, 'tambahan'));
+          document.getElementById('wledit-std-rows').insertAdjacentHTML('beforeend', wlEditStdRowHTML(op, 0, WL_BANGAU_OPS.indexOf(op) !== -1 ? 'Bangau \u00b7 Rp 200/MT' : 'tambahan'));
           inp = document.getElementById('wledit-std-ton-' + wlSafeId(op));
           added.push(op + ' (' + bonMuat[op] + ' bon)');
         }
@@ -9025,7 +9046,7 @@ async function submitEditWoodlogKapal(id) {
   }
   wlEditStdInputs().forEach(function(inp) {
     const ton = parseFloat(inp.value) || 0;
-    if (ton > 0) salaryInserts.push({ project_id: id, operator_name: inp.dataset.op, unit_type: 'std', tonnage_mt: ton, salary_amount: Math.round(ton * 800) });
+    if (ton > 0) salaryInserts.push({ project_id: id, operator_name: inp.dataset.op, unit_type: 'std', tonnage_mt: ton, salary_amount: Math.round(ton * wlStdRate(inp.dataset.op)) });
   });
   const newCountPre = parseInt((document.getElementById('wlen-count') || {}).value) || 0;
   let newCountAlive = 0;
@@ -9848,7 +9869,7 @@ async function wlFetchMonitoringStats(code) {
 }
 
 async function wlFetchStdRows(ids) {
-  var r = await fetchAllRows(function() { return sb.from('woodlog_operator_salary').select('id, project_id, operator_name, tonnage_mt').in('project_id', ids).eq('unit_type', 'std').order('id'); });
+  var r = await fetchAllRows(function() { return sb.from('woodlog_operator_salary').select('id, project_id, operator_name, tonnage_mt, salary_amount').in('project_id', ids).eq('unit_type', 'std').order('id'); });
   if (r.error) throw r.error;
   var by = {};
   (r.data || []).forEach(function(s) { (by[s.project_id] = by[s.project_id] || []).push(s); });
@@ -9860,12 +9881,15 @@ function wlCompareSummaryHTML(cmp) {
   if (cmp.status === 'ok') parts.push('<span style="color:#16A34A;font-weight:700;">\u2713 Sama</span>');
   if (cmp.status === 'no_trucks') parts.push('<span style="color:#94A3B8;">Belum ada bon muat di Monitoring</span>');
   if (cmp.status === 'std_missing') parts.push('<span style="color:#DC2626;font-weight:700;">STD belum diisi</span>');
-  if (cmp.status === 'diff') parts.push('<span style="color:#DC2626;font-weight:700;">Tonase berbeda</span>');
+  if (cmp.status === 'diff' && cmp.diffs.length) parts.push('<span style="color:#DC2626;font-weight:700;">Tonase berbeda</span>');
+  if (cmp.rateDiffs.length) parts.push('<span style="color:#DC2626;font-weight:700;">Gaji tidak sesuai tarif</span>');
   if (cmp.unknown.length) parts.push('<span style="color:#DC2626;font-weight:700;">Nama tidak dikenal: ' + cmp.unknown.join(', ') + '</span>');
   if (cmp.blDiffers) parts.push('<span style="color:#D97706;">BL Monitoring ' + cmp.blMon.toLocaleString('id') + ' (dipakai BL SAA)</span>');
   var detail = cmp.diffs.map(function(d) {
     return d.op + ': SAA ' + d.saa.toFixed(2) + ' \u2192 Monitoring ' + d.mon.toFixed(2) + ' MT (' + d.bon + ' bon)';
-  }).join('<br>');
+  }).concat(cmp.rateDiffs.map(function(d) {
+    return d.op + ': gaji Rp ' + d.saa.toLocaleString('id') + ' \u2192 Rp ' + d.want.toLocaleString('id') + ' (Rp ' + d.rate + '/MT)';
+  })).join('<br>');
   return parts.join(' \u00b7 ') + (detail && cmp.status !== 'no_trucks' ? '<div style="font-size:11px;color:#64748B;margin-top:2px;">' + detail + '</div>' : '');
 }
 
@@ -9921,7 +9945,7 @@ async function wlCekVsMonitoring() {
     out.innerHTML = '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="font-size:13px;font-weight:800;color:#1E293B;">Cek STD vs Woodlog Monitoring \u00b7 ' + (ships.length - flagged) + ' sama, ' + flagged + ' perlu dicek</div>' +
       '<button onclick="document.getElementById(\'wl-cek-mon-result\').innerHTML=\'\'" style="font-size:12px;color:#64748B;background:none;border:none;cursor:pointer;">Tutup</button></div>' +
-      '<div style="font-size:11px;color:#64748B;margin-bottom:8px;">Tonase STD = BL SAA \u00d7 0,95 \u00f7 total ritase \u00d7 bon operator. Perbaiki lewat \u270e Tonnage \u2192 \u21bb Sync \u2192 Simpan Perubahan.</div>' +
+      '<div style="font-size:11px;color:#64748B;margin-bottom:8px;">Tonase STD = BL SAA \u00d7 0,95 \u00f7 total ritase \u00d7 bon operator. Gaji = tonase \u00d7 Rp 800/MT (operator Bangau Rp 200/MT). Perbaiki lewat \u270e Tonnage \u2192 \u21bb Sync \u2192 Simpan Perubahan.</div>' +
       '<div class="table-wrap"><table class="dt"><thead><tr><th>Kode</th><th>Kapal</th><th>Hasil</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div></div>';
   } catch(e) {
     out.innerHTML = '<div style="color:#EF4444;font-size:12px;">Gagal: ' + e.message + '</div>';

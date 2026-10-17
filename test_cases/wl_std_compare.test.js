@@ -39,8 +39,25 @@ const k1001 = { blQuantity: 9784.07, totalRitase: 386, bonMuat: { Andre: 95, Unc
 const r1001 = ctx.wlCompareStd(9784.07, k1001, std({ Alif: 2191.28, Andre: 2287.6, Erwin: 1695.2, Rudianto: 2377.68, Uncong: 2335.76, Valdo: 2480.24 }));
 eq('K10-01: only Erwin + Rudianto differ', r1001.diffs.map(function(d) { return d.op + ':' + d.mon; }), ['Erwin:0', 'Rudianto:0']);
 
-// Unknown spelling (Monitoring "Rizki", SAA "Riski") is reported, not silently dropped.
-eq('Rizki reported as unknown', ctx.wlCompareStd(10286.7, { blQuantity: 10286.7, totalRitase: 10, bonMuat: { Rizki: 5, Erwin: 5 } }, std({ Erwin: 4886.18 })).unknown, ['Rizki']);
+// Monitoring "Rizki" is SAA "Riski" (confirmed by Michael 17/10).
+const k0905 = { blQuantity: 10286.7, totalRitase: 383, bonMuat: { Andre: 21, Uncong: 67, Valdo: 84, Andi: 23, Rizki: 22, Erwin: 81, Rudianto: 85 } };
+const r0905 = ctx.wlCompareStd(10286.7, k0905, std({ Andre: 688.66, Erwin: 2065.97, Rudianto: 2000.38, Uncong: 1574.07, Valdo: 1967.59 }));
+eq('K09-05: Rizki is not unknown', r0905.unknown, []);
+eq('K09-05: Riski expected 22 bon', r0905.diffs.filter(function(d) { return d.op === 'Riski'; }).map(function(d) { return [d.mon, d.bon]; }), [[561.34, 22]]);
+eq('Unknown spelling still reported', ctx.wlCompareStd(5000, { blQuantity: 5000, totalRitase: 10, bonMuat: { Rizqi: 5, Erwin: 5 } }, std({ Erwin: 2375 })).unknown, ['Rizqi']);
+
+// Salary rate: STD operators Rp 800/MT, Bangau operators on bon muat Rp 200/MT.
+eq('Rate Erwin 800', ctx.wlStdRate('Erwin'), 800);
+eq('Rate Andi 200', ctx.wlStdRate('Andi'), 200);
+eq('Rate Riski 200', ctx.wlStdRate('Riski'), 200);
+// K08-01 was saved before 03/09 at ton x 0.95 x 800 (= 760/MT): flagged even though tonnage is close.
+const rows0801 = [{ operator_name: 'Erwin', tonnage_mt: 2033.73, salary_amount: 1545635 }, { operator_name: 'Uncong', tonnage_mt: 2058.83, salary_amount: 1647064 }];
+const k0801b = { blQuantity: 8851, totalRitase: 329, bonMuat: { Erwin: 81, Uncong: 82 } };
+const rr = ctx.wlCompareStd(8695.2 * 163 / 329, k0801b, rows0801);
+eq('Old 760/MT rate flagged', rr.rateDiffs.map(function(d) { return d.op + ':' + d.want; }), ['Erwin:1626984']);
+eq('Rate mismatch makes status diff', rr.status, 'diff');
+eq('Andi STD row at 200/MT ok', ctx.wlCompareStd(9117.83, { blQuantity: 9117.83, totalRitase: 441, bonMuat: { Andi: 59 } }, [{ operator_name: 'Andi', tonnage_mt: 1158.85, salary_amount: 231770 }]).status, 'ok');
+eq('Andi STD row at 800/MT flagged', ctx.wlCompareStd(9117.83, { blQuantity: 9117.83, totalRitase: 441, bonMuat: { Andi: 59 } }, [{ operator_name: 'Andi', tonnage_mt: 1158.85, salary_amount: 927080 }]).rateDiffs.length, 1);
 
 // No trucks yet in Monitoring.
 eq('No trucks -> no_trucks', ctx.wlCompareStd(5000, { blQuantity: 5000, totalRitase: 0, bonMuat: {} }, []).status, 'no_trucks');
