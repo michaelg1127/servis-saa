@@ -8473,6 +8473,50 @@ function initProyekModule() {
 // ============================================================
 const WL_BANGAU_OPS = ['Andi', 'Iman', 'Riski', 'Purwanto'];
 const WL_STD_OPS = ['Erwin', 'Uncong', 'Valdo', 'Andre', 'Alif', 'Rudianto'];
+
+// STD tonnage per operator from Monitoring bon muat. SAA BL is always used (SAA is the source of truth).
+function wlStdTonnage(saaBl, totalRitase, bon) {
+  if (!saaBl || !totalRitase) return 0;
+  return Math.round((saaBl * 0.95 / totalRitase) * bon * 100) / 100;
+}
+
+// Compares one ship's saved STD rows with Monitoring. stdRows: [{operator_name, tonnage_mt}] (unit_type std only).
+function wlCompareStd(saaBl, mon, stdRows) {
+  const res = { status: 'ok', diffs: [], unknown: [], blMon: Number(mon.blQuantity || 0), blDiffers: false };
+  res.blDiffers = res.blMon > 0 && saaBl > 0 && Math.abs(res.blMon - saaBl) > 0.005;
+  const saa = {};
+  (stdRows || []).forEach(function(r) { saa[r.operator_name] = (saa[r.operator_name] || 0) + Number(r.tonnage_mt || 0); });
+  const bon = mon.bonMuat || {};
+  const exp = {};
+  Object.keys(bon).forEach(function(op) {
+    exp[op] = wlStdTonnage(saaBl, mon.totalRitase, bon[op]);
+    if (WL_STD_OPS.indexOf(op) === -1 && WL_BANGAU_OPS.indexOf(op) === -1) res.unknown.push(op);
+  });
+  Object.keys(Object.assign({}, exp, saa)).sort().forEach(function(op) {
+    const a = Math.round((saa[op] || 0) * 100) / 100, b = exp[op] || 0;
+    if (Math.abs(a - b) > 0.05) res.diffs.push({ op: op, saa: a, mon: b, bon: bon[op] || 0 });
+  });
+  if (!mon.totalRitase) res.status = 'no_trucks';
+  else if (Object.keys(saa).length === 0) res.status = 'std_missing';
+  else if (res.diffs.length > 0) res.status = 'diff';
+  return res;
+}
+
+function wlSafeId(op) { return String(op).replace(/[^a-zA-Z0-9]/g, '_'); }
+
+function wlEditStdRowHTML(op, ton, note) {
+  const sid = wlSafeId(op);
+  const tag = note ? '<span style="font-size:10px;color:#B45309;font-weight:700;">' + note + '</span>' : '';
+  return '<div id="wledit-std-row-' + sid + '" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
+    '<span style="width:100px;font-size:13px;font-weight:600;">' + op + '</span>' +
+    '<input type="number" id="wledit-std-ton-' + sid + '" data-op="' + op + '" class="finput" style="width:110px;font-size:13px;" placeholder="Tonnage MT" min="0" value="' + (ton > 0 ? ton : '') + '" oninput="wlEditSalaryPreview()">' +
+    '<span id="wledit-std-sal-' + sid + '" style="font-size:13px;font-weight:700;color:#1D4ED8;width:120px;">Rp ' + Math.round((ton || 0) * 800).toLocaleString('id') + '</span>' + tag +
+    '</div>';
+}
+
+function wlEditStdInputs() {
+  return Array.prototype.slice.call(document.querySelectorAll('#wledit-std-rows input[data-op]'));
+}
 const WL_BANGAU_CODES = ['J02', 'J03'];
 const WL_STD_CODES = ['J45', 'J46', 'J47', 'J48'];
 const WL_ALL_CODES = ['J02', 'J03', 'J45', 'J46', 'J47', 'J48'];
@@ -8809,8 +8853,10 @@ async function openEditWoodlogKapalModal(id) {
   }).join('');
   // Existing salary rows for STD pre-fill
   const { data: existingSals } = await sb.from('woodlog_operator_salary').select('*').eq('project_id', id);
-  const salByOp = {};
-  (existingSals || []).forEach(function(s) { salByOp[s.operator_name] = s; });
+  const salByOp = {}, stdByOp = {};
+  (existingSals || []).forEach(function(s) {
+    if (s.unit_type === 'std') stdByOp[s.operator_name] = s; else salByOp[s.operator_name] = s;
+  });
   const bangauRows = WL_BANGAU_OPS.map(function(op) {
     const existing = salByOp[op];
     return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
@@ -8818,14 +8864,10 @@ async function openEditWoodlogKapalModal(id) {
       '<span id="wledit-bang-sal-' + op + '" style="font-size:13px;font-weight:700;color:#1D4ED8;">Rp ' + (existing ? Number(existing.salary_amount).toLocaleString('id') : '0') + '</span>' +
       '</div>';
   }).join('');
-  const stdRows = WL_STD_OPS.map(function(op) {
-    const existing = salByOp[op];
-    const existingTon = existing ? Number(existing.tonnage_mt || 0) : 0;
-    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
-      '<span style="width:100px;font-size:13px;font-weight:600;">' + op + '</span>' +
-      '<input type="number" id="wledit-std-ton-' + op + '" class="finput" style="width:110px;font-size:13px;" placeholder="Tonnage MT" min="0" value="' + (existingTon > 0 ? existingTon : '') + '" oninput="wlEditSalaryPreview()">' +
-      '<span id="wledit-std-sal-' + op + '" style="font-size:13px;font-weight:700;color:#1D4ED8;width:120px;">Rp ' + (existing ? Number(existing.salary_amount).toLocaleString('id') : '0') + '</span>' +
-      '</div>';
+  const stdNames = WL_STD_OPS.concat(Object.keys(stdByOp).filter(function(n) { return WL_STD_OPS.indexOf(n) === -1; }));
+  const stdRows = stdNames.map(function(op) {
+    const existing = stdByOp[op];
+    return wlEditStdRowHTML(op, existing ? Number(existing.tonnage_mt || 0) : 0, WL_STD_OPS.indexOf(op) === -1 ? 'tambahan' : '');
   }).join('');
   const modalHTML = '<div style="padding:24px;max-width:700px;width:100%;max-height:85vh;overflow-y:auto;">' +
     '<div style="font-size:18px;font-weight:800;color:#1E293B;margin-bottom:4px;">Edit Proyek: ' + p.project_code + '</div>' +
@@ -8855,12 +8897,13 @@ async function openEditWoodlogKapalModal(id) {
     '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Salary Bangau (J02/J03) — auto dari BL</div>' +
     '<div style="background:#EFF6FF;border-radius:10px;padding:12px;margin-bottom:16px;">' + bangauRows + '</div>' +
     '<div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:8px;">Salary STD (J45–J48) — input tonnage</div>' +
-    '<div style="background:#F0FDF4;border-radius:10px;padding:12px;margin-bottom:16px;">' + stdRows + '</div>' +
+    '<div id="wledit-std-rows" style="background:#F0FDF4;border-radius:10px;padding:12px;margin-bottom:16px;">' + stdRows + '</div>' +
     '<div style="display:flex;gap:12px;margin-top:16px;">' +
     '<button onclick="closeModal()" class="btn-secondary" style="flex:1;">Batal</button>' +
     '<button onclick="submitEditWoodlogKapal(\'' + id + '\')" class="btn-primary" style="flex:2;">Simpan Perubahan</button>' +
     '</div></div>';
   document.getElementById('modal-box').innerHTML = modalHTML;
+  document.getElementById('modal-box').dataset.wlEditCode = p.project_code || '';
   document.getElementById('modal-overlay').style.display = 'flex';
   wlEditSalaryPreview();
 }
@@ -8872,10 +8915,9 @@ function wlEditSalaryPreview() {
     const el = document.getElementById('wledit-bang-sal-' + op);
     if (el) el.textContent = 'Rp ' + bangauSal.toLocaleString('id');
   });
-  WL_STD_OPS.forEach(function(op) {
-    const inp = document.getElementById('wledit-std-ton-' + op);
-    const ton = parseFloat(inp ? inp.value : '') || 0;
-    const salEl = document.getElementById('wledit-std-sal-' + op);
+  wlEditStdInputs().forEach(function(inp) {
+    const ton = parseFloat(inp.value) || 0;
+    const salEl = document.getElementById('wledit-std-sal-' + wlSafeId(inp.dataset.op));
     if (salEl) salEl.textContent = 'Rp ' + Math.round(ton * 800).toLocaleString('id');
   });
 }
@@ -8885,42 +8927,48 @@ async function wlEditSyncFromMonitoring(code) {
   var resultDiv = document.getElementById('wledit-sync-result');
   if (!resultDiv) return;
   if (!code) { resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;">Kode proyek tidak tersedia.</div>'; return; }
+  var blInput = document.getElementById('wledit-bl');
+  var saaBl = parseFloat(blInput ? blInput.value : '') || 0;
+  if (!(saaBl > 0)) { resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;">Isi BL Tonnage dulu. Tonase STD dihitung dari BL SAA.</div>'; return; }
   if (btn) { btn.textContent = 'Memuat...'; btn.disabled = true; }
   try {
     var res = await fetch('https://woodlog-monitoring.vercel.app/api/project-stats?code=' + encodeURIComponent(code));
     if (!res.ok) {
-      if (res.status === 404) throw new Error('Kode ' + code + ' tidak ditemukan di Woodlog Monitoring. Pastikan kode proyek sudah diisi di sana.');
+      if (res.status === 404) throw new Error('Kode ' + code + ' belum ada di Woodlog Monitoring. Tonase STD belum bisa diisi; sync lagi setelah bon muat diinput di Monitoring.');
       throw new Error('Error ' + res.status + ' dari Woodlog Monitoring.');
     }
     var data = await res.json();
-    var bl = Number(data.blQuantity || 0);
+    var modalBox = document.getElementById('modal-box');
+    if (!modalBox || modalBox.dataset.wlEditCode !== code) return; // modal switched to another ship while loading
     var notes = [];
-    var blInput = document.getElementById('wledit-bl');
-    if (bl > 0 && blInput) {
-      var oldBl = parseFloat(blInput.value) || 0;
-      if (oldBl > 0 && oldBl !== bl) notes.push('<div style="color:#D97706;font-size:12px;">BL diganti: ' + oldBl.toLocaleString('id') + ' \u2192 ' + bl.toLocaleString('id') + ' MT</div>');
-      blInput.value = bl;
-    }
+    var monBl = Number(data.blQuantity || 0);
+    if (monBl > 0 && Math.abs(monBl - saaBl) > 0.005) notes.push('<div style="color:#D97706;font-size:12px;">BL Monitoring ' + monBl.toLocaleString('id') + ' MT berbeda; dipakai BL SAA ' + saaBl.toLocaleString('id') + ' MT.</div>');
     if (!data.totalRitase || data.totalRitase === 0) {
-      notes.push('<div style="color:#D97706;font-size:12px;">Total ritase = 0, tonase STD tidak dihitung.</div>');
+      notes.push('<div style="color:#D97706;font-size:12px;">Total ritase = 0 di Monitoring, tonase STD tidak diubah.</div>');
     } else {
-      var tpr = (bl * 0.95) / data.totalRitase;
       var bonMuat = data.bonMuat || {};
-      var skipped = [];
-      var filled = [];
-      Object.keys(bonMuat).forEach(function(op) {
-        var inp = document.getElementById('wledit-std-ton-' + op);
-        if (inp) {
-          var ton = Math.round(tpr * bonMuat[op] * 100) / 100;
-          inp.value = ton;
-          filled.push(op + ': ' + bonMuat[op] + ' bon \u2192 ' + ton.toFixed(2) + ' MT');
-        } else if (WL_BANGAU_OPS.indexOf(op) === -1) {
-          skipped.push(op);
-        }
+      var filled = [], cleared = [], added = [], unknown = [];
+      wlEditStdInputs().forEach(function(inp) {
+        var op = inp.dataset.op;
+        if (bonMuat[op] == null && (parseFloat(inp.value) || 0) > 0) { inp.value = ''; cleared.push(op); }
       });
-      notes.push('<div style="color:#64748B;font-size:12px;margin-bottom:4px;">Ritase: <strong>' + data.totalRitase.toLocaleString('id') + '</strong> \u00b7 Tonase/Ritase: <strong>' + tpr.toFixed(2) + ' MT</strong></div>');
+      Object.keys(bonMuat).forEach(function(op) {
+        var ton = wlStdTonnage(saaBl, data.totalRitase, bonMuat[op]);
+        var inp = document.getElementById('wledit-std-ton-' + wlSafeId(op));
+        var known = WL_STD_OPS.indexOf(op) !== -1 || WL_BANGAU_OPS.indexOf(op) !== -1;
+        if (!inp && known) {
+          document.getElementById('wledit-std-rows').insertAdjacentHTML('beforeend', wlEditStdRowHTML(op, 0, 'tambahan'));
+          inp = document.getElementById('wledit-std-ton-' + wlSafeId(op));
+          added.push(op + ' (' + bonMuat[op] + ' bon)');
+        }
+        if (inp) { inp.value = ton; filled.push(op + ': ' + bonMuat[op] + ' bon \u2192 ' + ton.toFixed(2) + ' MT'); }
+        else unknown.push(op + ' (' + bonMuat[op] + ' bon = ' + ton.toFixed(2) + ' MT)');
+      });
+      notes.push('<div style="color:#64748B;font-size:12px;margin-bottom:4px;">Ritase: <strong>' + data.totalRitase.toLocaleString('id') + '</strong> \u00b7 Tonase/Ritase: <strong>' + (saaBl * 0.95 / data.totalRitase).toFixed(2) + ' MT</strong> (BL SAA)</div>');
       if (filled.length) notes.push('<div style="color:#16A34A;font-size:12px;">' + filled.join(' \u00b7 ') + '</div>');
-      if (skipped.length) notes.push('<div style="color:#D97706;font-size:12px;">Dilewati (bukan operator STD): ' + skipped.join(', ') + '</div>');
+      if (added.length) notes.push('<div style="color:#B45309;font-size:12px;font-weight:700;">Operator Bangau dengan bon STD, ditambahkan: ' + added.join(', ') + '</div>');
+      if (cleared.length) notes.push('<div style="color:#B45309;font-size:12px;font-weight:700;">Dikosongkan (tidak ada bon di Monitoring untuk kapal ini): ' + cleared.join(', ') + '</div>');
+      if (unknown.length) notes.push('<div style="color:#DC2626;font-size:12px;font-weight:700;">\u26a0 Nama tidak dikenal di SAA, TIDAK disimpan: ' + unknown.join(', ') + '. Samakan ejaan nama di Monitoring.</div>');
     }
     wlEditSalaryPreview();
     resultDiv.innerHTML = notes.join('');
@@ -8975,10 +9023,9 @@ async function submitEditWoodlogKapal(id) {
       salaryInserts.push({ project_id: id, operator_name: op, unit_type: 'bangau', tonnage_mt: bl4, salary_amount: bangauSal });
     });
   }
-  WL_STD_OPS.forEach(function(op) {
-    const inp = document.getElementById('wledit-std-ton-' + op);
-    const ton = parseFloat(inp ? inp.value : '') || 0;
-    if (ton > 0) salaryInserts.push({ project_id: id, operator_name: op, unit_type: 'std', tonnage_mt: ton, salary_amount: Math.round(ton * 800) });
+  wlEditStdInputs().forEach(function(inp) {
+    const ton = parseFloat(inp.value) || 0;
+    if (ton > 0) salaryInserts.push({ project_id: id, operator_name: inp.dataset.op, unit_type: 'std', tonnage_mt: ton, salary_amount: Math.round(ton * 800) });
   });
   const newCountPre = parseInt((document.getElementById('wlen-count') || {}).value) || 0;
   let newCountAlive = 0;
@@ -9661,7 +9708,9 @@ function renderWoodlogAnalisis(projects, salMap, salDetail, fillMap) {
       '</td></tr>';
   }).join('');
   el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="font-size:12px;color:#94A3B8;">Klik baris untuk lihat breakdown · ✎ untuk edit</div>' +
-    '<button onclick="downloadWoodlogAnalisisCSV()" style="padding:6px 14px;border-radius:8px;border:1px solid #16A34A;background:#F0FDF4;color:#16A34A;cursor:pointer;font-size:13px;font-weight:700;">⬇ Download CSV</button></div>' +
+    '<div style="display:flex;gap:8px;"><button id="wl-cek-mon-btn" onclick="wlCekVsMonitoring()" style="padding:6px 14px;border-radius:8px;border:1px solid #1D4ED8;background:#EFF6FF;color:#1D4ED8;cursor:pointer;font-size:13px;font-weight:700;">↻ Cek vs Monitoring</button>' +
+    '<button onclick="downloadWoodlogAnalisisCSV()" style="padding:6px 14px;border-radius:8px;border:1px solid #16A34A;background:#F0FDF4;color:#16A34A;cursor:pointer;font-size:13px;font-weight:700;">⬇ Download CSV</button></div></div>' +
+    '<div id="wl-cek-mon-result" style="margin-bottom:12px;"></div>' +
     '<div class="table-wrap"><table class="dt"><thead><tr>' +
     '<th>Kode</th><th>Kapal</th><th>Selesai / Tonnage</th>' +
     '<th style="text-align:right;">Income</th>' +
@@ -9720,7 +9769,7 @@ function toggleWLAnalisis(pid) {
       '<tbody>' + (opRows || '<tr><td colspan="3" style="color:#94A3B8;font-size:12px;">Belum ada data salary.</td></tr>') + '</tbody></table></div>' +
       '</div>' +
       '<div style="margin-top:14px;border-top:1px solid #E2E8F0;padding-top:12px;">' +
-      '<button onclick="wlSyncFromMonitoring(\'' + pid + '\')" id="wl-sync-btn-' + pid + '" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;">↻ Sync dari Woodlog Monitoring</button>' +
+      '<button onclick="wlSyncFromMonitoring(\'' + pid + '\')" id="wl-sync-btn-' + pid + '" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;">↻ Cek vs Woodlog Monitoring</button>' +
       '</div>' +
       '<div id="wl-sync-result-' + pid + '" style="margin-top:10px;"></div>';
   }
@@ -9791,124 +9840,93 @@ function wlOpenInvoiceModal(pid) {
   document.getElementById('modal-overlay').style.display = 'flex';
 }
 
+async function wlFetchMonitoringStats(code) {
+  var res = await fetch('https://woodlog-monitoring.vercel.app/api/project-stats?code=' + encodeURIComponent(code));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('Error ' + res.status + ' dari Woodlog Monitoring');
+  return res.json();
+}
+
+async function wlFetchStdRows(ids) {
+  var r = await fetchAllRows(function() { return sb.from('woodlog_operator_salary').select('id, project_id, operator_name, tonnage_mt').in('project_id', ids).eq('unit_type', 'std').order('id'); });
+  if (r.error) throw r.error;
+  var by = {};
+  (r.data || []).forEach(function(s) { (by[s.project_id] = by[s.project_id] || []).push(s); });
+  return by;
+}
+
+function wlCompareSummaryHTML(cmp) {
+  var parts = [];
+  if (cmp.status === 'ok') parts.push('<span style="color:#16A34A;font-weight:700;">\u2713 Sama</span>');
+  if (cmp.status === 'no_trucks') parts.push('<span style="color:#94A3B8;">Belum ada bon muat di Monitoring</span>');
+  if (cmp.status === 'std_missing') parts.push('<span style="color:#DC2626;font-weight:700;">STD belum diisi</span>');
+  if (cmp.status === 'diff') parts.push('<span style="color:#DC2626;font-weight:700;">Tonase berbeda</span>');
+  if (cmp.unknown.length) parts.push('<span style="color:#DC2626;font-weight:700;">Nama tidak dikenal: ' + cmp.unknown.join(', ') + '</span>');
+  if (cmp.blDiffers) parts.push('<span style="color:#D97706;">BL Monitoring ' + cmp.blMon.toLocaleString('id') + ' (dipakai BL SAA)</span>');
+  var detail = cmp.diffs.map(function(d) {
+    return d.op + ': SAA ' + d.saa.toFixed(2) + ' \u2192 Monitoring ' + d.mon.toFixed(2) + ' MT (' + d.bon + ' bon)';
+  }).join('<br>');
+  return parts.join(' \u00b7 ') + (detail && cmp.status !== 'no_trucks' ? '<div style="font-size:11px;color:#64748B;margin-top:2px;">' + detail + '</div>' : '');
+}
+
+// View-only: compares this ship's saved STD rows with Monitoring. Saving happens in Edit Kapal.
 async function wlSyncFromMonitoring(pid) {
   var btn = document.getElementById('wl-sync-btn-' + pid);
   var resultDiv = document.getElementById('wl-sync-result-' + pid);
   if (!resultDiv) return;
   var el = document.getElementById('wl-panel-analisis');
-  var projects = (el && el._wlaProjects) || [];
-  var p = projects.find(function(x) { return x.id === pid; });
-  if (!p || !p.project_code) {
-    resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;padding:8px;">Kode proyek tidak tersedia di SERVIS SAA.</div>';
-    return;
-  }
+  var p = ((el && el._wlaProjects) || []).find(function(x) { return x.id === pid; });
+  if (!p || !p.project_code) { resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;padding:8px;">Kode proyek tidak tersedia di SERVIS SAA.</div>'; return; }
   if (btn) { btn.textContent = 'Memuat...'; btn.disabled = true; }
   try {
-    var res = await fetch('https://woodlog-monitoring.vercel.app/api/project-stats?code=' + encodeURIComponent(p.project_code));
-    if (!res.ok) {
-      if (res.status === 404) throw new Error('Kode ' + p.project_code + ' tidak ditemukan di Woodlog Monitoring. Pastikan kode proyek sudah diisi di sana.');
-      throw new Error('Error ' + res.status + ' dari Woodlog Monitoring.');
-    }
-    var data = await res.json();
-    var salDetail = ((el && el._wlaSalDetail) || {})[pid] || [];
-    wlRenderSyncTable(pid, data, salDetail, Number(data.blQuantity || p.total_mt_m3 || 0), Number(p.unit_price || 0));
+    var mon = await wlFetchMonitoringStats(p.project_code);
+    if (!mon) throw new Error('Kode ' + p.project_code + ' belum ada di Woodlog Monitoring.');
+    var std = await wlFetchStdRows([pid]);
+    var cmp = wlCompareStd(Number(p.total_mt_m3 || 0), mon, std[pid] || []);
+    resultDiv.innerHTML = '<div style="font-size:12px;">' + wlCompareSummaryHTML(cmp) + '</div>' +
+      (cmp.status === 'ok' ? '' : '<div style="font-size:11px;color:#64748B;margin-top:6px;">Perbaiki lewat \u270e Tonnage \u2192 \u21bb Sync dari Woodlog Monitoring \u2192 Simpan Perubahan.</div>');
   } catch(e) {
     resultDiv.innerHTML = '<div style="color:#EF4444;font-size:12px;padding:8px;">' + e.message + '</div>';
   } finally {
-    if (btn) { btn.textContent = '↻ Sync dari Woodlog Monitoring'; btn.disabled = false; }
+    if (btn) { btn.textContent = '\u21bb Cek vs Woodlog Monitoring'; btn.disabled = false; }
   }
 }
 
-function wlRenderSyncTable(pid, data, salDetail, totalMt, unitPrice) {
-  var resultDiv = document.getElementById('wl-sync-result-' + pid);
-  if (!resultDiv) return;
-  var fmtRp = function(v) { return 'Rp ' + Math.round(v).toLocaleString('id'); };
-  var fmtMT = function(v) { return v.toFixed(2) + ' MT'; };
-  if (!data.totalRitase || data.totalRitase === 0) {
-    resultDiv.innerHTML = '<div style="color:#D97706;font-size:12px;padding:8px;">Total ritase = 0, tidak bisa menghitung tonnage.</div>';
-    return;
-  }
-  var tpr = (totalMt * 0.95) / data.totalRitase;
-  var salMap = {};
-  salDetail.forEach(function(s) { salMap[s.name] = s.amount; });
-  var ops = Object.keys(data.bonMuat);
-  var safePid = pid.replace(/[^a-zA-Z0-9]/g, '_');
-  var rows = ops.map(function(op) {
-    var bonCount = data.bonMuat[op];
-    var tonnage = tpr * bonCount;
-    var currentSal = salMap[op] || 0;
-    var suggestedSal = unitPrice > 0 ? Math.round(tonnage * unitPrice) : 0;
-    var defaultSal = currentSal > 0 ? currentSal : suggestedSal;
-    var safeOp = op.replace(/[^a-zA-Z0-9]/g, '_');
-    return '<tr style="border-bottom:1px solid #E2E8F0;">' +
-      '<td style="padding:6px 8px;font-weight:600;">' + op + '</td>' +
-      '<td style="padding:6px 8px;text-align:right;">' + bonCount.toLocaleString('id') + '</td>' +
-      '<td style="padding:6px 8px;text-align:right;color:#7C3AED;">' + fmtMT(tonnage) + '</td>' +
-      '<td style="padding:6px 8px;text-align:right;color:#94A3B8;">' + fmtRp(currentSal) + '</td>' +
-      '<td style="padding:6px 8px;"><input type="number" id="wlss-' + safePid + '-' + safeOp + '" data-op="' + op + '" class="finput" style="width:130px;" value="' + defaultSal + '" min="0" placeholder="0"></td>' +
-      '</tr>';
-  }).join('');
-  var blMonitoring = Number(data.blQuantity || 0);
-  var blSaa = Number(totalMt || 0);
-  var blMatch = blMonitoring > 0 && blSaa > 0 && blMonitoring === blSaa;
-  var blDiff = blMonitoring > 0 && blSaa > 0 && !blMatch;
-  var blMonitoringStr = blMonitoring > 0 ? blMonitoring.toLocaleString('id') + ' MT' : '—';
-  var blSaaStr = blSaa > 0 ? blSaa.toLocaleString('id') + ' MT' : '—';
-  var blStatusBadge = blMatch
-    ? '<span style="color:#16A34A;font-weight:700;">✓ sama</span>'
-    : (blDiff ? '<span style="color:#DC2626;font-weight:700;">⚠ berbeda</span>' : '');
-  resultDiv._syncOps = ops;
-  resultDiv._syncPid = pid;
-  resultDiv.innerHTML =
-    '<div style="margin-bottom:6px;font-size:12px;color:#64748B;">' +
-    'Total Ritase: <strong>' + data.totalRitase.toLocaleString('id') + '</strong> &nbsp;·&nbsp; ' +
-    'Tonnage/Ritase: <strong>' + fmtMT(tpr) + '</strong></div>' +
-    '<div style="margin-bottom:10px;font-size:12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:6px 10px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">' +
-    '<span>BL Monitoring: <strong>' + blMonitoringStr + '</strong></span>' +
-    '<span style="color:#CBD5E1;">|</span>' +
-    '<span>BL SAA: <strong>' + blSaaStr + '</strong></span>' +
-    (blStatusBadge ? '<span>' + blStatusBadge + '</span>' : '') +
-    '</div>' +
-    '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">' +
-    '<thead><tr style="background:#EFF6FF;">' +
-    '<th style="padding:6px 8px;text-align:left;">Operator</th>' +
-    '<th style="padding:6px 8px;text-align:right;">Bon Muat</th>' +
-    '<th style="padding:6px 8px;text-align:right;">Tonase</th>' +
-    '<th style="padding:6px 8px;text-align:right;">Gaji Saat Ini</th>' +
-    '<th style="padding:6px 8px;text-align:left;">Gaji Baru</th>' +
-    '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
-    '<div style="margin-top:10px;">' +
-    '<button onclick="wlSaveSyncSalary(\'' + pid + '\')" class="btn-primary" style="font-size:12px;padding:7px 16px;">Simpan Gaji</button>' +
-    '</div>';
-}
-
-async function wlSaveSyncSalary(pid) {
-  var resultDiv = document.getElementById('wl-sync-result-' + pid);
-  var ops = resultDiv ? resultDiv._syncOps : null;
-  if (!ops || !ops.length) return;
-  var saveBtn = resultDiv ? resultDiv.querySelector('button') : null;
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Menyimpan...'; }
-  var safePid = pid.replace(/[^a-zA-Z0-9]/g, '_');
-  var inserts = ops.map(function(op) {
-    var safeOp = op.replace(/[^a-zA-Z0-9]/g, '_');
-    var input = document.getElementById('wlss-' + safePid + '-' + safeOp);
-    var amount = parseFloat((input || {}).value) || 0;
-    return { project_id: pid, operator_name: op, salary_amount: amount, paid_batch: null };
-  });
+async function wlCekVsMonitoring() {
+  var el = document.getElementById('wl-panel-analisis');
+  var out = document.getElementById('wl-cek-mon-result');
+  var btn = document.getElementById('wl-cek-mon-btn');
+  if (!el || !out) return;
+  var ships = ((el._wlaProjects) || []).filter(function(p) { return p.type === 'woodlog_kapal' && p.project_code; });
+  if (!ships.length) { out.innerHTML = ''; return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Memeriksa...'; }
   try {
-    var { error: delErr } = await sb.from('woodlog_operator_salary')
-      .delete().eq('project_id', pid).is('paid_batch', null);
-    if (delErr) throw delErr;
-    if (inserts.length > 0) {
-      var { error: insErr } = await sb.from('woodlog_operator_salary').insert(inserts);
-      if (insErr) throw insErr;
+    var std = await wlFetchStdRows(ships.map(function(p) { return p.id; }));
+    var rows = [], flagged = 0;
+    for (var i = 0; i < ships.length; i++) {
+      var p = ships[i], cell;
+      out.innerHTML = '<div style="font-size:12px;color:#64748B;">Memeriksa ' + (i + 1) + ' / ' + ships.length + '...</div>';
+      try {
+        var mon = await wlFetchMonitoringStats(p.project_code);
+        if (!mon) { cell = '<span style="color:#DC2626;font-weight:700;">Belum ada di Monitoring</span>'; flagged++; }
+        else {
+          var cmp = wlCompareStd(Number(p.total_mt_m3 || 0), mon, std[p.id] || []);
+          if (cmp.status === 'std_missing' || cmp.status === 'diff' || cmp.unknown.length) flagged++;
+          cell = wlCompareSummaryHTML(cmp);
+        }
+      } catch(e) { cell = '<span style="color:#EF4444;">Gagal: ' + e.message + '</span>'; flagged++; }
+      var running = !p.end_date ? ' <span style="font-size:10px;color:#D97706;">(berjalan)</span>' : '';
+      rows.push('<tr><td style="font-weight:700;color:#1D4ED8;white-space:nowrap;">' + p.project_code + running + '</td><td>' + (p.nama_kapal || '\u2014') + '</td><td>' + cell + '</td></tr>');
     }
-    showToast('Gaji berhasil disimpan!', 'success');
-    await loadWoodlogAnalisis();
+    out.innerHTML = '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="font-size:13px;font-weight:800;color:#1E293B;">Cek STD vs Woodlog Monitoring \u00b7 ' + (ships.length - flagged) + ' sama, ' + flagged + ' perlu dicek</div>' +
+      '<button onclick="document.getElementById(\'wl-cek-mon-result\').innerHTML=\'\'" style="font-size:12px;color:#64748B;background:none;border:none;cursor:pointer;">Tutup</button></div>' +
+      '<div style="font-size:11px;color:#64748B;margin-bottom:8px;">Tonase STD = BL SAA \u00d7 0,95 \u00f7 total ritase \u00d7 bon operator. Perbaiki lewat \u270e Tonnage \u2192 \u21bb Sync \u2192 Simpan Perubahan.</div>' +
+      '<div class="table-wrap"><table class="dt"><thead><tr><th>Kode</th><th>Kapal</th><th>Hasil</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div></div>';
   } catch(e) {
-    showToast('Gagal menyimpan: ' + e.message);
+    out.innerHTML = '<div style="color:#EF4444;font-size:12px;">Gagal: ' + e.message + '</div>';
   } finally {
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Simpan Gaji'; }
+    if (btn) { btn.disabled = false; btn.textContent = '\u21bb Cek vs Monitoring'; }
   }
 }
 
